@@ -1,0 +1,145 @@
+name: Gate 1 LLVM ARM64
+
+on:
+  push:
+    branches:
+      - gate1-mesa
+    paths:
+      - '.github/workflows/gate1-llvm-arm64.yml'
+      - 'gate1/llvm/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-llvm-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      ANDROID_API: '34'
+      NDK_DIR: android-ndk-r27d
+      LLVM_SRC_DIR: llvm-project-19.1.7.src
+    steps:
+      - name: Record runner state
+        shell: bash
+        run: |
+          set -euxo pipefail
+          uname -a
+          nproc
+          free -h
+          df -h /
+
+      - name: Acquire pinned inputs
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd "$RUNNER_TEMP"
+
+          curl -fL --retry 3 --retry-delay 2 \
+            -o android-ndk-r27d-linux.zip \
+            https://dl.google.com/android/repository/android-ndk-r27d-linux.zip
+          echo '22105e410cf29afcf163760cc95522b9fb981121  android-ndk-r27d-linux.zip' | sha1sum -c -
+          unzip -q android-ndk-r27d-linux.zip
+
+          curl -fL --retry 3 --retry-delay 2 \
+            -o llvm-project-19.1.7.src.tar.xz \
+            https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/llvm-project-19.1.7.src.tar.xz
+          echo '82401fea7b79d0078043f7598b835284d6650a75b93e64b6f761ea7b63097501  llvm-project-19.1.7.src.tar.xz' | sha256sum -c -
+          tar -xf llvm-project-19.1.7.src.tar.xz
+
+          test -x "$RUNNER_TEMP/$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang"
+          echo 'NDK native-tablegen candidates:'
+          find "$RUNNER_TEMP/$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin" -maxdepth 1 -type f -iname '*tblgen*' -print || true
+          df -h /
+
+      - name: Configure LLVM 19.1.7 for Android arm64-v8a
+        shell: bash
+        run: |
+          set -euxo pipefail
+          NDK="$RUNNER_TEMP/$NDK_DIR"
+          SRC="$RUNNER_TEMP/$LLVM_SRC_DIR"
+          BUILD="$RUNNER_TEMP/llvm-build-arm64"
+          INSTALL="$RUNNER_TEMP/llvm-install-arm64"
+
+          cmake -GNinja -S "$SRC/llvm" -B "$BUILD" \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM="android-${ANDROID_API}" \
+            -DANDROID_NDK="$NDK" \
+            -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
+            -DCMAKE_ANDROID_NDK="$NDK" \
+            -DCMAKE_BUILD_TYPE=MinSizeRel \
+            -DCMAKE_SYSTEM_NAME=Android \
+            -DCMAKE_SYSTEM_VERSION="$ANDROID_API" \
+            -DCMAKE_INSTALL_PREFIX="$INSTALL" \
+            -DCMAKE_CXX_FLAGS="-march=armv8-a --target=aarch64-linux-android${ANDROID_API} -fno-rtti" \
+            -DLLVM_HOST_TRIPLE="aarch64-linux-android${ANDROID_API}" \
+            -DLLVM_TARGETS_TO_BUILD=AArch64 \
+            -DLLVM_BUILD_LLVM_DYLIB=OFF \
+            -DLLVM_BUILD_TESTS=OFF \
+            -DLLVM_BUILD_EXAMPLES=OFF \
+            -DLLVM_BUILD_DOCS=OFF \
+            -DLLVM_BUILD_TOOLS=OFF \
+            -DLLVM_ENABLE_RTTI=OFF \
+            -DLLVM_BUILD_INSTRUMENTED_COVERAGE=OFF \
+            -DLLVM_NATIVE_TOOL_DIR="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin" \
+            -DLLVM_ENABLE_PIC=False \
+            -DLLVM_OPTIMIZED_TABLEGEN=ON
+
+          cmake -L -N "$BUILD" | grep -E 'ANDROID_ABI|CMAKE_SYSTEM|LLVM_HOST_TRIPLE|LLVM_TARGETS_TO_BUILD|LLVM_NATIVE_TOOL_DIR|LLVM_ENABLE_RTTI' || true
+          df -h /
+
+      - name: Build and install LLVM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          BUILD="$RUNNER_TEMP/llvm-build-arm64"
+          INSTALL="$RUNNER_TEMP/llvm-install-arm64"
+          ninja -j4 -C "$BUILD" install
+          test -d "$INSTALL/lib"
+          df -h /
+          free -h
+
+      - name: Audit installed LLVM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          INSTALL="$RUNNER_TEMP/llvm-install-arm64"
+          OUT="$RUNNER_TEMP/llvm-arm64-manifest"
+          mkdir -p "$OUT"
+
+          {
+            echo 'AL Cloud Gate 1 LLVM ARM64 manifest'
+            echo 'LLVM version: 19.1.7'
+            echo 'Android API: 34'
+            echo 'ABI: arm64-v8a'
+            echo
+            echo 'Install tree size:'
+            du -sh "$INSTALL"
+            echo
+            echo 'Static LLVM archives:'
+            find "$INSTALL/lib" -maxdepth 1 -type f -name 'libLLVM*.a' -printf '%f\n' | sort
+            echo
+            echo 'Installed shared objects:'
+            find "$INSTALL" -type f -name '*.so*' -printf '%P\n' | sort
+            echo
+            echo 'llvm-config header version:'
+            grep -E '^#define LLVM_VERSION_(MAJOR|MINOR|PATCH|STRING)' "$INSTALL/include/llvm/Config/llvm-config.h" || true
+          } | tee "$OUT/manifest.txt"
+
+          find "$INSTALL/lib" -maxdepth 1 -type f -name 'libLLVM*.a' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > "$OUT/static-archives.sha256"
+
+          archive_count=$(find "$INSTALL/lib" -maxdepth 1 -type f -name 'libLLVM*.a' | wc -l)
+          echo "LLVM static archive count: $archive_count"
+          test "$archive_count" -gt 20
+
+      - name: Upload small audit manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: llvm-arm64-api34-manifest
+          path: ${{ runner.temp }}/llvm-arm64-manifest
+          retention-days: 7
+          if-no-files-found: error
