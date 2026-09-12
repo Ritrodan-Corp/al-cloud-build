@@ -60,6 +60,25 @@ jobs:
           echo 'Mesa meson_version references:'
           grep -RIn --include='meson.build' 'meson_version' mesa-25.0.0 | head -n 20 || true
 
+      - name: Inspect Mesa 25 Android LLVM CI reference
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd "$RUNNER_TEMP/mesa-25.0.0"
+          echo 'Relevant CI files:'
+          find .gitlab-ci -maxdepth 3 -type f \( -iname '*android*llvm*' -o -iname '*llvm*meson*' -o -name 'android_build.sh' \) -print | sort
+          for f in \
+            .gitlab-ci/container/build-android-x86_64-llvm.sh \
+            .gitlab-ci/create-llvm-meson-wrap-file.sh \
+            .gitlab-ci/container/debian/android_build.sh; do
+            if [ -f "$f" ]; then
+              echo "===== $f ====="
+              sed -n '1,260p' "$f"
+            fi
+          done
+          echo 'llvmpipe / llvm Android references:'
+          grep -RInE 'llvmpipe|LLVM_FALLBACK|llvm.*fallback|create-llvm|ANDROID_SDK_VERSION' .gitlab-ci | head -n 240 || true
+
       - name: Acquire LLVM 19.1.7 source archive
         shell: bash
         run: |
