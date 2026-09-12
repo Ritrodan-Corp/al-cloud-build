@@ -1,0 +1,324 @@
+name: Gate 1 Mesa ARM64 llvmpipe
+
+on:
+  push:
+    branches:
+      - gate1-mesa
+    paths:
+      - '.github/workflows/gate1-mesa-arm64.yml'
+      - 'gate1/mesa/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-mesa-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      ANDROID_API: '34'
+      NDK_DIR: android-ndk-r27d
+      LLVM_SRC_DIR: llvm-project-19.1.7.src
+      LLVM_BUILD_DIR: llvm-build-arm64
+      LLVM_INSTALL_DIR: llvm-install-arm64
+      MESA_SRC_DIR: mesa-25.0.0
+    steps:
+      - name: Record runner state
+        shell: bash
+        run: |
+          set -euxo pipefail
+          uname -a
+          nproc
+          free -h
+          df -h /
+
+      - name: Install host build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bison \
+            ccache \
+            cmake \
+            flex \
+            meson \
+            ninja-build \
+            pkgconf \
+            python3-mako \
+            python3-ply \
+            unzip \
+            xz-utils \
+            zstd
+          meson --version
+          cmake --version
+          ninja --version
+          df -h /
+
+      - name: Acquire and verify pinned inputs
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd "$RUNNER_TEMP"
+
+          curl -fL --retry 3 --retry-delay 2 \
+            -o android-ndk-r27d-linux.zip \
+            https://dl.google.com/android/repository/android-ndk-r27d-linux.zip
+          echo '22105e410cf29afcf163760cc95522b9fb981121  android-ndk-r27d-linux.zip' | sha1sum -c -
+          unzip -q android-ndk-r27d-linux.zip
+
+          curl -fL --retry 3 --retry-delay 2 \
+            -o llvm-project-19.1.7.src.tar.xz \
+            https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/llvm-project-19.1.7.src.tar.xz
+          echo '82401fea7b79d0078043f7598b835284d6650a75b93e64b6f761ea7b63097501  llvm-project-19.1.7.src.tar.xz' | sha256sum -c -
+          tar -xf llvm-project-19.1.7.src.tar.xz
+
+          curl -fL --retry 3 --retry-delay 2 \
+            -o mesa-25.0.0.tar.xz \
+            https://archive.mesa3d.org/mesa-25.0.0.tar.xz
+          echo '96a53501fd59679654273258c6c6a1055a20e352ee1429f0b123516c7190e5b0  mesa-25.0.0.tar.xz' | sha256sum -c -
+          tar -xf mesa-25.0.0.tar.xz
+
+          test -x "$RUNNER_TEMP/$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang"
+          df -h /
+
+      - name: Configure LLVM 19.1.7 for Android arm64-v8a
+        shell: bash
+        run: |
+          set -euxo pipefail
+          NDK="$RUNNER_TEMP/$NDK_DIR"
+          SRC="$RUNNER_TEMP/$LLVM_SRC_DIR"
+          BUILD="$RUNNER_TEMP/$LLVM_BUILD_DIR"
+          INSTALL="$RUNNER_TEMP/$LLVM_INSTALL_DIR"
+
+          cmake -GNinja -S "$SRC/llvm" -B "$BUILD" \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM="android-${ANDROID_API}" \
+            -DANDROID_NDK="$NDK" \
+            -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
+            -DCMAKE_ANDROID_NDK="$NDK" \
+            -DCMAKE_BUILD_TYPE=MinSizeRel \
+            -DCMAKE_SYSTEM_NAME=Android \
+            -DCMAKE_SYSTEM_VERSION="$ANDROID_API" \
+            -DCMAKE_INSTALL_PREFIX="$INSTALL" \
+            -DCMAKE_CXX_FLAGS="-march=armv8-a --target=aarch64-linux-android${ANDROID_API} -fno-rtti" \
+            -DLLVM_HOST_TRIPLE="aarch64-linux-android${ANDROID_API}" \
+            -DLLVM_TARGETS_TO_BUILD=AArch64 \
+            -DLLVM_BUILD_LLVM_DYLIB=OFF \
+            -DLLVM_BUILD_TESTS=OFF \
+            -DLLVM_BUILD_EXAMPLES=OFF \
+            -DLLVM_BUILD_DOCS=OFF \
+            -DLLVM_BUILD_TOOLS=OFF \
+            -DLLVM_ENABLE_RTTI=OFF \
+            -DLLVM_BUILD_INSTRUMENTED_COVERAGE=OFF \
+            -DLLVM_NATIVE_TOOL_DIR="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin" \
+            -DLLVM_ENABLE_PIC=False \
+            -DLLVM_OPTIMIZED_TABLEGEN=ON
+
+          df -h /
+
+      - name: Build and install LLVM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          BUILD="$RUNNER_TEMP/$LLVM_BUILD_DIR"
+          INSTALL="$RUNNER_TEMP/$LLVM_INSTALL_DIR"
+          ninja -j4 -C "$BUILD" install
+          test -d "$INSTALL/lib"
+          test -f "$INSTALL/include/llvm/IR/IRBuilder.h"
+          archive_count=$(find "$INSTALL/lib" -maxdepth 1 -type f -name 'libLLVM*.a' | wc -l)
+          echo "LLVM static archive count: $archive_count"
+          test "$archive_count" -gt 20
+          du -sh "$INSTALL"
+          df -h /
+          free -h
+
+      - name: Remove LLVM source and build intermediates
+        shell: bash
+        run: |
+          set -euxo pipefail
+          rm -rf "$RUNNER_TEMP/$LLVM_SRC_DIR" "$RUNNER_TEMP/$LLVM_BUILD_DIR" "$RUNNER_TEMP/llvm-project-19.1.7.src.tar.xz"
+          df -h /
+
+      - name: Generate Android ARM64 Meson cross file and LLVM fallback
+        shell: bash
+        run: |
+          set -euxo pipefail
+          NDK="$RUNNER_TEMP/$NDK_DIR"
+          LLVM_INSTALL="$RUNNER_TEMP/$LLVM_INSTALL_DIR"
+          MESA="$RUNNER_TEMP/$MESA_SRC_DIR"
+          CROSS_FILE="$RUNNER_TEMP/aarch64-linux-android.txt"
+
+          cat > "$CROSS_FILE" <<EOF
+          [binaries]
+          ar = '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
+          c = ['ccache', '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang', '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables']
+          cpp = ['ccache', '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang++', '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables', '--start-no-unused-arguments', '-static-libstdc++', '--end-no-unused-arguments']
+          c_ld = 'lld'
+          cpp_ld = 'lld'
+          strip = '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+          pkg-config = ['/usr/bin/pkgconf']
+
+          [host_machine]
+          system = 'android'
+          cpu_family = 'aarch64'
+          cpu = 'armv8'
+          endian = 'little'
+
+          [properties]
+          needs_exe_wrapper = true
+          pkg_config_libdir = '/disable/non/android/system/pc/files'
+          EOF
+
+          mkdir -p "$MESA/subprojects/llvm"
+          mapfile -t LLVM_LIBS < <(find "$LLVM_INSTALL/lib" -maxdepth 1 -type f -name 'libLLVM*.a' -printf '%f\n' | sed 's/\.a$//' | sort)
+          test "${#LLVM_LIBS[@]}" -gt 20
+          {
+            echo "project('llvm', ['cpp'])"
+            echo
+            echo "cpp = meson.get_compiler('cpp')"
+            echo "_deps = []"
+            echo "_search = join_paths('$LLVM_INSTALL', 'lib')"
+            printf "foreach d: ["
+            first=1
+            for lib in "${LLVM_LIBS[@]}"; do
+              if [ "$first" -eq 0 ]; then printf ", "; fi
+              printf "'%s'" "$lib"
+              first=0
+            done
+            echo "]"
+            echo "  _deps += cpp.find_library(d, dirs : _search)"
+            echo "endforeach"
+            echo
+            echo "dep_llvm = declare_dependency("
+            echo "  include_directories : include_directories('$LLVM_INSTALL/include'),"
+            echo "  dependencies : _deps,"
+            echo "  version : '19.1.7',"
+            echo ")"
+            echo "has_rtti = false"
+            echo "irbuilder_h = files('$LLVM_INSTALL/include/llvm/IR/IRBuilder.h')"
+          } > "$MESA/subprojects/llvm/meson.build"
+
+          cat "$CROSS_FILE"
+          sed -n '1,80p' "$MESA/subprojects/llvm/meson.build"
+
+      - name: Configure Mesa 25.0.0 Android ARM64 llvmpipe
+        shell: bash
+        run: |
+          set -euxo pipefail
+          MESA="$RUNNER_TEMP/$MESA_SRC_DIR"
+          BUILD="$RUNNER_TEMP/mesa-build-arm64"
+          INSTALL="$RUNNER_TEMP/mesa-install-arm64"
+          CROSS_FILE="$RUNNER_TEMP/aarch64-linux-android.txt"
+
+          cd "$MESA"
+          meson setup "$BUILD" \
+            --cross-file "$CROSS_FILE" \
+            --wrap-mode=nofallback \
+            --force-fallback-for=llvm \
+            -Dllvm:werror=false \
+            -Dprefix="$INSTALL" \
+            -Dlibdir=lib \
+            -Dbuildtype=release \
+            -Dplatforms=android \
+            -Degl-native-platform=android \
+            -Degl=enabled \
+            -Dgbm=disabled \
+            -Dglx=disabled \
+            -Dglvnd=disabled \
+            -Dandroid-stub=true \
+            -Dplatform-sdk-version="$ANDROID_API" \
+            -Dandroid-libbacktrace=disabled \
+            -Dcpp_rtti=false \
+            -Dvalgrind=disabled \
+            -Dlibunwind=disabled \
+            -Dbuild-tests=false \
+            -Denable-glcpp-tests=false \
+            -Dgallium-opencl=disabled \
+            -Dgallium-rusticl=false \
+            -Dgallium-vdpau=disabled \
+            -Dgallium-va=disabled \
+            -Dgallium-xa=disabled \
+            -Dgallium-nine=false \
+            -Dgallium-drivers=llvmpipe \
+            -Dvulkan-drivers=[] \
+            -Dvulkan-layers=[] \
+            -Dvideo-codecs=[] \
+            -Dllvm=enabled \
+            -Dshared-llvm=disabled
+
+          meson configure "$BUILD"
+          df -h /
+
+      - name: Build and install Mesa
+        shell: bash
+        run: |
+          set -euxo pipefail
+          BUILD="$RUNNER_TEMP/mesa-build-arm64"
+          INSTALL="$RUNNER_TEMP/mesa-install-arm64"
+          ninja -j4 -C "$BUILD"
+          ninja -C "$BUILD" install
+          test -d "$INSTALL/lib"
+          find "$INSTALL" -maxdepth 4 -type f -printf '%P\n' | sort | tee "$RUNNER_TEMP/mesa-files.txt"
+          du -sh "$INSTALL"
+          df -h /
+          free -h
+
+      - name: Audit ARM64 deployment bundle
+        shell: bash
+        run: |
+          set -euxo pipefail
+          NDK="$RUNNER_TEMP/$NDK_DIR"
+          INSTALL="$RUNNER_TEMP/mesa-install-arm64"
+          OUT="$RUNNER_TEMP/mesa-arm64-deploy"
+          READELF="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          mkdir -p "$OUT/payload" "$OUT/audit"
+          cp -a "$INSTALL"/. "$OUT/payload/"
+          cp "$RUNNER_TEMP/mesa-files.txt" "$OUT/audit/files.txt"
+
+          find "$OUT/payload" -type f \( -name '*.so' -o -name '*.so.*' \) -print0 \
+            | while IFS= read -r -d '' f; do
+                echo "=== ${f#$OUT/} ==="
+                "$READELF" -h "$f" | grep -E 'Class:|Machine:|Type:'
+                "$READELF" -d "$f" | grep -E 'NEEDED|SONAME' || true
+              done | tee "$OUT/audit/elf-audit.txt"
+
+          if grep -q 'Machine:.*AArch64' "$OUT/audit/elf-audit.txt"; then
+            echo 'AArch64 ELF audit passed.'
+          else
+            echo 'No AArch64 shared object found in deployment payload.' >&2
+            exit 1
+          fi
+
+          find "$OUT/payload" -type f -print0 | sort -z | xargs -0 sha256sum > "$OUT/audit/payload.sha256"
+          {
+            echo 'AL Cloud Gate 1 Mesa ARM64 deployment bundle'
+            echo 'Mesa: 25.0.0'
+            echo 'LLVM: 19.1.7'
+            echo 'NDK: r27d 27.3.13750724'
+            echo 'Android API: 34'
+            echo 'ABI: arm64-v8a'
+            echo 'Gallium driver: llvmpipe'
+            echo 'Vulkan drivers: none'
+            echo 'Platform: android'
+            echo 'EGL: enabled'
+            echo
+            du -sh "$OUT/payload"
+          } | tee "$OUT/audit/manifest.txt"
+
+          tar -C "$RUNNER_TEMP" -cJf "$RUNNER_TEMP/mesa-25.0.0-android-arm64-llvmpipe.tar.xz" mesa-arm64-deploy
+          sha256sum "$RUNNER_TEMP/mesa-25.0.0-android-arm64-llvmpipe.tar.xz" | tee "$RUNNER_TEMP/mesa-bundle.sha256"
+          ls -lh "$RUNNER_TEMP/mesa-25.0.0-android-arm64-llvmpipe.tar.xz"
+
+      - name: Upload Mesa deployment bundle and audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesa-25.0.0-android-arm64-llvmpipe
+          path: |
+            ${{ runner.temp }}/mesa-25.0.0-android-arm64-llvmpipe.tar.xz
+            ${{ runner.temp }}/mesa-bundle.sha256
+            ${{ runner.temp }}/mesa-arm64-deploy/audit
+          retention-days: 1
+          if-no-files-found: error
