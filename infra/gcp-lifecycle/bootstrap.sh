@@ -100,7 +100,6 @@ gcloud compute instances add-iam-policy-binding "$INSTANCE" \
   --zone="$ZONE" \
   --member="serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
   --role="$ROLE_RESOURCE" \
-  --condition=None \
   --quiet
 
 if gcloud iam workload-identity-pools describe "$POOL_ID" \
@@ -128,7 +127,7 @@ if gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
     --workload-identity-pool="$POOL_ID" \
     --display-name='AL Cloud lifecycle workflow' \
     --description='Trust only the fixed manual lifecycle workflow on main.' \
-    --issuer-uri='https://token.actions.githubusercontent.com/' \
+    --issuer-uri='https://token.actions.githubusercontent.com' \
     --attribute-mapping="$attribute_mapping" \
     --attribute-condition="$attribute_condition" \
     --quiet
@@ -139,7 +138,7 @@ else
     --workload-identity-pool="$POOL_ID" \
     --display-name='AL Cloud lifecycle workflow' \
     --description='Trust only the fixed manual lifecycle workflow on main.' \
-    --issuer-uri='https://token.actions.githubusercontent.com/' \
+    --issuer-uri='https://token.actions.githubusercontent.com' \
     --attribute-mapping="$attribute_mapping" \
     --attribute-condition="$attribute_condition"
 fi
@@ -152,7 +151,6 @@ gcloud iam service-accounts add-iam-policy-binding "$SERVICE_ACCOUNT_EMAIL" \
   --project="$PROJECT_ID" \
   --role='roles/iam.workloadIdentityUser' \
   --member="$wif_member" \
-  --condition=None \
   --quiet
 
 # Re-read the scheduling policy and fail loudly if anything changed while the
