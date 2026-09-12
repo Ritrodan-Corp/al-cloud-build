@@ -1,0 +1,80 @@
+name: Gate 2 GLES Presentation Probe
+
+on:
+  push:
+    branches:
+      - gate2-mesa
+    paths:
+      - '.github/workflows/gate2-gles-probe.yml'
+      - 'gate2/gles-probe/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-gles-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: gate2/gles-probe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install pinned Android platform and build tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-34' 'build-tools;34.0.0' 'platform-tools'
+          adb version
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" version
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          gradle --no-daemon :app:assembleDebug
+          test -f app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Audit APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          sha256sum "$APK" | tee app/build/outputs/apk/debug/app-debug.apk.sha256
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | tee app/build/outputs/apk/debug/aapt-badging.txt
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK" | tee app/build/outputs/apk/debug/apksigner.txt
+          unzip -l "$APK" | tee app/build/outputs/apk/debug/apk-files.txt
+          grep -F "package: name='com.ritrodan.alcloud.gate2probe'" app/build/outputs/apk/debug/aapt-badging.txt
+          grep -F "uses-feature: name='android.hardware.opengles.aep'" app/build/outputs/apk/debug/aapt-badging.txt || true
+
+      - name: Upload Gate 2 probe APK and audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate2-gles-probe-debug-apk
+          path: |
+            gate2/gles-probe/app/build/outputs/apk/debug/app-debug.apk
+            gate2/gles-probe/app/build/outputs/apk/debug/app-debug.apk.sha256
+            gate2/gles-probe/app/build/outputs/apk/debug/aapt-badging.txt
+            gate2/gles-probe/app/build/outputs/apk/debug/apksigner.txt
+            gate2/gles-probe/app/build/outputs/apk/debug/apk-files.txt
+          retention-days: 7
+          if-no-files-found: error
