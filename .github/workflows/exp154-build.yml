@@ -1,0 +1,46 @@
+name: Experiment 154 fix-present Mesa build
+run-name: "Experiment 154A build ${{ github.sha }}"
+
+on:
+  push:
+    branches:
+      - exp154-build
+    paths:
+      - 'experiments/154/**'
+      - '.github/workflows/exp154-build.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: exp154-fixprobe-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout experiment recipe
+        uses: actions/checkout@v4
+
+      - name: Build Android arm64 Mesa llvmpipe ORCJIT fix probe
+        shell: bash
+        run: bash experiments/154/build-fixprobe.sh
+
+      - name: Publish public-source build payload for VM qualification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="exp154-probe-${GITHUB_SHA:0:12}"
+          gh release create "$tag" \
+            "$GITHUB_WORKSPACE/exp154-mesa-fixprobe.tar.xz" \
+            "$GITHUB_WORKSPACE/exp154-mesa-fixprobe.tar.xz.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Experiment 154A Mesa fix-present probe" \
+            --notes "Public-source Android arm64 Mesa/LLVM build used only to qualify Experiment 154A. Contains no game data, credentials, or VM state. Mesa commit 60a06a90cb77414b3276edddbd5f8bb5fafd684c; LLVM 19.1.7; libdrm 2.4.122; NDK r27d; API 34; llvmpipe ORCJIT."
+          echo "release_tag=$tag" >> "$GITHUB_STEP_SUMMARY"
