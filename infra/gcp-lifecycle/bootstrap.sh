@@ -9,11 +9,13 @@ readonly SERVICE_ACCOUNT_EMAIL="${SERVICE_ACCOUNT_ID}@${PROJECT_ID}.iam.gservice
 readonly ROLE_ID='alCloudVmLifecycle'
 readonly ROLE_RESOURCE="projects/${PROJECT_ID}/roles/${ROLE_ID}"
 readonly POOL_ID='alcloud-github'
-readonly PROVIDER_ID='alcloud-lifecycle'
+readonly MANUAL_PROVIDER_ID='alcloud-lifecycle'
+readonly CHAT_PROVIDER_ID='alcloud-chat-control'
 readonly REPO='Ritrodan-Corp/al-cloud-build'
 readonly REPO_ID='1366956589'
 readonly REPO_OWNER_ID='316736398'
-readonly WORKFLOW_REF='Ritrodan-Corp/al-cloud-build/.github/workflows/gcp-vm-lifecycle.yml@refs/heads/main'
+readonly MANUAL_WORKFLOW_REF='Ritrodan-Corp/al-cloud-build/.github/workflows/gcp-vm-lifecycle.yml@refs/heads/main'
+readonly CHAT_WORKFLOW_REF='Ritrodan-Corp/al-cloud-build/.github/workflows/gcp-vm-chat-control.yml@refs/heads/vm-control'
 
 command -v gcloud >/dev/null || {
   echo 'gcloud is required. Run this script in Google Cloud Shell or another authenticated gcloud environment.' >&2
@@ -115,36 +117,58 @@ else
 fi
 
 attribute_mapping='google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.repository_owner_id=assertion.repository_owner_id,attribute.ref=assertion.ref,attribute.workflow_ref=assertion.workflow_ref,attribute.event_name=assertion.event_name'
-attribute_condition="assertion.repository_id=='${REPO_ID}' && assertion.repository_owner_id=='${REPO_OWNER_ID}' && assertion.ref=='refs/heads/main' && assertion.event_name=='workflow_dispatch' && assertion.workflow_ref=='${WORKFLOW_REF}'"
 
-if gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
-  --project="$PROJECT_ID" \
-  --location=global \
-  --workload-identity-pool="$POOL_ID" >/dev/null 2>&1; then
-  gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_ID" \
+ensure_provider() {
+  local provider_id="$1"
+  local display_name="$2"
+  local description="$3"
+  local condition="$4"
+
+  if gcloud iam workload-identity-pools providers describe "$provider_id" \
     --project="$PROJECT_ID" \
     --location=global \
-    --workload-identity-pool="$POOL_ID" \
-    --display-name='AL Cloud lifecycle workflow' \
-    --description='Trust only the fixed manual lifecycle workflow on main.' \
-    --issuer-uri='https://token.actions.githubusercontent.com' \
-    --attribute-mapping="$attribute_mapping" \
-    --attribute-condition="$attribute_condition" \
-    --quiet
-else
-  gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
-    --project="$PROJECT_ID" \
-    --location=global \
-    --workload-identity-pool="$POOL_ID" \
-    --display-name='AL Cloud lifecycle workflow' \
-    --description='Trust only the fixed manual lifecycle workflow on main.' \
-    --issuer-uri='https://token.actions.githubusercontent.com' \
-    --attribute-mapping="$attribute_mapping" \
-    --attribute-condition="$attribute_condition"
-fi
+    --workload-identity-pool="$POOL_ID" >/dev/null 2>&1; then
+    gcloud iam workload-identity-pools providers update-oidc "$provider_id" \
+      --project="$PROJECT_ID" \
+      --location=global \
+      --workload-identity-pool="$POOL_ID" \
+      --display-name="$display_name" \
+      --description="$description" \
+      --issuer-uri='https://token.actions.githubusercontent.com' \
+      --attribute-mapping="$attribute_mapping" \
+      --attribute-condition="$condition" \
+      --quiet
+  else
+    gcloud iam workload-identity-pools providers create-oidc "$provider_id" \
+      --project="$PROJECT_ID" \
+      --location=global \
+      --workload-identity-pool="$POOL_ID" \
+      --display-name="$display_name" \
+      --description="$description" \
+      --issuer-uri='https://token.actions.githubusercontent.com' \
+      --attribute-mapping="$attribute_mapping" \
+      --attribute-condition="$condition"
+  fi
+}
+
+manual_condition="assertion.repository_id=='${REPO_ID}' && assertion.repository_owner_id=='${REPO_OWNER_ID}' && assertion.ref=='refs/heads/main' && assertion.event_name=='workflow_dispatch' && assertion.workflow_ref=='${MANUAL_WORKFLOW_REF}'"
+chat_condition="assertion.repository_id=='${REPO_ID}' && assertion.repository_owner_id=='${REPO_OWNER_ID}' && assertion.ref=='refs/heads/vm-control' && assertion.event_name=='push' && assertion.workflow_ref=='${CHAT_WORKFLOW_REF}'"
+
+ensure_provider \
+  "$MANUAL_PROVIDER_ID" \
+  'AL Cloud lifecycle workflow' \
+  'Trust only the fixed manual lifecycle workflow on main.' \
+  "$manual_condition"
+
+ensure_provider \
+  "$CHAT_PROVIDER_ID" \
+  'AL Cloud ChatGPT lifecycle workflow' \
+  'Trust only the fixed push-triggered lifecycle workflow on vm-control.' \
+  "$chat_condition"
 
 pool_resource="projects/${project_number}/locations/global/workloadIdentityPools/${POOL_ID}"
-provider_resource="${pool_resource}/providers/${PROVIDER_ID}"
+manual_provider_resource="${pool_resource}/providers/${MANUAL_PROVIDER_ID}"
+chat_provider_resource="${pool_resource}/providers/${CHAT_PROVIDER_ID}"
 wif_member="principalSet://iam.googleapis.com/${pool_resource}/attribute.repository_id/${REPO_ID}"
 
 gcloud iam service-accounts add-iam-policy-binding "$SERVICE_ACCOUNT_EMAIL" \
@@ -169,11 +193,12 @@ echo 'VM scheduling policy is unchanged.'
 echo
 echo 'GCP lifecycle control plane bootstrap complete.'
 echo "GCP project number: ${project_number}"
-echo "WIF provider: ${provider_resource}"
+echo "Manual WIF provider: ${manual_provider_resource}"
+echo "Chat control WIF provider: ${chat_provider_resource}"
 echo "Service account: ${SERVICE_ACCOUNT_EMAIL}"
 echo "Custom role: ${ROLE_RESOURCE}"
 echo "Instance-scoped target: ${ZONE}/${INSTANCE}"
 echo "Repository: ${REPO}"
 echo
-echo 'The committed workflow pins this project number directly.'
-echo 'Next validation step: manually dispatch GCP VM lifecycle with action=describe.'
+echo 'Both workflows pin the project number directly; no GitHub secret or service-account key is required.'
+echo 'Next validation step: have ChatGPT update vm-control/control/command.json with a fresh describe UUID, then inspect the triggered run.'
