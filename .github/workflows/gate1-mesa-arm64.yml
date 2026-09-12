@@ -15,10 +15,12 @@ permissions:
 jobs:
   build-mesa-arm64:
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 160
     env:
       ANDROID_API: '34'
       NDK_DIR: android-ndk-r27d
+      LIBDRM_VERSION: libdrm-2.4.122
+      LIBDRM_INSTALL_DIR: libdrm-install-arm64
       LLVM_SRC_DIR: llvm-project-19.1.7.src
       LLVM_BUILD_DIR: llvm-build-arm64
       LLVM_INSTALL_DIR: llvm-install-arm64
@@ -69,6 +71,12 @@ jobs:
           unzip -q android-ndk-r27d-linux.zip
 
           curl -fL --retry 3 --retry-delay 2 \
+            -o libdrm-2.4.122.tar.xz \
+            https://dri.freedesktop.org/libdrm/libdrm-2.4.122.tar.xz
+          echo 'd9f5079b777dffca9300ccc56b10a93588cdfbc9dde2fae111940dfb6292f251  libdrm-2.4.122.tar.xz' | sha256sum -c -
+          tar -xf libdrm-2.4.122.tar.xz
+
+          curl -fL --retry 3 --retry-delay 2 \
             -o llvm-project-19.1.7.src.tar.xz \
             https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/llvm-project-19.1.7.src.tar.xz
           echo '82401fea7b79d0078043f7598b835284d6650a75b93e64b6f761ea7b63097501  llvm-project-19.1.7.src.tar.xz' | sha256sum -c -
@@ -82,6 +90,64 @@ jobs:
 
           test -x "$RUNNER_TEMP/$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang"
           df -h /
+
+      - name: Generate Android ARM64 Meson cross file
+        shell: bash
+        run: |
+          set -euxo pipefail
+          NDK="$RUNNER_TEMP/$NDK_DIR"
+          LIBDRM_INSTALL="$RUNNER_TEMP/$LIBDRM_INSTALL_DIR"
+          CROSS_FILE="$RUNNER_TEMP/aarch64-linux-android.txt"
+
+          cat > "$CROSS_FILE" <<EOF
+          [binaries]
+          ar = '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
+          c = ['ccache', '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang', '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables']
+          cpp = ['ccache', '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang++', '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables', '--start-no-unused-arguments', '-static-libstdc++', '--end-no-unused-arguments']
+          c_ld = 'lld'
+          cpp_ld = 'lld'
+          strip = '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+          pkg-config = ['/usr/bin/pkgconf']
+
+          [host_machine]
+          system = 'android'
+          cpu_family = 'aarch64'
+          cpu = 'armv8'
+          endian = 'little'
+
+          [properties]
+          needs_exe_wrapper = true
+          pkg_config_libdir = '$LIBDRM_INSTALL/lib/pkgconfig'
+          EOF
+
+          cat "$CROSS_FILE"
+
+      - name: Build and install Android ARM64 libdrm 2.4.122
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SRC="$RUNNER_TEMP/$LIBDRM_VERSION"
+          BUILD="$RUNNER_TEMP/libdrm-build-arm64"
+          INSTALL="$RUNNER_TEMP/$LIBDRM_INSTALL_DIR"
+          CROSS_FILE="$RUNNER_TEMP/aarch64-linux-android.txt"
+
+          meson setup "$BUILD" "$SRC" \
+            --cross-file "$CROSS_FILE" \
+            --prefix="$INSTALL" \
+            --libdir=lib \
+            -Dnouveau=disabled \
+            -Dintel=disabled \
+            -Dvc4=disabled \
+            -Dfreedreno=disabled \
+            -Detnaviv=disabled
+          ninja -j4 -C "$BUILD"
+          ninja -C "$BUILD" install
+          PKG_CONFIG_LIBDIR="$INSTALL/lib/pkgconfig" pkgconf --modversion libdrm
+          test -f "$INSTALL/lib/pkgconfig/libdrm.pc"
+          find "$INSTALL/lib" -maxdepth 1 -name 'libdrm.so*' -ls
+          df -h /
+
+          rm -rf "$SRC" "$BUILD" "$RUNNER_TEMP/libdrm-2.4.122.tar.xz"
 
       - name: Configure LLVM 19.1.7 for Android arm64-v8a
         shell: bash
@@ -142,36 +208,15 @@ jobs:
           rm -rf "$RUNNER_TEMP/$LLVM_SRC_DIR" "$RUNNER_TEMP/$LLVM_BUILD_DIR" "$RUNNER_TEMP/llvm-project-19.1.7.src.tar.xz"
           df -h /
 
-      - name: Generate Android ARM64 Meson cross file and LLVM fallback
+      - name: Generate LLVM fallback for Mesa
         shell: bash
         run: |
           set -euxo pipefail
-          NDK="$RUNNER_TEMP/$NDK_DIR"
           LLVM_INSTALL="$RUNNER_TEMP/$LLVM_INSTALL_DIR"
           MESA="$RUNNER_TEMP/$MESA_SRC_DIR"
           CROSS_FILE="$RUNNER_TEMP/aarch64-linux-android.txt"
 
-          cat > "$CROSS_FILE" <<EOF
-          [binaries]
-          ar = '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
-          c = ['ccache', '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang', '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables']
-          cpp = ['ccache', '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang++', '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables', '--start-no-unused-arguments', '-static-libstdc++', '--end-no-unused-arguments']
-          c_ld = 'lld'
-          cpp_ld = 'lld'
-          strip = '$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
-          pkg-config = ['/usr/bin/pkgconf']
-
-          [host_machine]
-          system = 'android'
-          cpu_family = 'aarch64'
-          cpu = 'armv8'
-          endian = 'little'
-
-          [properties]
-          needs_exe_wrapper = true
-          pkg_config_libdir = '/disable/non/android/system/pc/files'
-          EOF
-
+          test -f "$CROSS_FILE"
           mkdir -p "$MESA/subprojects/llvm"
           mapfile -t LLVM_LIBS < <(find "$LLVM_INSTALL/lib" -maxdepth 1 -type f -name 'libLLVM*.a' -printf '%f\n' | sed 's/\.a$//' | sort)
           test "${#LLVM_LIBS[@]}" -gt 20
@@ -201,7 +246,6 @@ jobs:
             echo "irbuilder_h = files('$LLVM_INSTALL/include/llvm/IR/IRBuilder.h')"
           } > "$MESA/subprojects/llvm/meson.build"
 
-          cat "$CROSS_FILE"
           sed -n '1,80p' "$MESA/subprojects/llvm/meson.build"
 
       - name: Configure Mesa 25.0.0 Android ARM64 llvmpipe
@@ -272,10 +316,13 @@ jobs:
           set -euxo pipefail
           NDK="$RUNNER_TEMP/$NDK_DIR"
           INSTALL="$RUNNER_TEMP/mesa-install-arm64"
+          LIBDRM_INSTALL="$RUNNER_TEMP/$LIBDRM_INSTALL_DIR"
           OUT="$RUNNER_TEMP/mesa-arm64-deploy"
           READELF="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           mkdir -p "$OUT/payload" "$OUT/audit"
           cp -a "$INSTALL"/. "$OUT/payload/"
+          mkdir -p "$OUT/payload/lib"
+          cp -a "$LIBDRM_INSTALL/lib"/libdrm.so* "$OUT/payload/lib/"
           cp "$RUNNER_TEMP/mesa-files.txt" "$OUT/audit/files.txt"
 
           find "$OUT/payload" -type f \( -name '*.so' -o -name '*.so.*' \) -print0 \
@@ -297,6 +344,7 @@ jobs:
             echo 'AL Cloud Gate 1 Mesa ARM64 deployment bundle'
             echo 'Mesa: 25.0.0'
             echo 'LLVM: 19.1.7'
+            echo 'libdrm build dependency: 2.4.122'
             echo 'NDK: r27d 27.3.13750724'
             echo 'Android API: 34'
             echo 'ABI: arm64-v8a'
@@ -304,6 +352,7 @@ jobs:
             echo 'Vulkan drivers: none'
             echo 'Platform: android'
             echo 'EGL: enabled'
+            echo 'Runtime no-KMS mode: MESA_ANDROID_NO_KMS_SWRAST=1'
             echo
             du -sh "$OUT/payload"
           } | tee "$OUT/audit/manifest.txt"
