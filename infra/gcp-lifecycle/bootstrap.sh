@@ -162,7 +162,7 @@ ensure_provider \
 
 ensure_provider \
   "$CHAT_PROVIDER_ID" \
-  'AL Cloud ChatGPT lifecycle workflow' \
+  'AL Cloud chat lifecycle' \
   'Trust only the fixed push-triggered lifecycle workflow on vm-control.' \
   "$chat_condition"
 
