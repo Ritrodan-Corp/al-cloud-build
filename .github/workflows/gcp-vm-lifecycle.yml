@@ -15,7 +15,6 @@ on:
           - stop
 
 permissions:
-  contents: read
   id-token: write
 
 concurrency:
@@ -27,26 +26,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Validate fixed control-plane configuration
-        shell: bash
-        env:
-          GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
-        run: |
-          set -euo pipefail
-          [[ "$GCP_PROJECT_NUMBER" =~ ^[0-9]+$ ]] || {
-            echo "Repository variable GCP_PROJECT_NUMBER is unset or invalid." >&2
-            exit 1
-          }
-
       - id: auth
         name: Authenticate to Google Cloud with Workload Identity Federation
-        uses: google-github-actions/auth@v3
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           project_id: project-97e3d26a-3ba2-4579-b03
-          workload_identity_provider: projects/${{ vars.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/alcloud-github/providers/alcloud-lifecycle
+          workload_identity_provider: projects/137432928351/locations/global/workloadIdentityPools/alcloud-github/providers/alcloud-lifecycle
           service_account: alcloud-vm-lifecycle@project-97e3d26a-3ba2-4579-b03.iam.gserviceaccount.com
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/compute
