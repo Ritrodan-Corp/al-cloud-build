@@ -1,0 +1,80 @@
+name: Gate 1 Mesa Preflight
+
+on:
+  push:
+    branches:
+      - gate1-mesa
+    paths:
+      - '.github/workflows/gate1-preflight.yml'
+      - 'gate1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Record runner environment
+        shell: bash
+        run: |
+          set -euxo pipefail
+          uname -a
+          uname -m
+          nproc
+          free -h
+          df -h /
+          lscpu | sed -n '1,30p'
+          cmake --version | head -n 1 || true
+          ninja --version || true
+          clang --version | head -n 1 || true
+          python3 --version
+
+      - name: Acquire and verify Android NDK r27d
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fL --retry 3 --retry-delay 2 \
+            -o android-ndk-r27d-linux.zip \
+            https://dl.google.com/android/repository/android-ndk-r27d-linux.zip
+          echo '22105e410cf29afcf163760cc95522b9fb981121  android-ndk-r27d-linux.zip' | sha1sum -c -
+          stat -c '%n %s bytes' android-ndk-r27d-linux.zip
+
+      - name: Acquire and verify Mesa 25.0.0
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fL --retry 3 --retry-delay 2 \
+            -o mesa-25.0.0.tar.xz \
+            https://archive.mesa3d.org/mesa-25.0.0.tar.xz
+          echo '96a53501fd59679654273258c6c6a1055a20e352ee1429f0b123516c7190e5b0  mesa-25.0.0.tar.xz' | sha256sum -c -
+          xz -t mesa-25.0.0.tar.xz
+          stat -c '%n %s bytes' mesa-25.0.0.tar.xz
+          tar -xf mesa-25.0.0.tar.xz
+          echo 'Mesa project declaration:'
+          sed -n '1,80p' mesa-25.0.0/meson.build
+          echo 'Mesa meson_version references:'
+          grep -RIn --include='meson.build' 'meson_version' mesa-25.0.0 | head -n 20 || true
+
+      - name: Acquire LLVM 19.1.7 source archive
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fL --retry 3 --retry-delay 2 \
+            -o llvm-project-19.1.7.src.tar.xz \
+            https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/llvm-project-19.1.7.src.tar.xz
+          xz -t llvm-project-19.1.7.src.tar.xz
+          sha256sum llvm-project-19.1.7.src.tar.xz
+          stat -c '%n %s bytes' llvm-project-19.1.7.src.tar.xz
+
+      - name: Final disk check
+        shell: bash
+        run: |
+          set -euxo pipefail
+          df -h /
+          du -sh "$RUNNER_TEMP"/* | sort -h
