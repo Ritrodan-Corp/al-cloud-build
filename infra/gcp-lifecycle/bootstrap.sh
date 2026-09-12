@@ -173,9 +173,7 @@ echo "WIF provider: ${provider_resource}"
 echo "Service account: ${SERVICE_ACCOUNT_EMAIL}"
 echo "Custom role: ${ROLE_RESOURCE}"
 echo "Instance-scoped target: ${ZONE}/${INSTANCE}"
-echo
-echo 'One GitHub repository variable remains to activate the workflow:'
-echo "  GCP_PROJECT_NUMBER=${project_number}"
 echo "Repository: ${REPO}"
 echo
-echo 'After that variable is set, run the GitHub workflow with action=describe first.'
+echo 'The committed workflow pins this project number directly.'
+echo 'Next validation step: manually dispatch GCP VM lifecycle with action=describe.'
