@@ -1,0 +1,72 @@
+name: Experiment 153 Mesa ORCJIT ARM64
+
+on:
+  push:
+    branches:
+      - exp153-orcjit
+    paths:
+      - '.github/workflows/exp153-orcjit-arm64.yml'
+      - 'experiments/153-orcjit/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-orcjit-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+
+      - name: Record runner state
+        shell: bash
+        run: |
+          set -euxo pipefail
+          uname -a
+          nproc
+          free -h
+          df -h /
+
+      - name: Install host build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bison \
+            ccache \
+            cmake \
+            flex \
+            meson \
+            ninja-build \
+            pkgconf \
+            python3-mako \
+            python3-ply \
+            unzip \
+            xz-utils \
+            zstd
+          meson --version
+          cmake --version
+          ninja --version
+          df -h /
+
+      - name: Validate Experiment 153 builder syntax
+        shell: bash
+        run: bash -n experiments/153-orcjit/build-orcjit.sh
+
+      - name: Build and audit ORCJIT ARM64 candidate
+        shell: bash
+        run: bash experiments/153-orcjit/build-orcjit.sh
+
+      - name: Upload Experiment 153 candidate and audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp153-mesa-25.0.0-android-arm64-llvmpipe-orcjit
+          path: |
+            ${{ runner.temp }}/exp153-mesa-25.0.0-android-arm64-llvmpipe-orcjit.tar.xz
+            ${{ runner.temp }}/exp153-mesa-bundle.sha256
+            ${{ runner.temp }}/exp153-mesa-arm64-deploy/audit
+          retention-days: 1
+          if-no-files-found: error
