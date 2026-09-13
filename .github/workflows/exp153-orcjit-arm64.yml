@@ -1,12 +1,6 @@
 name: Experiment 153 Mesa ORCJIT ARM64
 
 on:
-  push:
-    branches:
-      - exp153-orcjit
-    paths:
-      - '.github/workflows/exp153-orcjit-arm64.yml'
-      - 'experiments/153-orcjit/**'
   workflow_dispatch:
 
 permissions:
