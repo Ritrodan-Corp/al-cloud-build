@@ -1,12 +1,7 @@
 name: GCP VM lifecycle
-run-name: "azl-android-arm64-01: ${{ github.event_name == 'push' && 'start' || inputs.action }} by @${{ github.actor }}"
+run-name: "azl-android-arm64-01: ${{ inputs.action }} by @${{ github.actor }}"
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/gcp-vm-lifecycle.yml
   workflow_dispatch:
     inputs:
       action:
@@ -47,7 +42,7 @@ jobs:
         shell: bash
         env:
           ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-          ACTION: ${{ github.event_name == 'push' && 'start' || inputs.action }}
+          ACTION: ${{ inputs.action }}
         run: |
           set -euo pipefail
 
