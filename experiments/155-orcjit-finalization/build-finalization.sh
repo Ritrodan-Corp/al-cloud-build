@@ -23,8 +23,11 @@ curl -fL --retry 3 --retry-delay 2 -o android-ndk-r27d-linux.zip \
 echo '22105e410cf29afcf163760cc95522b9fb981121  android-ndk-r27d-linux.zip' | sha1sum -c -
 unzip -q android-ndk-r27d-linux.zip
 
-curl -fL --retry 3 --retry-delay 2 -o libdrm-2.4.122.tar.xz \
-  https://dri.freedesktop.org/libdrm/libdrm-2.4.122.tar.xz
+if ! curl -fL --connect-timeout 20 --max-time 120 --retry 2 --retry-delay 2 -o libdrm-2.4.122.tar.xz \
+  https://dri.freedesktop.org/libdrm/libdrm-2.4.122.tar.xz; then
+  curl -fL --connect-timeout 20 --max-time 120 --retry 3 --retry-delay 2 -o libdrm-2.4.122.tar.xz \
+    https://deb.debian.org/debian/pool/main/libd/libdrm/libdrm_2.4.122.orig.tar.xz
+fi
 echo 'd9f5079b777dffca9300ccc56b10a93588cdfbc9dde2fae111940dfb6292f251  libdrm-2.4.122.tar.xz' | sha256sum -c -
 tar -xf libdrm-2.4.122.tar.xz
 
