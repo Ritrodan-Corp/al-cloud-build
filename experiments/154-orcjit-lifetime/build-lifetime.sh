@@ -301,7 +301,7 @@ grep -E 'LPJit|llvm::orc::LLJIT|llvm::MCJIT|GDBJITRegistrationListener' "$AUDIT/
   > "$AUDIT/jit-symbol-summary.txt" || true
 "$STRINGS" "$GALLIUM_SO" | grep 'ALCLOUD_ORC_LIFETIME' | tee "$AUDIT/instrumentation-binary-proof.txt"
 
-SYM_HEX="$("$NM" "$GALLIUM_SO" | awk '$3=="gallivm_add_global_mapping" {print $1; exit}')"
+SYM_HEX="$("$NM" "$GALLIUM_SO" | awk '$3=="gallivm_add_global_mapping" && !found {print $1; found=1}')"
 test -n "$SYM_HEX"
 START=$((16#$SYM_HEX))
 STOP=$((START + 128))
