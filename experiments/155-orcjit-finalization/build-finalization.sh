@@ -127,6 +127,7 @@ PY
 TRACE_SRC="$MESA_SRC/src/gallium/targets/dri/alcloud_finalize_trace.cpp"
 cat > "$TRACE_SRC" <<'CPP'
 #include <android/log.h>
+#include <atomic>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -138,10 +139,13 @@ extern "C" void __real___cxa_finalize(void *);
 
 namespace {
 
+static std::atomic<unsigned long long> alcloud_finalize_seq{0};
 static thread_local unsigned alcloud_finalize_depth = 0;
+static thread_local const void *alcloud_finalize_args[8] = {};
+static thread_local unsigned long long alcloud_finalize_ids[8] = {};
 
 struct AlcloudStack {
-   uintptr_t pcs[24];
+   uintptr_t pcs[12];
    unsigned count;
 };
 
@@ -149,7 +153,7 @@ static _Unwind_Reason_Code
 alcloud_unwind_cb(struct _Unwind_Context *ctx, void *opaque)
 {
    AlcloudStack *stack = static_cast<AlcloudStack *>(opaque);
-   if (stack->count >= 24)
+   if (stack->count >= 12)
       return _URC_END_OF_STACK;
    uintptr_t pc = static_cast<uintptr_t>(_Unwind_GetIP(ctx));
    if (pc)
@@ -167,12 +171,13 @@ alcloud_now_ns()
 }
 
 static void
-alcloud_log(const char *event, const void *arg, const void *caller)
+alcloud_log(const char *event, const void *arg, const void *caller,
+            unsigned long long corr)
 {
-   char buffer[512];
+   char buffer[768];
    int len = snprintf(buffer, sizeof(buffer),
-      "ALCLOUD_FINALIZE t_ns=%llu pid=%ld tid=%ld event=%s arg=%p dso=%p match=%u depth=%u caller=%p",
-      alcloud_now_ns(), (long)getpid(), (long)gettid(), event, arg,
+      "ALCLOUD_FINALIZE t_ns=%llu pid=%ld tid=%ld event=%s corr=%llu arg=%p dso=%p match=%u depth=%u caller=%p",
+      alcloud_now_ns(), (long)getpid(), (long)gettid(), event, corr, arg,
       (void *)&__dso_handle, arg == (void *)&__dso_handle ? 1U : 0U,
       alcloud_finalize_depth, caller);
    if (len > 0)
@@ -180,19 +185,31 @@ alcloud_log(const char *event, const void *arg, const void *caller)
 }
 
 static void
-alcloud_log_stack(const char *event)
+alcloud_log_stack(const char *event, unsigned long long corr)
 {
    AlcloudStack stack = {};
    (void)_Unwind_Backtrace(alcloud_unwind_cb, &stack);
-   for (unsigned i = 0; i < stack.count; ++i) {
-      char buffer[256];
-      int len = snprintf(buffer, sizeof(buffer),
-         "ALCLOUD_FINALIZE t_ns=%llu pid=%ld tid=%ld event=%s frame=%u pc=%p depth=%u",
-         alcloud_now_ns(), (long)getpid(), (long)gettid(), event, i,
-         (void *)stack.pcs[i], alcloud_finalize_depth);
-      if (len > 0)
-         (void)__android_log_write(ANDROID_LOG_INFO, "ALCLOUD_FINALIZE", buffer);
+   char buffer[1024];
+   int used = snprintf(buffer, sizeof(buffer),
+      "ALCLOUD_FINALIZE t_ns=%llu pid=%ld tid=%ld event=%s corr=%llu depth=%u frames=%u",
+      alcloud_now_ns(), (long)getpid(), (long)gettid(), event, corr,
+      alcloud_finalize_depth, stack.count);
+   if (used < 0)
+      return;
+   size_t offset = static_cast<size_t>(used);
+   for (unsigned i = 0; i < stack.count && offset < sizeof(buffer); ++i) {
+      int n = snprintf(buffer + offset, sizeof(buffer) - offset,
+                       " pc%u=%p", i, (void *)stack.pcs[i]);
+      if (n < 0)
+         break;
+      size_t wrote = static_cast<size_t>(n);
+      if (wrote >= sizeof(buffer) - offset) {
+         offset = sizeof(buffer) - 1;
+         break;
+      }
+      offset += wrote;
    }
+   (void)__android_log_write(ANDROID_LOG_INFO, "ALCLOUD_FINALIZE", buffer);
 }
 
 } // namespace
@@ -201,21 +218,36 @@ extern "C" __attribute__((visibility("default"), noinline))
 void __wrap___cxa_finalize(void *arg)
 {
    void *caller = __builtin_return_address(0);
+   unsigned long long corr =
+      alcloud_finalize_seq.fetch_add(1, std::memory_order_relaxed) + 1;
+   unsigned slot = alcloud_finalize_depth < 8 ? alcloud_finalize_depth : 7;
+   alcloud_finalize_args[slot] = arg;
+   alcloud_finalize_ids[slot] = corr;
    ++alcloud_finalize_depth;
-   alcloud_log("FINALIZE_WRAP_BEGIN", arg, caller);
-   alcloud_log_stack("FINALIZE_WRAP_STACK");
+   alcloud_log("FINALIZE_WRAP_BEGIN", arg, caller, corr);
+   alcloud_log_stack("FINALIZE_WRAP_STACK", corr);
    __real___cxa_finalize(arg);
-   alcloud_log("FINALIZE_WRAP_AFTER_REAL", arg, caller);
+   alcloud_log("FINALIZE_WRAP_AFTER_REAL", arg, caller, corr);
    --alcloud_finalize_depth;
+   alcloud_finalize_args[slot] = nullptr;
+   alcloud_finalize_ids[slot] = 0;
 }
 
 extern "C" __attribute__((visibility("hidden"), noinline))
 void alcloud_finalize_trace_lpjit_exit(void *caller_pc)
 {
-   alcloud_log(alcloud_finalize_depth ? "LPJIT_EXIT_CONTEXT_DSO" :
-                                      "LPJIT_EXIT_CONTEXT_PROCESS_OR_OTHER",
-               nullptr, caller_pc);
-   alcloud_log_stack("LPJIT_EXIT_STACK");
+   const void *active_arg = nullptr;
+   unsigned long long corr = 0;
+   if (alcloud_finalize_depth) {
+      unsigned slot = alcloud_finalize_depth <= 8 ? alcloud_finalize_depth - 1 : 7;
+      active_arg = alcloud_finalize_args[slot];
+      corr = alcloud_finalize_ids[slot];
+   }
+   bool dso_match = active_arg == (void *)&__dso_handle;
+   alcloud_log(dso_match ? "LPJIT_EXIT_CONTEXT_DSO" :
+                           "LPJIT_EXIT_CONTEXT_PROCESS_OR_OTHER",
+               active_arg, caller_pc, corr);
+   alcloud_log_stack("LPJIT_EXIT_STACK", corr);
 }
 CPP
 
@@ -430,14 +462,25 @@ grep -q 'Machine:.*AArch64' "$AUDIT/libgallium-elf-header.txt"
 grep -E 'LPJit|llvm::orc::LLJIT|llvm::MCJIT|GDBJITRegistrationListener' "$AUDIT/libgallium-symbols.txt" \
   > "$AUDIT/jit-symbol-summary.txt" || true
 "$STRINGS" "$GALLIUM_SO" | grep 'ALCLOUD_ORC_FINALIZATION' | tee "$AUDIT/instrumentation-binary-proof.txt"
-"$NM" -C "$GALLIUM_SO" | grep -E '__wrap___cxa_finalize|alcloud_finalize_trace_lpjit_exit' \
-  | tee "$AUDIT/finalization-symbol-proof.txt"
+grep -F -- '-Wl,--wrap=__cxa_finalize' "$AUDIT/ninja-commands.txt" \
+  | tee "$AUDIT/finalization-link-command-proof.txt"
+"$NM" -C "$GALLIUM_SO" > "$AUDIT/libgallium-symbols-final.txt" || true
+grep -E '__wrap___cxa_finalize|alcloud_finalize_trace_lpjit_exit|__cxa_finalize' \
+  "$AUDIT/libgallium-symbols-final.txt" | tee "$AUDIT/finalization-symbol-proof.txt"
 grep -q '__wrap___cxa_finalize' "$AUDIT/finalization-symbol-proof.txt"
 grep -q 'alcloud_finalize_trace_lpjit_exit' "$AUDIT/finalization-symbol-proof.txt"
+grep -q ' U __cxa_finalize' "$AUDIT/libgallium-symbols-final.txt"
 "$STRINGS" "$GALLIUM_SO" | grep 'ALCLOUD_FINALIZE' \
   | tee "$AUDIT/finalization-marker-proof.txt"
-"$OBJDUMP" -d "$GALLIUM_SO" | grep -A12 -B4 '__wrap___cxa_finalize' \
-  > "$AUDIT/finalization-wrapper-disasm.txt" || true
+"$READELF" -n "$GALLIUM_SO" | tee "$AUDIT/libgallium-notes.txt"
+grep -q 'Build ID:' "$AUDIT/libgallium-notes.txt"
+"$OBJDUMP" -d "$GALLIUM_SO" > "$AUDIT/libgallium-disassembly.txt"
+awk '/<__on_dlclose>:/,/^$/' "$AUDIT/libgallium-disassembly.txt" \
+  | tee "$AUDIT/finalization-on-dlclose-disasm.txt"
+grep -q '__wrap___cxa_finalize' "$AUDIT/finalization-on-dlclose-disasm.txt"
+awk '/<__wrap___cxa_finalize>:/,/^$/' "$AUDIT/libgallium-disassembly.txt" \
+  | tee "$AUDIT/finalization-wrapper-disasm.txt"
+test "$(grep -c '__cxa_finalize@plt' "$AUDIT/finalization-wrapper-disasm.txt")" -eq 1
 
 
 SYM_HEX="$("$NM" "$GALLIUM_SO" | awk '$3=="gallivm_add_global_mapping" && !found {print $1; found=1}')"
