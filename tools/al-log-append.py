@@ -22,7 +22,7 @@ import google.auth
 from google.auth.transport.requests import AuthorizedSession
 
 DOCS_SCOPE = "https://www.googleapis.com/auth/documents"
-ENTRY_RE = re.compile(r"\bE(?P<experiment>[A-Za-z0-9_.-]+)-(?P<num>\d{4,})\b")
+ENTRY_RE = re.compile(r"\bR(?P<num>\d{6,})\b")
 SENSITIVE_RE = re.compile(
     r"(?i)(authorization\s*:|bearer\s+[A-Za-z0-9._~+/=-]+|"
     r"refresh[_ -]?token|access[_ -]?token|password\s*[:=]|cookie\s*:|"
@@ -73,12 +73,11 @@ def _tab_text(tab: Dict[str, Any]) -> str:
     return _text_from_structural_elements(body.get("content", []))
 
 
-def _next_entry_id(text: str, experiment: str) -> str:
+def _next_entry_id(text: str) -> str:
     max_num = 0
     for m in ENTRY_RE.finditer(text):
-        if m.group("experiment") == experiment:
-            max_num = max(max_num, int(m.group("num")))
-    return f"E{experiment}-{max_num + 1:04d}"
+        max_num = max(max_num, int(m.group("num")))
+    return f"R{max_num + 1:06d}"
 
 
 def _clean(value: str | None) -> str:
@@ -97,6 +96,7 @@ def _validate_no_secrets(fields: Dict[str, str]) -> None:
 def _format_entry(args: argparse.Namespace, entry_id: str) -> str:
     timestamp = args.timestamp or dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
     lines = [f"{entry_id} | {timestamp} | {args.step}"]
+    lines.append(f"Workstream: {args.workstream}")
     if args.actor:
         lines.append(f"Actor/session: {args.actor}")
     lines.append(f"Action: {args.action}")
@@ -113,7 +113,7 @@ def _format_entry(args: argparse.Namespace, entry_id: str) -> str:
 def main() -> int:
     p = argparse.ArgumentParser(description="Append one structured entry to the AL Cloud raw log")
     p.add_argument("--document-id", default=os.getenv("AL_CLOUD_RAW_LOG_DOC_ID"))
-    p.add_argument("--experiment", default=os.getenv("AL_CLOUD_RAW_LOG_EXPERIMENT"))
+    p.add_argument("--workstream", default=os.getenv("AL_CLOUD_RAW_LOG_WORKSTREAM"), required=False)
     p.add_argument("--step", required=True)
     p.add_argument("--action", required=True)
     p.add_argument("--result", required=True)
@@ -126,12 +126,13 @@ def main() -> int:
 
     if not args.document_id:
         p.error("--document-id or AL_CLOUD_RAW_LOG_DOC_ID is required")
-    if not args.experiment:
-        p.error("--experiment or AL_CLOUD_RAW_LOG_EXPERIMENT is required")
+    if not args.workstream:
+        p.error("--workstream or AL_CLOUD_RAW_LOG_WORKSTREAM is required")
     if len(args.excerpt) > 1200 or args.excerpt.count("\n") >= 12:
         p.error("--excerpt is limited to about 1,200 characters and at most 12 lines")
 
     fields = {
+        "workstream": _clean(args.workstream),
         "step": _clean(args.step),
         "action": _clean(args.action),
         "result": _clean(args.result),
@@ -140,15 +141,15 @@ def main() -> int:
         "refs": _clean(args.refs),
         "actor": _clean(args.actor),
     }
-    if not all(fields[k] for k in ("step", "action", "result", "next")):
-        p.error("step, action, result, and next must be non-empty")
+    if not all(fields[k] for k in ("workstream", "step", "action", "result", "next")):
+        p.error("workstream, step, action, result, and next must be non-empty")
     _validate_no_secrets(fields)
 
     credentials, _ = google.auth.default(scopes=[DOCS_SCOPE])
     session = AuthorizedSession(credentials)
 
     # requiredRevisionId makes concurrent appenders fail rather than overwrite one
-    # another. Retry by refetching and allocating the next entry ID.
+    # another. Retry by refetching and allocating the next global entry ID.
     for attempt in range(1, 5):
         doc = _fetch_doc(session, args.document_id)
         revision_id = doc.get("revisionId")
@@ -156,7 +157,7 @@ def main() -> int:
         tab_id = (tab.get("tabProperties") or {}).get("tabId")
         if not revision_id or not tab_id:
             raise RuntimeError("Could not resolve document revision/tab")
-        entry_id = _next_entry_id(_tab_text(tab), args.experiment)
+        entry_id = _next_entry_id(_tab_text(tab))
         entry = _format_entry(args, entry_id)
 
         payload = {
