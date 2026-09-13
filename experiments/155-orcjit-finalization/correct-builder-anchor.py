@@ -24,10 +24,10 @@ text = text[:block_start] + replacement + text[label_end:]
 # already links liblog, so route the existing diagnostic record to logcat without
 # changing any event placement, JIT ownership, teardown, synchronization, or
 # pointer access performed by the Experiment 155 instrumentation.
-include_old = '#include <unistd.h>'
-include_new = '#include <unistd.h>\\n#include <android/log.h>'
+include_old = '#include <unistd.h>\\nextern "C" void alcloud_finalize_trace_lpjit_exit(void *caller_pc);'
+include_new = '#include <unistd.h>\\n#include <android/log.h>\\nextern "C" void alcloud_finalize_trace_lpjit_exit(void *caller_pc);'
 if text.count(include_old) != 1:
-    raise SystemExit(f'unexpected unistd include anchor count: {text.count(include_old)}')
+    raise SystemExit(f'unexpected LPJit include/declaration anchor count: {text.count(include_old)}')
 text = text.replace(include_old, include_new, 1)
 
 sink_old = '(void)write(STDERR_FILENO, buffer, size);'
