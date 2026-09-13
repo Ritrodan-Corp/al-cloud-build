@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/exp154-orcjit-lifetime-arm64.yml'
       - 'experiments/154-orcjit-lifetime/build-lifetime.sh'
+      - 'experiments/154-orcjit-lifetime/correct-builder-anchor.py'
   workflow_dispatch:
 
 permissions:
@@ -51,6 +52,13 @@ jobs:
           cmake --version
           ninja --version
           df -h /
+
+      - name: Apply exact Mesa 25 instrumentation anchor correction
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 experiments/154-orcjit-lifetime/correct-builder-anchor.py
+          grep -n -A8 -B3 "'lookup begin'" experiments/154-orcjit-lifetime/build-lifetime.sh
 
       - name: Validate Experiment 154 builder syntax
         shell: bash
