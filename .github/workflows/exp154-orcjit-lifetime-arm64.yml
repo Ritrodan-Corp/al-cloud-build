@@ -1,0 +1,72 @@
+name: Experiment 154 ORCJIT lifetime diagnostic ARM64
+
+on:
+  push:
+    branches:
+      - exp154-orcjit-lifetime
+    paths:
+      - '.github/workflows/exp154-orcjit-lifetime-arm64.yml'
+      - 'experiments/154-orcjit-lifetime/build-lifetime.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-lifetime-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+
+      - name: Record runner state
+        shell: bash
+        run: |
+          set -euxo pipefail
+          uname -a
+          nproc
+          free -h
+          df -h /
+
+      - name: Install host build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bison \
+            ccache \
+            cmake \
+            flex \
+            meson \
+            ninja-build \
+            pkgconf \
+            python3-mako \
+            python3-ply \
+            unzip \
+            xz-utils \
+            zstd
+          meson --version
+          cmake --version
+          ninja --version
+          df -h /
+
+      - name: Validate Experiment 154 builder syntax
+        shell: bash
+        run: bash -n experiments/154-orcjit-lifetime/build-lifetime.sh
+
+      - name: Build and audit instrumented ORCJIT ARM64 candidate
+        shell: bash
+        run: bash experiments/154-orcjit-lifetime/build-lifetime.sh
+
+      - name: Upload Experiment 154 candidate and audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp154-mesa-25.0.0-android-arm64-llvmpipe-orcjit-lifetime
+          path: |
+            ${{ runner.temp }}/exp154-mesa-25.0.0-android-arm64-llvmpipe-orcjit-lifetime.tar.xz
+            ${{ runner.temp }}/exp154-mesa-bundle.sha256
+            ${{ runner.temp }}/exp154-mesa-arm64-deploy/audit
+          retention-days: 1
+          if-no-files-found: error
