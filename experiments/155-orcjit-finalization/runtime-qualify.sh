@@ -34,7 +34,12 @@ restore_reference() {
     [[ "$boot" == 1 ]] && break
     sleep 2
   done
-  echo "RESTORE service=$(systemctl is-active azl-redroid.service 2>/dev/null || true) boot=${boot:-} egl=$(adb -s "$ADB" shell getprop ro.hardware.egl 2>/dev/null | tr -d '\r' || true)"
+  service_state="$(systemctl is-active azl-redroid.service 2>/dev/null || true)"
+  egl_state="$(adb -s "$ADB" shell getprop ro.hardware.egl 2>/dev/null | tr -d '\r' || true)"
+  vk_state="$(adb -s "$ADB" shell getprop ro.hardware.vulkan 2>/dev/null | tr -d '\r' || true)"
+  printf 'RESTORE service=%s boot=%s egl=%s vulkan=%s\n' \
+    "$service_state" "${boot:-}" "$egl_state" "$vk_state" | tee "$E/restore-audit.txt"
+  [[ "$service_state" == active && "${boot:-}" == 1 && "$egl_state" == angle && "$vk_state" == pastel ]]
 }
 trap restore_reference EXIT
 
@@ -139,11 +144,15 @@ boot_candidate azl-redroid-exp155-game "$GAME_DATA"
 adb -s "$ADB" shell am force-stop "$PKG" || true
 adb -s "$ADB" logcat -c
 adb -s "$ADB" logcat -b crash -c || true
+adb -s "$ADB" logcat -b events -c || true
+adb -s "$ADB" root >/dev/null 2>&1 || true
+sleep 1
+adb -s "$ADB" shell 'ls -1 /data/tombstones 2>/dev/null' > "$E/game-tombstones-before.txt" || true
 printf 'launch_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$E/game-result.txt"
 adb -s "$ADB" shell am start -W -n "$PKG/$ACT" | tee -a "$E/game-result.txt"
 : > "$E/game-pid-timeline.txt"
 : > "$E/game-maps.txt"
-DECISIVE=0
+STOP_SEQUENCE_SEEN=0
 for i in $(seq 1 200); do
   PID_NOW="$(adb -s "$ADB" shell pidof "$PKG" 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
   printf '%03d %s\n' "$i" "$PID_NOW" >> "$E/game-pid-timeline.txt"
@@ -155,7 +164,7 @@ for i in $(seq 1 200); do
   fi
   adb -s "$ADB" logcat -d -v threadtime > "$E/game-live-logcat.txt"
   if grep -q 'ALCLOUD_FINALIZE.*LPJIT_EXIT_CONTEXT_' "$E/game-live-logcat.txt"; then
-    DECISIVE=1
+    STOP_SEQUENCE_SEEN=1
     break
   fi
   sleep 0.1
@@ -165,13 +174,57 @@ adb -s "$ADB" shell am force-stop "$PKG" || true
 sleep 1
 adb -s "$ADB" logcat -d -v threadtime > "$E/game-logcat.txt"
 adb -s "$ADB" logcat -d -b crash -v threadtime > "$E/game-crash.txt" || true
+adb -s "$ADB" logcat -d -b events -v threadtime > "$E/game-events.txt" || true
+adb -s "$ADB" shell dumpsys activity processes > "$E/game-activity-processes.txt" || true
+sudo -n docker inspect azl-redroid-exp155-game > "$E/game-container-inspect.json" 2>/dev/null || true
 grep -E 'ALCLOUD_ORC_FINALIZATION|ALCLOUD_FINALIZE' "$E/game-logcat.txt" > "$E/game-finalization-markers.txt" || true
 grep -E 'UnityGfxDeviceW|gallivm_add_global_mapping|ALCLOUD_ORC_FINALIZATION|ALCLOUD_FINALIZE|Fatal signal|FORTIFY|SIGSEGV|SIGABRT|libgallium_dri' "$E/game-logcat.txt" > "$E/game-decisive-markers.txt" || true
-printf 'decisive_marker_seen=%s\n' "$DECISIVE" >> "$E/game-result.txt"
-test "$DECISIVE" -eq 1
+python3 - "$E/game-finalization-markers.txt" "$E/game-classification.txt" <<'PY'
+import re
+import sys
+source, destination = sys.argv[1:3]
+event_re = re.compile(r'pid=(\d+)\s+tid=(\d+)\s+event=(\S+)\s+corr=(\d+).*?arg=(\S+).*?match=(\d+)')
+wrap, dso_context, process_other, bad_wrap = set(), [], [], []
+for line in open(source, errors='replace'):
+    m = event_re.search(line)
+    if not m:
+        continue
+    pid, tid, event, corr, arg, match = m.groups()
+    key = (pid, tid, corr)
+    if event == 'FINALIZE_WRAP_BEGIN':
+        if match == '1':
+            wrap.add(key)
+        elif arg not in {'(nil)', '0x0'}:
+            bad_wrap.append((key, arg))
+    elif event == 'LPJIT_EXIT_CONTEXT_DSO':
+        dso_context.append(key)
+    elif event == 'LPJIT_EXIT_CONTEXT_PROCESS_OR_OTHER':
+        process_other.append(key)
+paired = [key for key in dso_context if key in wrap]
+if bad_wrap:
+    classification = 'INSTRUMENTATION_FAIL_NONMATCHING_FINALIZE_ARG'
+elif paired:
+    classification = 'DSO_SPECIFIC_FINALIZATION_CONFIRMED'
+elif process_other:
+    classification = 'PROCESS_OR_OTHER_CAPTURED_INCONCLUSIVE'
+else:
+    classification = 'NO_CLASSIFIABLE_FINALIZATION_CONTEXT'
+with open(destination, 'w') as out:
+    out.write(f'classification={classification}\n')
+    out.write(f'matching_wrap_context_pairs={len(paired)}\n')
+    out.write(f'process_or_other_contexts={len(process_other)}\n')
+    out.write(f'nonmatching_nonnull_wraps={len(bad_wrap)}\n')
+print(classification)
+if bad_wrap:
+    raise SystemExit(2)
+PY
+printf 'stop_sequence_seen=%s\n' "$STOP_SEQUENCE_SEEN" >> "$E/game-result.txt"
+cat "$E/game-classification.txt" >> "$E/game-result.txt"
+test "$STOP_SEQUENCE_SEEN" -eq 1
 adb -s "$ADB" root >/dev/null 2>&1 || true
 sleep 1
 adb -s "$ADB" shell 'ls -lt /data/tombstones 2>/dev/null | head -n 20' > "$E/game-tombstones.txt" || true
+adb -s "$ADB" shell 'for f in $(ls -t /data/tombstones/tombstone_* 2>/dev/null | head -n 3); do echo "=== $f ==="; cat "$f"; done' > "$E/game-tombstone-contents.txt" || true
 adb -s "$ADB" shell am force-stop "$PKG" || true
 sha256sum "$E"/game-*.txt "$E"/game-*.png 2>/dev/null > "$E/game-evidence.sha256" || true
 
