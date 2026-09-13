@@ -1,0 +1,50 @@
+name: Experiment 154 runtime tooling validation
+
+on:
+  push:
+    branches:
+      - exp154-orcjit-lifetime
+    paths:
+      - '.github/workflows/exp154-runtime-validate.yml'
+      - 'experiments/154-orcjit-lifetime/runtime-qualify.sh'
+      - 'experiments/154-orcjit-lifetime/analyze-lifetime.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-runtime-tools:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+
+      - name: Validate shell harness syntax
+        shell: bash
+        run: bash -n experiments/154-orcjit-lifetime/runtime-qualify.sh
+
+      - name: Validate classifier syntax
+        shell: bash
+        run: python3 -m py_compile experiments/154-orcjit-lifetime/analyze-lifetime.py
+
+      - name: Exercise classifier with synthetic teardown-overlap evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/exp154-synthetic.log <<'EOF'
+          09-12 00:00:00.000  123  456 I Test: ALCLOUD_ORC_LIFETIME seq=1 t_ns=100 pid=123 tid=456 event=LPJIT_INIT_READY lpjit=0x1 lljit=0x2 jd=(nil) extra=(nil)
+          09-12 00:00:00.100  123  456 I Test: ALCLOUD_ORC_LIFETIME seq=2 t_ns=200 pid=123 tid=456 event=LPJIT_EXIT_BEGIN lpjit=0x1 lljit=0x2 jd=(nil) extra=(nil)
+          09-12 00:00:00.101  123  789 I Test: ALCLOUD_ORC_LIFETIME seq=3 t_ns=201 pid=123 tid=789 event=ADD_MAPPING_BEGIN lpjit=0x1 lljit=0x2 jd=0x3 extra=0x4
+          09-12 00:00:00.102  123  789 E CRASH: pid: 123, tid: 789, name: UnityGfxDeviceW >>> com.YoStarEN.AzurLane <<< signal 11 (SIGSEGV)
+          EOF
+          python3 experiments/154-orcjit-lifetime/analyze-lifetime.py /tmp/exp154-synthetic.log > /tmp/result.json
+          cat /tmp/result.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('/tmp/result.json'))
+          assert r['verdict'] == 'teardown_overlap', r
+          assert r['attributed_pid'] == 123, r
+          assert any(x['event'] == 'ADD_MAPPING_BEGIN' for x in r['operations_after_exit_begin']), r
+          PY
