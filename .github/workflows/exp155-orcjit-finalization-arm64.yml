@@ -1,0 +1,91 @@
+name: Experiment 155 ORCJIT finalization diagnostic ARM64
+
+on:
+  push:
+    branches:
+      - exp155-finalization-path
+    paths:
+      - '.github/workflows/exp155-orcjit-finalization-arm64.yml'
+      - 'experiments/155-orcjit-finalization/build-finalization.sh'
+      - 'experiments/155-orcjit-finalization/correct-builder-anchor.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-finalization-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+
+      - name: Record runner state
+        shell: bash
+        run: |
+          set -euxo pipefail
+          uname -a
+          nproc
+          free -h
+          df -h /
+
+      - name: Install host build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bison \
+            ccache \
+            cmake \
+            flex \
+            meson \
+            ninja-build \
+            pkgconf \
+            python3-mako \
+            python3-ply \
+            unzip \
+            xz-utils \
+            zstd
+          meson --version
+          cmake --version
+          ninja --version
+          df -h /
+
+      - name: Apply exact Mesa 25 instrumentation anchor correction
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 experiments/155-orcjit-finalization/correct-builder-anchor.py
+          grep -n -A8 -B3 "'lookup begin'" experiments/155-orcjit-finalization/build-finalization.sh
+
+      - name: Validate Experiment 155 builder syntax
+        shell: bash
+        run: bash -n experiments/155-orcjit-finalization/build-finalization.sh
+
+      - name: Build and audit instrumented ORCJIT ARM64 candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          bash experiments/155-orcjit-finalization/build-finalization.sh 2>&1 | tee "${RUNNER_TEMP}/exp155-build.log"
+
+      - name: Upload Experiment 155 build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp155-build-log
+          path: ${{ runner.temp }}/exp155-build.log
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload Experiment 155 candidate and audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp155-mesa-25.0.0-android-arm64-llvmpipe-orcjit-finalization
+          path: |
+            ${{ runner.temp }}/exp155-mesa-25.0.0-android-arm64-llvmpipe-orcjit-finalization.tar.xz
+            ${{ runner.temp }}/exp155-mesa-bundle.sha256
+            ${{ runner.temp }}/exp155-mesa-arm64-deploy/audit
+          retention-days: 1
+          if-no-files-found: error
