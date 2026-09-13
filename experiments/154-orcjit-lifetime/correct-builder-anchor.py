@@ -13,8 +13,8 @@ if block_start < 0:
     raise SystemExit('lookup replace_once block start not found')
 
 replacement = '''replace_once(
-    "      LPJit* jit = get_instance();\\n      auto &ircl = jit->lljit->getIRCompileLayer();\\n",
-    "      LPJit* jit = get_instance();\\n      alcloud_lifetime_log(\\\"LOOKUP_BEGIN\\\", jit, jit->lljit.get(), JD, func_name);\\n      auto &ircl = jit->lljit->getIRCompileLayer();\\n",
+    "      JITDylib* JD = ::unwrap(jd);\\n      LPJit* jit = get_instance();\\n      jit->lookup_mutex.lock();\\n",
+    "      JITDylib* JD = ::unwrap(jd);\\n      LPJit* jit = get_instance();\\n      alcloud_lifetime_log(\\\"LOOKUP_BEGIN\\\", jit, jit->lljit.get(), JD, func_name);\\n      jit->lookup_mutex.lock();\\n",
     'lookup begin')'''
 
 text = text[:block_start] + replacement + text[label_end:]
