@@ -1,0 +1,26 @@
+Timestamp UTC: 2026-09-14T23:10:00Z
+Actor: Codex performance research pass
+Scope: Experiment 157 display-rate and encoder feasibility tests
+VM: azl-android-arm64-01
+Kernel: 6.8.12-exp157-39va
+Protected baseline data: /var/lib/azl-android/data (untouched)
+Disposable experiment data: /var/lib/azl-android/exp157-lowva-data-1
+
+Operational steps:
+- Compared retained 15 Hz container and temporary 12 Hz and 10 Hz containers.
+- All variants used the same disposable data, loopback-only ADB, ANGLE EGL, Pastel Vulkan, 960x540 Android override, and dedicated host CPUs 0,1 without a CFS quota.
+- Ran 30-second docker/vmstat/cgroup/SurfaceFlinger/screencap samples on the authenticated home scene.
+- Ran a bounded Android screenrecord H.264 feasibility test at 960x540, 2 Mbps, 55 seconds; removed the guest temporary recording after pulling evidence.
+
+Results:
+- 15 Hz: CPU mean 199.52%, median 199.51%, 15 FPS, screencap median 0.57 s, negligible throttling.
+- 12 Hz: CPU mean 190.93%, median 190.63%, max 194.27%, 12 FPS, screencap median 0.535 s, zero throttling.
+- 10 Hz: CPU mean 160.51%, median 159.63%, max 172.40%, 10 FPS, screencap median 0.58 s, zero throttling.
+- 10 Hz plus H.264 2 Mbps recording: CPU mean 167.13%, median 167.31%, max 171.39%, stable 10 FPS, screencap median 0.62 s, zero throttling.
+- Encoder recorded 542 frames in 55 seconds. Pulled file size 13,430,972 bytes, approximately 1.95 Mbps payload rate. SHA-256 db5fe39995f0547088fb542c13bcd64d94c1ab51312f54e44dc3509d4c7be55d.
+
+Interpretation:
+- 10 Hz is the first 960x540 two-core setting with meaningful CPU headroom.
+- H.264 encode overhead was approximately 6.6 percentage points of total container CPU and remained below the 180% ceiling.
+- 12 Hz at 960x540 preserves the usability floor but exceeds the 180% target before encoding.
+- No game account resources or battles were consumed.
