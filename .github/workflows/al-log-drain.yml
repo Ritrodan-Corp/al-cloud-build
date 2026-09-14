@@ -1,0 +1,102 @@
+name: AL Cloud log drain
+run-name: "Drain AL Cloud log intake"
+
+on:
+  issues:
+    types: [opened, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  actions: write
+  id-token: write
+
+concurrency:
+  group: al-cloud-log-drain
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    if: github.event_name == 'issues' && startsWith(github.event.issue.title, '[AL-LOG]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Dispatch writer on WIF-authorized branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run al-log-drain.yml --repo "$GITHUB_REPOSITORY" --ref vm-control
+
+  drain:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/vm-control'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        name: Authenticate centralized log writer with WIF
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: project-97e3d26a-3ba2-4579-b03
+          workload_identity_provider: projects/137432928351/locations/global/workloadIdentityPools/alcloud-github/providers/alcloud-lifecycle
+          service_account: alcloud-vm-lifecycle@project-97e3d26a-3ba2-4579-b03.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/documents
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Install append dependencies
+        run: python3 -m pip install --disable-pip-version-check google-auth requests
+
+      - name: Drain open AL log submissions in issue-number order
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RAW_LOG_DOC_ID: 1s9VbzdPnA7nm-ogDP4X9gt2bghQ4mcKTVNVk1AiAiWg
+        run: |
+          set -euo pipefail
+          found=0
+
+          while IFS= read -r encoded; do
+            [[ -n "$encoded" ]] || continue
+            found=1
+            row="$(printf '%s' "$encoded" | base64 --decode)"
+            number="$(jq -r '.number' <<<"$row")"
+            title="$(jq -r '.title' <<<"$row")"
+            body="$(jq -r '.body // ""' <<<"$row")"
+            created_at="$(jq -r '.createdAt' <<<"$row")"
+
+            if [[ -z "${body//[[:space:]]/}" ]]; then
+              echo "Issue #${number} has an empty report body; leaving open." >&2
+              exit 1
+            fi
+
+            workstream="${title#\[AL-LOG\]}"
+            workstream="$(xargs <<<"$workstream")"
+            [[ -n "$workstream" ]] || workstream='Agent operational report'
+            step="$(printf '%s\n' "$body" | sed -n '/[^[:space:]]/ { s/^[[:space:]]*//; s/[[:space:]]*$//; p; q; }' | cut -c1-120)"
+            [[ -n "$step" ]] || step="$workstream"
+
+            echo "Draining issue #${number}: ${title}"
+            entry_id="$({ printf '%s' "$body"; } | python3 tools/al-log-append.py \
+              --document-id "$RAW_LOG_DOC_ID" \
+              --workstream "$workstream" \
+              --step "$step" \
+              --action "Submitted through the centralized GitHub issue log intake." \
+              --result-stdin \
+              --next "Continue from this report; submit later substantive findings through the same intake." \
+              --timestamp "$created_at" \
+              --submission-id "github-issue:${number}")"
+
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
+              --comment "Appended to AL Cloud Raw Log as ${entry_id}. Submission-ID: github-issue:${number}."
+          done < <(
+            gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+              --json number,title,body,createdAt \
+              --jq 'sort_by(.number)[] | select(.title | startswith("[AL-LOG]")) | @base64'
+          )
+
+          if [[ "$found" -eq 0 ]]; then
+            echo 'No open [AL-LOG] submissions.'
+          fi
