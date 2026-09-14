@@ -43,12 +43,30 @@ jobs:
           test -n "$cfg"
           cp "$cfg" src/.config
           cd src
+
+          echo '=== exact-source Kconfig VA choice ==='
+          grep -n -A55 -B8 'prompt "Virtual address space size"' arch/arm64/Kconfig | head -80
+          grep -q '^config ARM64_VA_BITS_39$' arch/arm64/Kconfig
+          grep -A3 '^config ARM64_VA_BITS_39$' arch/arm64/Kconfig | grep -q 'depends on ARM64_4K_PAGES'
+
+          echo '=== stock VA/page config ==='
+          grep -E '^CONFIG_ARM64_(4K_PAGES|16K_PAGES|64K_PAGES|VA_BITS(_36|_39|_42|_47|_48|_52)?)=' .config || true
+          test "$(grep '^CONFIG_ARM64_4K_PAGES=' .config)" = 'CONFIG_ARM64_4K_PAGES=y'
+
+          # ARM64_VA_BITS_* is a Kconfig choice. Make the choice internally
+          # consistent before olddefconfig rather than leaving a second
+          # stock choice selected and asking Kconfig to resolve the conflict.
+          for sym in ARM64_VA_BITS_36 ARM64_VA_BITS_42 ARM64_VA_BITS_47 ARM64_VA_BITS_48 ARM64_VA_BITS_52; do
+            scripts/config --disable "$sym"
+          done
           scripts/config --enable ARM64_VA_BITS_39
-          scripts/config --disable ARM64_VA_BITS_48
           scripts/config --set-str LOCALVERSION '-exp157-39va'
           scripts/config --disable LOCALVERSION_AUTO
           make olddefconfig
-          grep -E '^CONFIG_ARM64_(4K_PAGES|VA_BITS_39|VA_BITS_48|VA_BITS)=' .config
+
+          echo '=== derived VA/page config ==='
+          grep -E '^CONFIG_ARM64_(4K_PAGES|16K_PAGES|64K_PAGES|VA_BITS(_36|_39|_42|_47|_48|_52)?)=' .config || true
+          test "$(grep '^CONFIG_ARM64_VA_BITS_39=' .config)" = 'CONFIG_ARM64_VA_BITS_39=y'
           test "$(grep '^CONFIG_ARM64_VA_BITS=' .config)" = 'CONFIG_ARM64_VA_BITS=39'
           test "$(grep '^CONFIG_ARM64_4K_PAGES=' .config)" = 'CONFIG_ARM64_4K_PAGES=y'
           cp .config ../exp157-39va.config
