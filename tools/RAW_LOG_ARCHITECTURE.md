@@ -25,9 +25,9 @@ Restart persistence validation completed successfully. The host returned on the 
 EOF
 ```
 
-The report body may be ordinary prose. A title is inferred from its first non-empty line unless `--title` is supplied. `AL_CLOUD_RAW_LOG_DOC_ID` should be configured in the execution environment; `AL_CLOUD_RAW_LOG_WORKSTREAM` and `AL_CLOUD_RAW_LOG_ACTOR` are optional defaults.
+The report body may be ordinary prose. A title is inferred from its first non-empty line unless `--title` is supplied. The canonical raw-log target is built into this project-specific façade, so ordinary experiment agents do not need to discover or configure the document ID. `AL_CLOUD_RAW_LOG_DOC_ID` remains an optional maintenance override; `AL_CLOUD_RAW_LOG_WORKSTREAM` and `AL_CLOUD_RAW_LOG_ACTOR` are optional defaults.
 
-If `al-log-submit.py` or its logging configuration is unavailable, **stop at submission**: hand the report body to the logging coordinator/intake and continue the experiment only when doing so is safe. Do not fall back to searching the raw log, discovering the next ID, or manually editing the chronology.
+If `al-log-submit.py` is unavailable or submission fails because the execution environment lacks authorized Drive/Docs access, **stop at submission**: hand the report body to the logging coordinator/intake and continue the experiment only when doing so is safe. Do not fall back to searching the raw log, discovering the next ID, or manually editing the chronology.
 
 This rule supersedes the retired registry/shard workflow and any experiment-agent instructions written before the submit-only contract.
 
