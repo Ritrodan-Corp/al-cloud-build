@@ -1,0 +1,8 @@
+2026-09-14T22:35Z | Experiment 157 performance pass baseline
+
+Workstream: Experiment 157 / manual usability performance
+Action: Verified the running persistent low-VA runtime on kernel 6.8.12-exp157-39va, preserved localhost-only ADB/controller exposure, launched the unmodified official Azur Lane client from the existing Experiment 157 state, reached the animated authenticated home scene, and captured a fresh unrestricted 8-vCPU / 1280x720 / 30-Hz baseline with the new read-only sampling harness. Protected /var/lib/azl-android/data was not touched.
+
+Result/evidence: Evidence directory /home/ritrodano2/exp157/evidence/performance-pass-20260914/baseline-8cpu-1280x720-30fps-valid. Twenty container samples averaged 755.678% CPU, median 757.885%, maximum 766.78%. SurfaceFlinger supplied 127 usable presentation timestamps with 33.333333 ms median frame interval, or 30.0 FPS. Ten direct ADB screencaps averaged 0.516 seconds with 0.52-second median. Cgroup throttling counters remained zero because this baseline was unrestricted. Container memory was approximately 3.2 GiB. Game PID stayed alive. Fatal-marker filtering found only unrelated Bluetooth-service SIGABRT history and no game-process Lua, renderer, ANR, or SIGABRT failure.
+
+Interpretation/next: This reproduces the prior conclusion that the software renderer consumes almost all eight vCPUs while the game presents cleanly at 30 FPS, and that screenshot polling is intrinsically too slow for smooth control. Continue with reversible Android display-size A/B tests, then compare quota-limited versus dedicated-core two-CPU behavior.
