@@ -1,0 +1,26 @@
+Timestamp UTC: 2026-09-14T23:20:00Z
+Actor: Codex performance research pass
+Scope: Experiment 157 854x480 at 12 Hz and H.264 validation
+VM: azl-android-arm64-01
+Kernel: 6.8.12-exp157-39va
+Data: disposable /var/lib/azl-android/exp157-lowva-data-1; protected baseline untouched
+
+Operational steps:
+- Reused temporary 12 Hz experiment container with host CPU set 0,1 and no CFS quota.
+- Set Android logical display override to 854x480.
+- Reached authenticated home scene and closed announcements.
+- Collected matched 30-second runtime samples without and with bounded H.264 screen recording.
+- H.264 parameters: 854x480, 2 Mbps, 55 seconds. Guest temporary recording was removed after evidence pull.
+
+Results:
+- No encoder: CPU mean 156.18%, median 155.18%, max 167.88%; stable 12.0 FPS; no cgroup throttling.
+- With encoder: CPU mean 161.14%, median 160.69%, max 169.61%; stable 12.0 FPS.
+- Encoder output: 661 frames in 55 seconds, 13,233,323 bytes, approximately 1.92 Mbps payload rate.
+- Encoder evidence SHA-256: 790b750166a26358283283e52e751313e57467e25596c6e7a5a05c0e13ba2b88.
+- ADB PNG screencap median rose from 0.775 s to 0.900 s during recording. This measures the diagnostic PNG path, not H.264 frame delivery latency.
+
+Interpretation:
+- 854x480 at 12 Hz with two dedicated cores is the first tested configuration that simultaneously preserves the 12 FPS floor, stays below the 180% CPU ceiling, and retains H.264 encode headroom.
+- H.264 encoding added approximately 5.0 percentage points of total container CPU.
+- This validates encoder feasibility but does not yet validate an end-to-end browser/WebSocket latency percentile.
+- No battles or account-resource actions were initiated.
