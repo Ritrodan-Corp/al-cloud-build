@@ -251,7 +251,7 @@ jobs:
               ;;
 
             *)
-              echo "Unsupported action: $ACTION" >&2
+              echo "Unsupported action: ${ACTION}" >&2
               exit 2
               ;;
           esac
@@ -277,44 +277,9 @@ jobs:
           workload_identity_provider: projects/137432928351/locations/global/workloadIdentityPools/alcloud-github/providers/alcloud-chat-control
           service_account: alcloud-vm-lifecycle@project-97e3d26a-3ba2-4579-b03.iam.gserviceaccount.com
           token_format: access_token
-          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/documents
+          access_token_scopes: https://www.googleapis.com/auth/documents
           create_credentials_file: true
           export_environment_variables: true
-
-      - name: Ensure Google Docs API is enabled
-        shell: bash
-        env:
-          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-        run: |
-          set -euo pipefail
-          readonly SERVICE_URL='https://serviceusage.googleapis.com/v1/projects/137432928351/services/docs.googleapis.com'
-          current="$(curl --silent --show-error --fail-with-body \
-            --connect-timeout 10 --max-time 30 \
-            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-            "$SERVICE_URL")"
-          state="$(jq -r '.state' <<<"$current")"
-          echo "docs.googleapis.com state=${state}"
-          if [[ "$state" != 'ENABLED' ]]; then
-            echo 'Enabling docs.googleapis.com...'
-            curl --silent --show-error --fail-with-body \
-              --connect-timeout 10 --max-time 30 \
-              -X POST \
-              -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-              -H 'Content-Type: application/json' \
-              -d '{}' \
-              "${SERVICE_URL}:enable" >/dev/null
-            for _ in {1..18}; do
-              sleep 5
-              current="$(curl --silent --show-error --fail-with-body \
-                --connect-timeout 10 --max-time 30 \
-                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-                "$SERVICE_URL")"
-              state="$(jq -r '.state' <<<"$current")"
-              echo "docs.googleapis.com state=${state}"
-              [[ "$state" == 'ENABLED' ]] && break
-            done
-          fi
-          [[ "$state" == 'ENABLED' ]] || { echo 'Docs API did not reach ENABLED.' >&2; exit 1; }
 
       - name: Install append dependencies
         run: python3 -m pip install --disable-pip-version-check google-auth requests
