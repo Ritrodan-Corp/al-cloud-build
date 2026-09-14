@@ -4,6 +4,11 @@ on:
   push:
     branches: [exp157-kernel-39va]
   workflow_dispatch:
+    inputs:
+      build_kernel:
+        description: Compile Image and modules after configuration passes
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,36 +27,51 @@ jobs:
       - name: Download exact Ubuntu GCP source and stock config carrier
         run: |
           set -euxo pipefail
-          base='http://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux-gcp-6.8'
+          base='https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux-gcp-6.8'
           curl -fL --retry 4 -o linux.orig.tar.gz "$base/linux-gcp-6.8_6.8.0.orig.tar.gz"
           curl -fL --retry 4 -o linux.diff.gz "$base/linux-gcp-6.8_6.8.0-1066.74~22.04.1.diff.gz"
-          curl -fL --retry 4 -o stock.deb "$base/linux-image-unsigned-6.8.0-1066-gcp_6.8.0-1066.74~22.04.1_arm64.deb"
-          md5sum linux.orig.tar.gz linux.diff.gz
-          test "$(md5sum linux.orig.tar.gz | cut -d' ' -f1)" = '3ce3b99b065c7c0507b82ad0f330e2fd'
-          test "$(md5sum linux.diff.gz | cut -d' ' -f1)" = '0e12331dd8a5586d41fba64004337595'
+          # Ubuntu puts /boot/config-* in linux-modules, not linux-image-unsigned.
+          curl -fL --retry 4 -o stock.deb "$base/linux-modules-6.8.0-1066-gcp_6.8.0-1066.74~22.04.1_arm64.deb"
+          # Source hashes come from this version's .dsc; the carrier is pinned too.
+          sha256sum -c <<'EOF'
+          26512115972bdf017a4ac826cc7d3e9b0ba397d4f85cd330e4e4ff54c78061c8  linux.orig.tar.gz
+          0a9e1cba2c36cfb9ed8c807791160c953da5d44c645c887c0f72d0f44b88f9e4  linux.diff.gz
+          181dbb54431e0bcb068c3a225d095d8b43acf4a2f4bce6a9d563f626211468d8  stock.deb
+          EOF
+          test "$(dpkg-deb -f stock.deb Package)" = 'linux-modules-6.8.0-1066-gcp'
+          test "$(dpkg-deb -f stock.deb Version)" = '6.8.0-1066.74~22.04.1'
+          test "$(dpkg-deb -f stock.deb Architecture)" = 'arm64'
 
       - name: Reconstruct exact source and derive 39-bit config
         run: |
           set -euxo pipefail
-          mkdir src stock
+          mkdir src stock audit
+          exec > >(tee audit/configure.log) 2>&1
+          printf '%s\n' 'linux-gcp-6.8 6.8.0-1066.74~22.04.1' > audit/source-version.txt
+          sha256sum linux.orig.tar.gz linux.diff.gz stock.deb > audit/inputs.sha256
           tar -xzf linux.orig.tar.gz --strip-components=1 -C src
           cd src
-          gzip -dc ../linux.diff.gz | patch -p1
+          gzip -dc ../linux.diff.gz | patch --quiet -p1
           cd ..
           dpkg-deb -x stock.deb stock
-          cfg=$(find stock/boot -maxdepth 1 -name 'config-6.8.0-1066-gcp' -print -quit)
-          test -n "$cfg"
+          cfg=stock/boot/config-6.8.0-1066-gcp
+          test -s "$cfg"
+          cp "$cfg" audit/stock.config
           cp "$cfg" src/.config
           cd src
 
           echo '=== exact-source Kconfig VA choice ==='
-          grep -n -A55 -B8 'prompt "Virtual address space size"' arch/arm64/Kconfig | head -80
+          cp arch/arm64/Kconfig ../audit/arm64.Kconfig
+          grep -n -A70 -B8 'prompt "Virtual address space size"' arch/arm64/Kconfig
           grep -q '^config ARM64_VA_BITS_39$' arch/arm64/Kconfig
-          grep -A3 '^config ARM64_VA_BITS_39$' arch/arm64/Kconfig | grep -q 'depends on ARM64_4K_PAGES'
+          # This Ubuntu tree uses PAGE_SIZE_4KB for the 39-bit dependency.
+          # Let Kconfig resolve dependencies; do not assume upstream v6.8 spelling.
 
           echo '=== stock VA/page config ==='
           grep -E '^CONFIG_ARM64_(4K_PAGES|16K_PAGES|64K_PAGES|VA_BITS(_36|_39|_42|_47|_48|_52)?)=' .config || true
           test "$(grep '^CONFIG_ARM64_4K_PAGES=' .config)" = 'CONFIG_ARM64_4K_PAGES=y'
+          make ARCH=arm64 olddefconfig
+          cp .config ../audit/normalized-stock.config
 
           # ARM64_VA_BITS_* is a Kconfig choice. Make the choice internally
           # consistent before olddefconfig rather than leaving a second
@@ -59,19 +79,45 @@ jobs:
           for sym in ARM64_VA_BITS_36 ARM64_VA_BITS_42 ARM64_VA_BITS_47 ARM64_VA_BITS_48 ARM64_VA_BITS_52; do
             scripts/config --disable "$sym"
           done
+          scripts/config --enable ARM64_4K_PAGES
+          scripts/config --disable ARM64_16K_PAGES --disable ARM64_64K_PAGES
           scripts/config --enable ARM64_VA_BITS_39
           scripts/config --set-str LOCALVERSION '-exp157-39va'
           scripts/config --disable LOCALVERSION_AUTO
-          make olddefconfig
+          cp .config ../audit/requested.config
+          make ARCH=arm64 olddefconfig
+          cp .config ../audit/derived.config
+          scripts/diffconfig ../audit/normalized-stock.config .config > ../audit/derived.diff
 
           echo '=== derived VA/page config ==='
           grep -E '^CONFIG_ARM64_(4K_PAGES|16K_PAGES|64K_PAGES|VA_BITS(_36|_39|_42|_47|_48|_52)?)=' .config || true
           test "$(grep '^CONFIG_ARM64_VA_BITS_39=' .config)" = 'CONFIG_ARM64_VA_BITS_39=y'
           test "$(grep '^CONFIG_ARM64_VA_BITS=' .config)" = 'CONFIG_ARM64_VA_BITS=39'
           test "$(grep '^CONFIG_ARM64_4K_PAGES=' .config)" = 'CONFIG_ARM64_4K_PAGES=y'
+          test "$(grep '^CONFIG_PAGE_SIZE_4KB=' .config)" = 'CONFIG_PAGE_SIZE_4KB=y'
+          test "$(grep '^CONFIG_PGTABLE_LEVELS=' .config)" = 'CONFIG_PGTABLE_LEVELS=3'
+          if grep -Eq '^CONFIG_ARM64_VA_BITS_(48|52)=y$' .config; then
+            echo 'A competing VA choice remains selected' >&2
+            exit 1
+          fi
+          # A second resolution must retain the complete configuration unchanged.
+          make ARCH=arm64 olddefconfig
+          cmp ../audit/derived.config .config
           cp .config ../exp157-39va.config
+          make -s ARCH=arm64 kernelrelease | tee ../kernel-release.txt
+          printf '%s\n' CONFIGURATION_PASS > ../audit/result.txt
+
+      - name: Upload configuration evidence (including failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp157-config-audit-${{ github.run_id }}
+          path: audit/
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Build image and modules
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_kernel }}
         run: |
           set -euxo pipefail
           cd src
@@ -87,6 +133,7 @@ jobs:
           find ../stage/lib/modules -maxdepth 1 -mindepth 1 -type d -printf '%f\n'
 
       - name: Package and fingerprint
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_kernel }}
         run: |
           set -euxo pipefail
           tar --zstd -C stage -cf exp157-kernel-39va.tar.zst .
@@ -94,6 +141,7 @@ jobs:
           du -h exp157-kernel-39va.tar.zst
 
       - name: Upload kernel artifact
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_kernel }}
         uses: actions/upload-artifact@v4
         with:
           name: exp157-kernel-39va
