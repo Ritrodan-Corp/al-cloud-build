@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Append one structured entry to an AL Cloud external Google Docs raw log.
+"""Internal append primitive for the AL Cloud external Google Docs raw log.
+
+EXPERIMENT AGENTS SHOULD NOT CALL THIS TOOL DIRECTLY. Use tools/al-log-submit.py.
+Experiment agents must not inspect the raw-log tail, search for ``Next entry ID``,
+or allocate an RNNNNNN identifier themselves.
 
 This tool intentionally implements APPEND ONLY. It has no edit, delete, truncate,
-or arbitrary document-rewrite operation.
+or arbitrary document-rewrite operation. It owns permanent ID allocation and uses
+Google Docs revision collision protection so concurrent writers fail/retry safely.
 
 Authentication uses Google Application Default Credentials. The caller must have
 access to the target Google Doc and the Google Docs API must be available to the
@@ -111,12 +116,23 @@ def _format_entry(args: argparse.Namespace, entry_id: str) -> str:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Append one structured entry to the AL Cloud raw log")
+    p = argparse.ArgumentParser(
+        description=(
+            "INTERNAL: append one structured entry to the AL Cloud raw log. "
+            "Experiment agents should use tools/al-log-submit.py instead."
+        )
+    )
     p.add_argument("--document-id", default=os.getenv("AL_CLOUD_RAW_LOG_DOC_ID"))
     p.add_argument("--workstream", default=os.getenv("AL_CLOUD_RAW_LOG_WORKSTREAM"), required=False)
     p.add_argument("--step", required=True)
     p.add_argument("--action", required=True)
-    p.add_argument("--result", required=True)
+    result_group = p.add_mutually_exclusive_group(required=True)
+    result_group.add_argument("--result")
+    result_group.add_argument(
+        "--result-stdin",
+        action="store_true",
+        help="Read Result/evidence body from stdin. Intended for al-log-submit.py.",
+    )
     p.add_argument("--next", required=True)
     p.add_argument("--excerpt", default="")
     p.add_argument("--refs", default="")
@@ -128,6 +144,8 @@ def main() -> int:
         p.error("--document-id or AL_CLOUD_RAW_LOG_DOC_ID is required")
     if not args.workstream:
         p.error("--workstream or AL_CLOUD_RAW_LOG_WORKSTREAM is required")
+    if args.result_stdin:
+        args.result = sys.stdin.read()
     if len(args.excerpt) > 1200 or args.excerpt.count("\n") >= 12:
         p.error("--excerpt is limited to about 1,200 characters and at most 12 lines")
 
@@ -144,6 +162,15 @@ def main() -> int:
     if not all(fields[k] for k in ("workstream", "step", "action", "result", "next")):
         p.error("workstream, step, action, result, and next must be non-empty")
     _validate_no_secrets(fields)
+
+    args.workstream = fields["workstream"]
+    args.step = fields["step"]
+    args.action = fields["action"]
+    args.result = fields["result"]
+    args.next = fields["next"]
+    args.excerpt = fields["excerpt"]
+    args.refs = fields["refs"]
+    args.actor = fields["actor"]
 
     credentials, _ = google.auth.default(scopes=[DOCS_SCOPE])
     session = AuthorizedSession(credentials)
