@@ -1,0 +1,1 @@
+Second immutable GitHub inbox validation after fixing Contents-API path detection. The log-only push must skip VM lifecycle execution, run the centralized log drainer under the existing chat-control WIF identity, process all immutable submission files in Git commit order, append each at most once to the Drive raw log, and use stable github-file submission IDs for retry safety.
