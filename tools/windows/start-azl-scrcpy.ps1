@@ -28,17 +28,20 @@ $tunnel = $null
 try {
     $gcloudArgs = @(
         "compute", "ssh", $Instance,
-        "--zone", $Zone,
+        "--zone=$Zone",
         "--tunnel-through-iap"
     )
     if ($Project) {
-        $gcloudArgs += @("--project", $Project)
+        $gcloudArgs += "--project=$Project"
     }
+    # Use gcloud's explicit SSH-flag interface on Windows instead of the
+    # POSIX-style `-- SSH_ARGS` separator. Keep each value space-free so
+    # Start-Process cannot accidentally split one SSH flag into two argv items.
     $gcloudArgs += @(
-        "--", "-N",
-        "-L", "${LocalAdbPort}:127.0.0.1:${RemoteAdbPort}",
-        "-o", "ExitOnForwardFailure=yes",
-        "-o", "ServerAliveInterval=30"
+        "--ssh-flag=-N",
+        "--ssh-flag=-L${LocalAdbPort}:127.0.0.1:${RemoteAdbPort}",
+        "--ssh-flag=-oExitOnForwardFailure=yes",
+        "--ssh-flag=-oServerAliveInterval=30"
     )
 
     Write-Host "Opening IAP/SSH ADB tunnel to $Instance..."
