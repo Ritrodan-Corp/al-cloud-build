@@ -1,0 +1,1 @@
+Google Docs API bootstrap validation for the centralized AL Cloud log writer. The prior pipeline reached the raw-log API but received SERVICE_DISABLED. This submission should exercise the bounded log-drain bootstrap for docs.googleapis.com, then drain the immutable backlog if the existing WIF service account has the required project permission.
