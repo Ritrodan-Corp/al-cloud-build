@@ -1,0 +1,9 @@
+Experiment 157 / remote interface direction change
+
+User-directed stop: abort the native Windows scrcpy access path immediately and do not continue troubleshooting it.
+
+Observed during attempted setup: the initial gcloud compute ssh forwarding invocation rejected the SSH arguments, and a subsequent direct SSH/IAP-style attempt reached the host path but failed authentication with `Permission denied (publickey)`. Local ADB therefore had no listener on 127.0.0.1:15555 and connection was refused. No scrcpy session was established.
+
+Decision: stop pursuing the native scrcpy implementation for now. The next remote-interface direction should be a browser-based option, aiming for materially lower overhead and better responsiveness than the existing screenshot-polling controller while avoiding the Windows native SSH/key setup that blocked this attempt.
+
+Do not continue native scrcpy troubleshooting unless the user explicitly reopens that path.
