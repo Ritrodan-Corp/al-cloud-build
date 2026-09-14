@@ -251,7 +251,7 @@ jobs:
               ;;
 
             *)
-              echo "Unsupported action: ${ACTION}" >&2
+              echo "Unsupported action: $ACTION" >&2
               exit 2
               ;;
           esac
@@ -277,7 +277,7 @@ jobs:
           workload_identity_provider: projects/137432928351/locations/global/workloadIdentityPools/alcloud-github/providers/alcloud-chat-control
           service_account: alcloud-vm-lifecycle@project-97e3d26a-3ba2-4579-b03.iam.gserviceaccount.com
           token_format: access_token
-          access_token_scopes: https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/documents
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/documents
           create_credentials_file: true
           export_environment_variables: true
 
