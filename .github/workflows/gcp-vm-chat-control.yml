@@ -24,26 +24,21 @@ jobs:
       - id: detect
         name: Detect changed control surfaces
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json, os
-          event = json.load(open(os.environ['GITHUB_EVENT_PATH'], encoding='utf-8'))
-          paths = set()
-          commits = list(event.get('commits') or [])
-          head = event.get('head_commit')
-          if head:
-              commits.append(head)
-          for commit in commits:
-              for key in ('added', 'modified', 'removed'):
-                  paths.update(commit.get(key, []) or [])
-          lifecycle = 'control/command.json' in paths
-          log_intake = any(p.startswith('log-inbox/submissions/') for p in paths)
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
-              f.write(f"lifecycle={'true' if lifecycle else 'false'}\n")
-              f.write(f"log_intake={'true' if log_intake else 'false'}\n")
-          print(f'lifecycle={lifecycle} log_intake={log_intake} paths={sorted(paths)}')
-          PY
+          paths="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}" --jq '.files[].filename')"
+          lifecycle=false
+          log_intake=false
+          while IFS= read -r path; do
+            [[ -n "$path" ]] || continue
+            [[ "$path" == 'control/command.json' ]] && lifecycle=true
+            [[ "$path" == log-inbox/submissions/* ]] && log_intake=true
+          done <<<"$paths"
+          echo "lifecycle=${lifecycle}" >> "$GITHUB_OUTPUT"
+          echo "log_intake=${log_intake}" >> "$GITHUB_OUTPUT"
+          printf 'lifecycle=%s log_intake=%s\nchanged paths:\n%s\n' "$lifecycle" "$log_intake" "$paths"
 
   lifecycle:
     needs: detect
