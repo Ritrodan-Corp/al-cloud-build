@@ -53,9 +53,18 @@ def _text_from_structural_elements(elements: Iterable[Dict[str, Any]]) -> str:
     return "".join(out)
 
 
+def _require_ok(resp, context: str) -> None:
+    if resp.ok:
+        return
+    body = (resp.text or "").strip().replace("\x00", "")
+    if len(body) > 3000:
+        body = body[:3000] + "..."
+    raise RuntimeError(f"{context} failed: HTTP {resp.status_code}: {body}")
+
+
 def _fetch_doc(session: AuthorizedSession, doc_id: str) -> Dict[str, Any]:
     resp = session.get(f"https://docs.googleapis.com/v1/documents/{doc_id}?includeTabsContent=true", timeout=30)
-    resp.raise_for_status()
+    _require_ok(resp, "Google Docs documents.get")
     return resp.json()
 
 
@@ -171,7 +180,7 @@ def main() -> int:
         resp = session.post(f"https://docs.googleapis.com/v1/documents/{args.document_id}:batchUpdate", json=payload, timeout=30)
         if resp.status_code == 400 and "required revision" in resp.text.lower() and attempt < 4:
             continue
-        resp.raise_for_status()
+        _require_ok(resp, "Google Docs documents.batchUpdate")
         print(entry_id)
         return 0
     raise RuntimeError("Could not append after revision-collision retries")
