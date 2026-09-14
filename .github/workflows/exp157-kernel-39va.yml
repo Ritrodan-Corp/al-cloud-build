@@ -1,0 +1,88 @@
+name: Experiment 157 39-bit GCP kernel
+
+on:
+  push:
+    branches: [exp157-kernel-39va]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - name: Install build dependencies
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential flex bison libssl-dev libelf-dev bc dwarves rsync cpio zstd xz-utils dpkg-dev patch curl
+
+      - name: Download exact Ubuntu GCP source and stock config carrier
+        run: |
+          set -euxo pipefail
+          base='http://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux-gcp-6.8'
+          curl -fL --retry 4 -o linux.orig.tar.gz "$base/linux-gcp-6.8_6.8.0.orig.tar.gz"
+          curl -fL --retry 4 -o linux.diff.gz "$base/linux-gcp-6.8_6.8.0-1066.74~22.04.1.diff.gz"
+          curl -fL --retry 4 -o stock.deb "$base/linux-image-unsigned-6.8.0-1066-gcp_6.8.0-1066.74~22.04.1_arm64.deb"
+          md5sum linux.orig.tar.gz linux.diff.gz
+          test "$(md5sum linux.orig.tar.gz | cut -d' ' -f1)" = '3ce3b99b065c7c0507b82ad0f330e2fd'
+          test "$(md5sum linux.diff.gz | cut -d' ' -f1)" = '0e12331dd8a5586d41fba64004337595'
+
+      - name: Reconstruct exact source and derive 39-bit config
+        run: |
+          set -euxo pipefail
+          mkdir src stock
+          tar -xzf linux.orig.tar.gz --strip-components=1 -C src
+          cd src
+          gzip -dc ../linux.diff.gz | patch -p1
+          cd ..
+          dpkg-deb -x stock.deb stock
+          cfg=$(find stock/boot -maxdepth 1 -name 'config-6.8.0-1066-gcp' -print -quit)
+          test -n "$cfg"
+          cp "$cfg" src/.config
+          cd src
+          scripts/config --enable ARM64_VA_BITS_39
+          scripts/config --disable ARM64_VA_BITS_48
+          scripts/config --set-str LOCALVERSION '-exp157-39va'
+          scripts/config --disable LOCALVERSION_AUTO
+          make olddefconfig
+          grep -E '^CONFIG_ARM64_(4K_PAGES|VA_BITS_39|VA_BITS_48|VA_BITS)=' .config
+          test "$(grep '^CONFIG_ARM64_VA_BITS=' .config)" = 'CONFIG_ARM64_VA_BITS=39'
+          test "$(grep '^CONFIG_ARM64_4K_PAGES=' .config)" = 'CONFIG_ARM64_4K_PAGES=y'
+          cp .config ../exp157-39va.config
+
+      - name: Build image and modules
+        run: |
+          set -euxo pipefail
+          cd src
+          make -j"$(nproc)" Image modules
+          release=$(make -s kernelrelease)
+          echo "$release" | tee ../kernel-release.txt
+          test "$release" = '6.8.0-exp157-39va'
+          mkdir -p ../stage/boot ../stage/lib/modules
+          cp arch/arm64/boot/Image ../stage/boot/vmlinuz-exp157-39va
+          cp System.map ../stage/boot/System.map-exp157-39va
+          cp .config ../stage/boot/config-exp157-39va
+          make INSTALL_MOD_PATH="$PWD/../stage" INSTALL_MOD_STRIP=1 modules_install
+          find ../stage/lib/modules -maxdepth 1 -mindepth 1 -type d -printf '%f\n'
+
+      - name: Package and fingerprint
+        run: |
+          set -euxo pipefail
+          tar --zstd -C stage -cf exp157-kernel-39va.tar.zst .
+          sha256sum exp157-kernel-39va.tar.zst exp157-39va.config stage/boot/vmlinuz-exp157-39va stage/boot/System.map-exp157-39va | tee SHA256SUMS
+          du -h exp157-kernel-39va.tar.zst
+
+      - name: Upload kernel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp157-kernel-39va
+          path: |
+            exp157-kernel-39va.tar.zst
+            exp157-39va.config
+            kernel-release.txt
+            SHA256SUMS
+          retention-days: 7
+          if-no-files-found: error
