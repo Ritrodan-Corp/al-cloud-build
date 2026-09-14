@@ -6,9 +6,6 @@ EXPERIMENT AGENTS SHOULD NOT CALL THIS TOOL DIRECTLY.
 This tool implements append-only raw-log mutation. It owns permanent RNNNNNN ID
 allocation, supports stable submission IDs for idempotent drain retries, and uses
 Google Docs revision collision protection.
-
-Authentication uses Google Application Default Credentials. The caller must have
-access to the target Google Doc and the Google Docs API must be available.
 """
 
 from __future__ import annotations
@@ -24,7 +21,7 @@ import google.auth
 from google.auth.transport.requests import AuthorizedSession
 
 DOCS_SCOPE = "https://www.googleapis.com/auth/documents"
-ENTRY_RE = re.compile(r"\bR(?P<num>\d{6,})\b")
+ENTRY_HEADER_RE = re.compile(r"(?m)^R(?P<num>\d{6,})\s+\|")
 SUBMISSION_ID_RE = re.compile(r"^[A-Za-z0-9._:/#-]{1,200}$")
 SENSITIVE_RE = re.compile(
     r"(?i)(authorization\s*:|bearer\s+[A-Za-z0-9._~+/=-]+|"
@@ -56,10 +53,18 @@ def _text_from_structural_elements(elements: Iterable[Dict[str, Any]]) -> str:
     return "".join(out)
 
 
+def _require_ok(resp, context: str) -> None:
+    if resp.ok:
+        return
+    body = (resp.text or "").strip().replace("\x00", "")
+    if len(body) > 3000:
+        body = body[:3000] + "..."
+    raise RuntimeError(f"{context} failed: HTTP {resp.status_code}: {body}")
+
+
 def _fetch_doc(session: AuthorizedSession, doc_id: str) -> Dict[str, Any]:
-    url = f"https://docs.googleapis.com/v1/documents/{doc_id}?includeTabsContent=true"
-    resp = session.get(url, timeout=30)
-    resp.raise_for_status()
+    resp = session.get(f"https://docs.googleapis.com/v1/documents/{doc_id}?includeTabsContent=true", timeout=30)
+    _require_ok(resp, "Google Docs documents.get")
     return resp.json()
 
 
@@ -75,8 +80,12 @@ def _tab_text(tab: Dict[str, Any]) -> str:
     return _text_from_structural_elements(body.get("content", []))
 
 
+def _entry_headers(text: str) -> list[re.Match[str]]:
+    return list(ENTRY_HEADER_RE.finditer(text))
+
+
 def _next_entry_id(text: str) -> str:
-    max_num = max((int(m.group("num")) for m in ENTRY_RE.finditer(text)), default=0)
+    max_num = max((int(m.group("num")) for m in _entry_headers(text)), default=0)
     return f"R{max_num + 1:06d}"
 
 
@@ -85,10 +94,10 @@ def _existing_submission_entry(text: str, submission_id: str) -> str | None:
     pos = text.find(marker)
     if pos < 0:
         return None
-    entries = list(ENTRY_RE.finditer(text, 0, pos))
+    entries = [m for m in _entry_headers(text) if m.start() < pos]
     if not entries:
-        raise RuntimeError(f"Submission marker exists without preceding entry ID: {submission_id}")
-    return entries[-1].group(0)
+        raise RuntimeError(f"Submission marker exists without preceding entry header: {submission_id}")
+    return f"R{int(entries[-1].group('num')):06d}"
 
 
 def _clean(value: str | None) -> str:
@@ -96,12 +105,8 @@ def _clean(value: str | None) -> str:
 
 
 def _validate_no_secrets(fields: Dict[str, str]) -> None:
-    joined = "\n".join(fields.values())
-    if SENSITIVE_RE.search(joined):
-        raise ValueError(
-            "Entry appears to contain a credential/token/cookie/authorization value. "
-            "Redact it and reference the secure evidence location instead."
-        )
+    if SENSITIVE_RE.search("\n".join(fields.values())):
+        raise ValueError("Entry appears to contain a credential/token/cookie/authorization value")
 
 
 def _format_entry(args: argparse.Namespace, entry_id: str) -> str:
@@ -111,10 +116,9 @@ def _format_entry(args: argparse.Namespace, entry_id: str) -> str:
         lines.append(f"Actor/session: {args.actor}")
     if args.submission_id:
         lines.append(f"Submission-ID: {args.submission_id}")
-    lines.append(f"Action: {args.action}")
-    lines.append(f"Result/evidence: {args.result}")
+    lines += [f"Action: {args.action}", f"Result/evidence: {args.result}"]
     if args.excerpt:
-        lines.extend(["Verbatim excerpt:", args.excerpt])
+        lines += ["Verbatim excerpt:", args.excerpt]
     lines.append(f"Interpretation/next: {args.next}")
     if args.refs:
         lines.append(f"Evidence refs: {args.refs}")
@@ -127,9 +131,9 @@ def main() -> int:
     p.add_argument("--workstream", default=os.getenv("AL_CLOUD_RAW_LOG_WORKSTREAM"))
     p.add_argument("--step", required=True)
     p.add_argument("--action", required=True)
-    result_group = p.add_mutually_exclusive_group(required=True)
-    result_group.add_argument("--result")
-    result_group.add_argument("--result-stdin", action="store_true")
+    rg = p.add_mutually_exclusive_group(required=True)
+    rg.add_argument("--result")
+    rg.add_argument("--result-stdin", action="store_true")
     p.add_argument("--next", required=True)
     p.add_argument("--excerpt", default="")
     p.add_argument("--refs", default="")
@@ -147,19 +151,12 @@ def main() -> int:
     if len(args.excerpt) > 1200 or args.excerpt.count("\n") >= 12:
         p.error("--excerpt is limited to about 1,200 characters and at most 12 lines")
 
-    fields = {
-        "workstream": _clean(args.workstream), "step": _clean(args.step),
-        "action": _clean(args.action), "result": _clean(args.result),
-        "next": _clean(args.next), "excerpt": _clean(args.excerpt),
-        "refs": _clean(args.refs), "actor": _clean(args.actor),
-        "submission_id": _clean(args.submission_id),
-    }
+    fields = {k: _clean(getattr(args, k)) for k in ("workstream", "step", "action", "result", "next", "excerpt", "refs", "actor", "submission_id")}
     if not all(fields[k] for k in ("workstream", "step", "action", "result", "next")):
         p.error("workstream, step, action, result, and next must be non-empty")
     if fields["submission_id"] and not SUBMISSION_ID_RE.fullmatch(fields["submission_id"]):
         p.error("--submission-id must be 1-200 safe identifier characters")
     _validate_no_secrets(fields)
-
     for key, value in fields.items():
         setattr(args, key, value)
 
@@ -174,27 +171,22 @@ def main() -> int:
         if not revision_id or not tab_id:
             raise RuntimeError("Could not resolve document revision/tab")
         text = _tab_text(tab)
-
         if args.submission_id:
             existing = _existing_submission_entry(text, args.submission_id)
             if existing:
                 print(existing)
                 return 0
-
         entry_id = _next_entry_id(text)
-        entry = _format_entry(args, entry_id)
         payload = {
-            "requests": [{"insertText": {"endOfSegmentLocation": {"tabId": tab_id}, "text": entry}}],
+            "requests": [{"insertText": {"endOfSegmentLocation": {"tabId": tab_id}, "text": _format_entry(args, entry_id)}}],
             "writeControl": {"requiredRevisionId": revision_id},
         }
-        url = f"https://docs.googleapis.com/v1/documents/{args.document_id}:batchUpdate"
-        resp = session.post(url, json=payload, timeout=30)
+        resp = session.post(f"https://docs.googleapis.com/v1/documents/{args.document_id}:batchUpdate", json=payload, timeout=30)
         if resp.status_code == 400 and "required revision" in resp.text.lower() and attempt < 4:
             continue
-        resp.raise_for_status()
+        _require_ok(resp, "Google Docs documents.batchUpdate")
         print(entry_id)
         return 0
-
     raise RuntimeError("Could not append after revision-collision retries")
 
 
