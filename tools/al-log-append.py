@@ -21,7 +21,7 @@ import google.auth
 from google.auth.transport.requests import AuthorizedSession
 
 DOCS_SCOPE = "https://www.googleapis.com/auth/documents"
-ENTRY_RE = re.compile(r"\bR(?P<num>\d{6,})\b")
+ENTRY_HEADER_RE = re.compile(r"(?m)^R(?P<num>\d{6,})\s+\|")
 SUBMISSION_ID_RE = re.compile(r"^[A-Za-z0-9._:/#-]{1,200}$")
 SENSITIVE_RE = re.compile(
     r"(?i)(authorization\s*:|bearer\s+[A-Za-z0-9._~+/=-]+|"
@@ -80,8 +80,12 @@ def _tab_text(tab: Dict[str, Any]) -> str:
     return _text_from_structural_elements(body.get("content", []))
 
 
+def _entry_headers(text: str) -> list[re.Match[str]]:
+    return list(ENTRY_HEADER_RE.finditer(text))
+
+
 def _next_entry_id(text: str) -> str:
-    max_num = max((int(m.group("num")) for m in ENTRY_RE.finditer(text)), default=0)
+    max_num = max((int(m.group("num")) for m in _entry_headers(text)), default=0)
     return f"R{max_num + 1:06d}"
 
 
@@ -90,10 +94,10 @@ def _existing_submission_entry(text: str, submission_id: str) -> str | None:
     pos = text.find(marker)
     if pos < 0:
         return None
-    entries = list(ENTRY_RE.finditer(text, 0, pos))
+    entries = [m for m in _entry_headers(text) if m.start() < pos]
     if not entries:
-        raise RuntimeError(f"Submission marker exists without preceding entry ID: {submission_id}")
-    return entries[-1].group(0)
+        raise RuntimeError(f"Submission marker exists without preceding entry header: {submission_id}")
+    return f"R{int(entries[-1].group('num')):06d}"
 
 
 def _clean(value: str | None) -> str:
