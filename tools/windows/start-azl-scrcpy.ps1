@@ -3,6 +3,9 @@ param(
     [string]$Instance = "azl-android-arm64-01",
     [string]$Zone = "us-central1-a",
     [string]$Project = "",
+    [string]$SshUser = $env:USERNAME.ToLower(),
+    [string]$SshKey = "$env:USERPROFILE\.ssh\google_compute_engine",
+    [int]$LocalSshPort = 22222,
     [int]$LocalAdbPort = 15555,
     [int]$RemoteAdbPort = 5555,
     [int]$MaxFps = 15,
@@ -19,55 +22,70 @@ function Require-Command([string]$Name) {
     return $cmd.Source
 }
 
-$gcloud = Require-Command "gcloud"
-$adb = Require-Command "adb"
-$scrcpy = Require-Command "scrcpy"
-$serial = "127.0.0.1:$LocalAdbPort"
-$tunnel = $null
-
-try {
-    $gcloudArgs = @(
-        "compute", "ssh", $Instance,
-        "--zone=$Zone",
-        "--tunnel-through-iap"
-    )
-    if ($Project) {
-        $gcloudArgs += "--project=$Project"
-    }
-    # Use gcloud's explicit SSH-flag interface on Windows instead of the
-    # POSIX-style `-- SSH_ARGS` separator. Keep each value space-free so
-    # Start-Process cannot accidentally split one SSH flag into two argv items.
-    $gcloudArgs += @(
-        "--ssh-flag=-N",
-        "--ssh-flag=-L${LocalAdbPort}:127.0.0.1:${RemoteAdbPort}",
-        "--ssh-flag=-oExitOnForwardFailure=yes",
-        "--ssh-flag=-oServerAliveInterval=30"
-    )
-
-    Write-Host "Opening IAP/SSH ADB tunnel to $Instance..."
-    $tunnel = Start-Process -FilePath $gcloud -ArgumentList $gcloudArgs -PassThru -NoNewWindow
-
-    $ready = $false
-    for ($i = 0; $i -lt 60; $i++) {
-        if ($tunnel.HasExited) {
-            throw "gcloud SSH tunnel exited before local port $LocalAdbPort became ready."
-        }
+function Wait-TcpPort([int]$Port, [int]$Attempts = 60) {
+    for ($i = 0; $i -lt $Attempts; $i++) {
         try {
             $client = [System.Net.Sockets.TcpClient]::new()
-            $task = $client.ConnectAsync("127.0.0.1", $LocalAdbPort)
+            $task = $client.ConnectAsync("127.0.0.1", $Port)
             if ($task.Wait(250) -and $client.Connected) {
-                $ready = $true
                 $client.Close()
-                break
+                return $true
             }
             $client.Close()
-        } catch {
-            # Tunnel is still starting.
-        }
+        } catch {}
         Start-Sleep -Milliseconds 500
     }
-    if (-not $ready) {
-        throw "Timed out waiting for local tunnel port $LocalAdbPort."
+    return $false
+}
+
+$gcloud = Require-Command "gcloud"
+$ssh = Require-Command "ssh"
+$adb = Require-Command "adb"
+$scrcpy = Require-Command "scrcpy"
+
+if (-not (Test-Path $SshKey)) {
+    throw "SSH key not found at '$SshKey'. Run one normal gcloud compute ssh connection first so gcloud creates the key."
+}
+
+$serial = "127.0.0.1:$LocalAdbPort"
+$iap = $null
+$sshForward = $null
+
+try {
+    $iapArgs = @(
+        "compute", "start-iap-tunnel", $Instance, "22",
+        "--zone=$Zone",
+        "--local-host-port=127.0.0.1:$LocalSshPort"
+    )
+    if ($Project) {
+        $iapArgs += "--project=$Project"
+    }
+
+    Write-Host "Opening IAP tunnel to $Instance SSH on local port $LocalSshPort..."
+    $iap = Start-Process -FilePath $gcloud -ArgumentList $iapArgs -PassThru -NoNewWindow
+    if (-not (Wait-TcpPort -Port $LocalSshPort)) {
+        throw "Timed out waiting for IAP SSH tunnel on 127.0.0.1:$LocalSshPort."
+    }
+
+    $sshArgs = @(
+        "-i", $SshKey,
+        "-p", "$LocalSshPort",
+        "-N",
+        "-L", "127.0.0.1:${LocalAdbPort}:127.0.0.1:${RemoteAdbPort}",
+        "-o", "ExitOnForwardFailure=yes",
+        "-o", "ServerAliveInterval=30",
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "HostKeyAlias=$Instance.iap",
+        "$SshUser@127.0.0.1"
+    )
+
+    Write-Host "Opening Windows OpenSSH ADB forward as $SshUser..."
+    $sshForward = Start-Process -FilePath $ssh -ArgumentList $sshArgs -PassThru -NoNewWindow
+    if (-not (Wait-TcpPort -Port $LocalAdbPort)) {
+        if ($sshForward.HasExited) {
+            throw "OpenSSH forwarding process exited before ADB became ready. If authentication failed, retry with -SshUser using the VM SSH username."
+        }
+        throw "Timed out waiting for forwarded ADB port 127.0.0.1:$LocalAdbPort."
     }
 
     Write-Host "Connecting local ADB to $serial..."
@@ -92,7 +110,10 @@ try {
 }
 finally {
     try { & $adb disconnect $serial | Out-Null } catch {}
-    if ($tunnel -and -not $tunnel.HasExited) {
-        Stop-Process -Id $tunnel.Id -Force -ErrorAction SilentlyContinue
+    if ($sshForward -and -not $sshForward.HasExited) {
+        Stop-Process -Id $sshForward.Id -Force -ErrorAction SilentlyContinue
+    }
+    if ($iap -and -not $iap.HasExited) {
+        Stop-Process -Id $iap.Id -Force -ErrorAction SilentlyContinue
     }
 }
