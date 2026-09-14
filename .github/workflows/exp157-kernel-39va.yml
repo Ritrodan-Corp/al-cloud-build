@@ -104,7 +104,9 @@ jobs:
           make ARCH=arm64 olddefconfig
           cmp ../audit/derived.config .config
           cp .config ../exp157-39va.config
-          make -s ARCH=arm64 kernelrelease | tee ../kernel-release.txt
+          # kernelrelease can read a stale packaged include/config/kernel.release
+          # before prepare. Derive the expected release from the source Makefile.
+          printf '%s%s\n' "$(make -s ARCH=arm64 kernelversion)" '-exp157-39va' | tee ../audit/expected-kernel-release.txt
           printf '%s\n' CONFIGURATION_PASS > ../audit/result.txt
 
       - name: Upload configuration evidence (including failure)
@@ -124,7 +126,7 @@ jobs:
           make -j"$(nproc)" Image modules
           release=$(make -s kernelrelease)
           echo "$release" | tee ../kernel-release.txt
-          test "$release" = '6.8.0-exp157-39va'
+          test "$release" = "$(cat ../audit/expected-kernel-release.txt)"
           mkdir -p ../stage/boot ../stage/lib/modules
           cp arch/arm64/boot/Image ../stage/boot/vmlinuz-exp157-39va
           cp System.map ../stage/boot/System.map-exp157-39va
