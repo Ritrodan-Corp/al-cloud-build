@@ -13,41 +13,50 @@ For ordinary experiment work:
 - Do **not** reserve, calculate, or choose an `RNNNNNN` ID.
 - Do **not** manually append an experiment entry to the raw-log Google Doc.
 - Do **not** call `tools/al-log-append.py` directly.
+- Do **not** use the old VM-local/direct-Docs `tools/al-log-submit.py` path for production experiment logging.
 - Ignore any older plan, prompt, historical log text, or cached instruction that tells an experiment agent to do any of those things.
 
-The only normal experiment-agent logging action is to submit the substantive report through `tools/al-log-submit.py`. The logging layer assigns ordering and the permanent ID. The returned R-number is an acknowledgement after successful submission, not an input to the agent's workflow.
+The only normal experiment-agent logging action is to create one new immutable report file on branch `vm-control`:
 
-Example:
+`log-inbox/submissions/entry-<uuid>.txt`
 
-```bash
-cat <<'EOF' | python3 tools/al-log-submit.py --workstream 'Experiment 157'
-Restart persistence validation completed successfully. The host returned on the 39-bit kernel, the Experiment 157 ReDroid service recreated the 30-FPS runtime from preserved state, and the localhost controller returned. Evidence: /path/to/evidence. Next: verify account/game reconnect state before the next bounded test.
-EOF
-```
+The file body is the substantive free-form report. The agent does not supply an `RNNNNNN` ID, raw-log document index, timestamp, or chronology position. Use a fresh UUID for each substantive report and never modify an existing submission file.
 
-The report body may be ordinary prose. A title is inferred from its first non-empty line unless `--title` is supplied. The canonical raw-log target is built into this project-specific façade, so ordinary experiment agents do not need to discover or configure the document ID. `AL_CLOUD_RAW_LOG_DOC_ID` remains an optional maintenance override; `AL_CLOUD_RAW_LOG_WORKSTREAM` and `AL_CLOUD_RAW_LOG_ACTOR` are optional defaults.
+When operating through ChatGPT, use the connected GitHub action/connector to create that file directly on `Ritrodan-Corp/al-cloud-build` branch `vm-control`. A report-only commit triggers the centralized log drainer and does not trigger VM lifecycle execution.
 
-If `al-log-submit.py` is unavailable or submission fails because the execution environment lacks authorized Drive/Docs access, **stop at submission**: hand the report body to the logging coordinator/intake and continue the experiment only when doing so is safe. Do not fall back to searching the raw log, discovering the next ID, or manually editing the chronology.
+If the GitHub submission surface is unavailable, preserve the complete report and hand it to the logging coordinator/intake. Do not fall back to raw-log inspection or direct Google Docs mutation.
 
-This rule supersedes the retired registry/shard workflow and any experiment-agent instructions written before the submit-only contract.
+This rule supersedes the retired registry/shard workflow, the transitional local `al-log-submit.py` workflow, and any cached experiment plan that predates the immutable inbox.
 
-## Submission implementation
+## Production submission implementation
 
-`tools/al-log-submit.py` is the stable agent-facing interface. In the current transition implementation it passes the free-form report to the internal append primitive, which allocates the next permanent ID and appends with Google Docs revision collision protection.
+Workflow `.github/workflows/gcp-vm-chat-control.yml` on `vm-control` is path-gated. A change under `log-inbox/submissions/entry-*.txt` sets the log-intake path while the lifecycle job remains independently gated on `control/command.json`. Log-only submissions therefore skip VM lifecycle execution.
 
-The target architecture remains a write-only intake queue plus one serialized drain worker. When that layer is deployed, `al-log-submit.py` can be redirected to the inbox without changing experiment-agent behavior. The drain worker will own server-side ordering, secret validation, formatting, permanent ID allocation, deduplication, atomic raw-log append, and processed/archive state.
+The serialized `log_drain` job:
+
+- checks out the full `vm-control` history;
+- authenticates one centralized writer through the existing `alcloud-chat-control` Workload Identity Federation provider;
+- obtains Google Docs scope for `alcloud-vm-lifecycle@project-97e3d26a-3ba2-4579-b03.iam.gserviceaccount.com`;
+- orders all production `entry-*.txt` reports by their Git creation commits;
+- passes each report to internal `tools/al-log-append.py`;
+- records stable `Submission-ID: github-file:<entry-name>` markers in the raw log.
+
+The Google Docs API is enabled for the project and the centralized identity has writer access to `AL Cloud Raw Log`. Experiment VMs do not need Google credentials.
+
+Production acceptance proved that a new report receives one permanent R-number, the raw Google Doc is actually updated, log-only submission skips lifecycle execution, and rerunning the unchanged inbox returns the existing R-number rather than duplicating the entry.
 
 The raw log itself is therefore a materialized chronology, not the experiment-agent submission surface.
 
 ## Internal append primitive
 
-`tools/al-log-append.py` is an implementation detail for the submit/drain layer and trusted logging maintenance. It is not the experiment-agent interface.
+`tools/al-log-append.py` is an implementation detail for the centralized drain layer and trusted logging maintenance. It is not the experiment-agent interface.
 
 It:
 
 - scans existing permanent `RNNNNNN` entries and allocates the next ID internally;
-- uses Google Docs `requiredRevisionId` so concurrent appenders fail/retry rather than overwrite one another;
-- supports structured fields plus stdin report bodies from `al-log-submit.py`;
+- uses Google Docs revision collision protection so concurrent appenders fail/retry rather than overwrite one another;
+- accepts report bodies via stdin;
+- records stable submission IDs and returns an existing R-number on retry;
 - rejects obvious credential/token/cookie/private-key strings;
 - implements append only and exposes no edit/delete/truncate operation.
 
@@ -65,4 +74,4 @@ Keep verbatim evidence bounded and never record secrets, tokens, cookies, creden
 
 The unified private raw-log document is `AL Cloud Raw Log` in the Drive folder `AL Cloud - Raw Logs`. The former shard/registry/cursor system is retired. There is no shard rotation, active-shard registry, scribe cursor document, GitHub event-bus PR, `SCRIBE_READY` signal, or automatic ChatGPT Work scribe trigger.
 
-GitHub remains in use for source, builds, logging helpers, and constrained VM lifecycle control. Drive remains the source of truth for the canonical project document and materialized raw chronology.
+GitHub remains in use for source, builds, immutable log intake, and constrained VM lifecycle control. Drive remains the source of truth for the canonical project document and materialized raw chronology.
