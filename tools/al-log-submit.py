@@ -17,6 +17,10 @@ import pathlib
 import subprocess
 import sys
 
+# Project-specific materialized chronology target. This is a locator, not a
+# credential; Drive permissions still control access. Maintenance can override it.
+DEFAULT_RAW_LOG_DOC_ID = "1s9VbzdPnA7nm-ogDP4X9gt2bghQ4mcKTVNVk1AiAiWg"
+
 
 def _read_report(explicit: str | None) -> str:
     if explicit is not None:
@@ -49,7 +53,11 @@ def main() -> int:
             "raw-log ID and never requires the caller to inspect the raw-log tail."
         )
     )
-    p.add_argument("--document-id", default=os.getenv("AL_CLOUD_RAW_LOG_DOC_ID"))
+    p.add_argument(
+        "--document-id",
+        default=os.getenv("AL_CLOUD_RAW_LOG_DOC_ID", DEFAULT_RAW_LOG_DOC_ID),
+        help=argparse.SUPPRESS,
+    )
     p.add_argument(
         "--workstream",
         default=os.getenv("AL_CLOUD_RAW_LOG_WORKSTREAM", "Unspecified agent report"),
@@ -65,9 +73,9 @@ def main() -> int:
 
     if not args.document_id:
         p.error(
-            "AL_CLOUD_RAW_LOG_DOC_ID (or --document-id) is not configured. "
-            "Hand the report to the logging coordinator/intake; do NOT search the "
-            "raw log for 'Next entry ID' or manually allocate an RNNNNNN ID."
+            "Logging target is unavailable. Hand the report to the logging "
+            "coordinator/intake; do NOT search the raw log for 'Next entry ID' or "
+            "manually allocate an RNNNNNN ID."
         )
 
     try:
