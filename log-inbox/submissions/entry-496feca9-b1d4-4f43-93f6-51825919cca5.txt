@@ -1,0 +1,10 @@
+2026-09-14T22:49Z | Experiment 157 resolution and CPU-placement performance findings
+
+Workstream: Experiment 157 / manual usability performance
+Action: On the running persistent Experiment 157 disposable-data runtime, held the authenticated animated home idle scene, official client, 39-bit kernel, ANGLE/pastel renderer, and 30-Hz setting constant. Applied reversible Android logical display-size overrides and then compared Docker's two-CPU CFS quota with a two-core cpuset. Protected /var/lib/azl-android/data, APK, kernel, renderer, networking, and account resources were not changed.
+
+Result/evidence: Evidence root /home/ritrodano2/exp157/evidence/performance-pass-20260914. In controlled same-scene unrestricted runs, 1280x720 averaged 761.991% container CPU with 30.0 FPS and 0.513-second mean screencap; 1024x576 averaged 508.341% CPU with 30.0 FPS and 0.351-second screencap; 960x540 averaged 455.748% CPU with 30.0 FPS and 0.341-second screencap. Thus 1024x576 reduced CPU about 33.3%, and 960x540 reduced it about 40.2%, without presentation loss on the 8-vCPU host.
+
+At 960x540 / 30 Hz under a two-CPU CFS quota, mean CPU was 202.549%, SurfaceFlinger median cadence was 10.0 FPS, mean screencap was 1.253 seconds, and the cgroup was throttled in all 391 observed periods with 167,219,366 aggregate throttled microseconds. Replacing the quota with cpuset cores 0,1 at the same nominal two-CPU capacity produced 199.574% mean CPU, 15.0 FPS, 0.576-second mean screencap, and zero throttled periods. Game PID remained alive and the 960x540 frame remained legible.
+
+Interpretation/next: Actual display-size reduction is a high-value renderer optimization. CFS quota introduces severe periodic throttling and materially understates two-core performance; future Oracle prediction should use dedicated-core placement or an actual A1 instance. Continue with the retained 15-Hz Experiment 157 runtime at 960x540 on two dedicated cores to test whether matching the display cap creates usable headroom.
