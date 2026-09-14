@@ -1,0 +1,30 @@
+Timestamp UTC: 2026-09-14T23:29:00Z
+Actor: Codex performance research pass
+Scope: Experiment 157 guest closeout and persistent-service restoration
+VM: azl-android-arm64-01
+
+Operational steps:
+- Stopped the temporary 12 Hz test container.
+- Removed only temporary containers azl-redroid-exp157-perf10 and azl-redroid-exp157-perf12.
+- Restarted dedicated persistent services azl-redroid-exp157.service and azl-control-exp157.service.
+- Reset the Android logical display override to the persistent service default.
+- Verified boot, private ADB, private browser controller, renderer properties, kernel, and data mount.
+
+Verified final guest state before graceful VM stop:
+- azl-redroid-exp157.service: active
+- azl-control-exp157.service: active
+- Android sys.boot_completed: 1
+- Android physical size: 1280x720 with no logical override
+- ADB listener: 127.0.0.1:5555 only
+- Controller listener: 127.0.0.1:8765 only; HTTP root returned 200
+- EGL: ANGLE
+- ro.hardware.vulkan: pastel
+- Kernel: 6.8.12-exp157-39va
+- Persistent Experiment 157 data mount: /var/lib/azl-android/exp157-lowva-data-1
+- Protected reference data /var/lib/azl-android/data was untouched
+- Temporary perf10/perf12 containers no longer exist
+- Retained 15-FPS backup was left intact and stopped
+
+Next:
+- Issue the required graceful STOP through the constrained GitHub/WIF lifecycle bridge.
+- Recommend 854x480, 12 Hz, dedicated CPUs 0,1, and H.264 around 2 Mbps for the next implementation prototype; do not alter the persistent service until implementation is explicitly approved.
