@@ -119,7 +119,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Build image and modules
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_kernel }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_kernel) || github.event_name == 'push' }}
         run: |
           set -euxo pipefail
           cd src
@@ -135,7 +135,7 @@ jobs:
           find ../stage/lib/modules -maxdepth 1 -mindepth 1 -type d -printf '%f\n'
 
       - name: Package and fingerprint
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_kernel }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_kernel) || github.event_name == 'push' }}
         run: |
           set -euxo pipefail
           tar --zstd -C stage -cf exp157-kernel-39va.tar.zst .
@@ -143,7 +143,7 @@ jobs:
           du -h exp157-kernel-39va.tar.zst
 
       - name: Upload kernel artifact
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_kernel }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_kernel) || github.event_name == 'push' }}
         uses: actions/upload-artifact@v4
         with:
           name: exp157-kernel-39va
