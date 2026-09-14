@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 """Internal append primitive for the AL Cloud external Google Docs raw log.
 
-EXPERIMENT AGENTS SHOULD NOT CALL THIS TOOL DIRECTLY. Use tools/al-log-submit.py.
-Experiment agents must not inspect the raw-log tail, search for ``Next entry ID``,
-or allocate an RNNNNNN identifier themselves.
+EXPERIMENT AGENTS SHOULD NOT CALL THIS TOOL DIRECTLY.
 
-This tool intentionally implements APPEND ONLY. It has no edit, delete, truncate,
-or arbitrary document-rewrite operation. It owns permanent ID allocation and uses
-Google Docs revision collision protection so concurrent writers fail/retry safely.
+This tool implements append-only raw-log mutation. It owns permanent RNNNNNN ID
+allocation, supports stable submission IDs for idempotent drain retries, and uses
+Google Docs revision collision protection.
 
 Authentication uses Google Application Default Credentials. The caller must have
-access to the target Google Doc and the Google Docs API must be available to the
-credential's project.
+access to the target Google Doc and the Google Docs API must be available.
 """
 
 from __future__ import annotations
@@ -28,6 +25,7 @@ from google.auth.transport.requests import AuthorizedSession
 
 DOCS_SCOPE = "https://www.googleapis.com/auth/documents"
 ENTRY_RE = re.compile(r"\bR(?P<num>\d{6,})\b")
+SUBMISSION_ID_RE = re.compile(r"^[A-Za-z0-9._:/#-]{1,200}$")
 SENSITIVE_RE = re.compile(
     r"(?i)(authorization\s*:|bearer\s+[A-Za-z0-9._~+/=-]+|"
     r"refresh[_ -]?token|access[_ -]?token|password\s*[:=]|cookie\s*:|"
@@ -38,8 +36,7 @@ SENSITIVE_RE = re.compile(
 def _walk_tabs(tabs: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
     for tab in tabs:
         yield tab
-        children = tab.get("childTabs") or []
-        yield from _walk_tabs(children)
+        yield from _walk_tabs(tab.get("childTabs") or [])
 
 
 def _text_from_structural_elements(elements: Iterable[Dict[str, Any]]) -> str:
@@ -79,10 +76,19 @@ def _tab_text(tab: Dict[str, Any]) -> str:
 
 
 def _next_entry_id(text: str) -> str:
-    max_num = 0
-    for m in ENTRY_RE.finditer(text):
-        max_num = max(max_num, int(m.group("num")))
+    max_num = max((int(m.group("num")) for m in ENTRY_RE.finditer(text)), default=0)
     return f"R{max_num + 1:06d}"
+
+
+def _existing_submission_entry(text: str, submission_id: str) -> str | None:
+    marker = f"Submission-ID: {submission_id}"
+    pos = text.find(marker)
+    if pos < 0:
+        return None
+    entries = list(ENTRY_RE.finditer(text, 0, pos))
+    if not entries:
+        raise RuntimeError(f"Submission marker exists without preceding entry ID: {submission_id}")
+    return entries[-1].group(0)
 
 
 def _clean(value: str | None) -> str:
@@ -100,15 +106,15 @@ def _validate_no_secrets(fields: Dict[str, str]) -> None:
 
 def _format_entry(args: argparse.Namespace, entry_id: str) -> str:
     timestamp = args.timestamp or dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
-    lines = [f"{entry_id} | {timestamp} | {args.step}"]
-    lines.append(f"Workstream: {args.workstream}")
+    lines = [f"{entry_id} | {timestamp} | {args.step}", f"Workstream: {args.workstream}"]
     if args.actor:
         lines.append(f"Actor/session: {args.actor}")
+    if args.submission_id:
+        lines.append(f"Submission-ID: {args.submission_id}")
     lines.append(f"Action: {args.action}")
     lines.append(f"Result/evidence: {args.result}")
     if args.excerpt:
-        lines.append("Verbatim excerpt:")
-        lines.append(args.excerpt)
+        lines.extend(["Verbatim excerpt:", args.excerpt])
     lines.append(f"Interpretation/next: {args.next}")
     if args.refs:
         lines.append(f"Evidence refs: {args.refs}")
@@ -116,28 +122,20 @@ def _format_entry(args: argparse.Namespace, entry_id: str) -> str:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(
-        description=(
-            "INTERNAL: append one structured entry to the AL Cloud raw log. "
-            "Experiment agents should use tools/al-log-submit.py instead."
-        )
-    )
+    p = argparse.ArgumentParser(description="INTERNAL: append one entry to the AL Cloud raw log")
     p.add_argument("--document-id", default=os.getenv("AL_CLOUD_RAW_LOG_DOC_ID"))
-    p.add_argument("--workstream", default=os.getenv("AL_CLOUD_RAW_LOG_WORKSTREAM"), required=False)
+    p.add_argument("--workstream", default=os.getenv("AL_CLOUD_RAW_LOG_WORKSTREAM"))
     p.add_argument("--step", required=True)
     p.add_argument("--action", required=True)
     result_group = p.add_mutually_exclusive_group(required=True)
     result_group.add_argument("--result")
-    result_group.add_argument(
-        "--result-stdin",
-        action="store_true",
-        help="Read Result/evidence body from stdin. Intended for al-log-submit.py.",
-    )
+    result_group.add_argument("--result-stdin", action="store_true")
     p.add_argument("--next", required=True)
     p.add_argument("--excerpt", default="")
     p.add_argument("--refs", default="")
     p.add_argument("--actor", default="")
     p.add_argument("--timestamp", default="")
+    p.add_argument("--submission-id", default="")
     args = p.parse_args()
 
     if not args.document_id:
@@ -150,33 +148,24 @@ def main() -> int:
         p.error("--excerpt is limited to about 1,200 characters and at most 12 lines")
 
     fields = {
-        "workstream": _clean(args.workstream),
-        "step": _clean(args.step),
-        "action": _clean(args.action),
-        "result": _clean(args.result),
-        "next": _clean(args.next),
-        "excerpt": _clean(args.excerpt),
-        "refs": _clean(args.refs),
-        "actor": _clean(args.actor),
+        "workstream": _clean(args.workstream), "step": _clean(args.step),
+        "action": _clean(args.action), "result": _clean(args.result),
+        "next": _clean(args.next), "excerpt": _clean(args.excerpt),
+        "refs": _clean(args.refs), "actor": _clean(args.actor),
+        "submission_id": _clean(args.submission_id),
     }
     if not all(fields[k] for k in ("workstream", "step", "action", "result", "next")):
         p.error("workstream, step, action, result, and next must be non-empty")
+    if fields["submission_id"] and not SUBMISSION_ID_RE.fullmatch(fields["submission_id"]):
+        p.error("--submission-id must be 1-200 safe identifier characters")
     _validate_no_secrets(fields)
 
-    args.workstream = fields["workstream"]
-    args.step = fields["step"]
-    args.action = fields["action"]
-    args.result = fields["result"]
-    args.next = fields["next"]
-    args.excerpt = fields["excerpt"]
-    args.refs = fields["refs"]
-    args.actor = fields["actor"]
+    for key, value in fields.items():
+        setattr(args, key, value)
 
     credentials, _ = google.auth.default(scopes=[DOCS_SCOPE])
     session = AuthorizedSession(credentials)
 
-    # requiredRevisionId makes concurrent appenders fail rather than overwrite one
-    # another. Retry by refetching and allocating the next global entry ID.
     for attempt in range(1, 5):
         doc = _fetch_doc(session, args.document_id)
         revision_id = doc.get("revisionId")
@@ -184,18 +173,18 @@ def main() -> int:
         tab_id = (tab.get("tabProperties") or {}).get("tabId")
         if not revision_id or not tab_id:
             raise RuntimeError("Could not resolve document revision/tab")
-        entry_id = _next_entry_id(_tab_text(tab))
-        entry = _format_entry(args, entry_id)
+        text = _tab_text(tab)
 
+        if args.submission_id:
+            existing = _existing_submission_entry(text, args.submission_id)
+            if existing:
+                print(existing)
+                return 0
+
+        entry_id = _next_entry_id(text)
+        entry = _format_entry(args, entry_id)
         payload = {
-            "requests": [
-                {
-                    "insertText": {
-                        "endOfSegmentLocation": {"tabId": tab_id},
-                        "text": entry,
-                    }
-                }
-            ],
+            "requests": [{"insertText": {"endOfSegmentLocation": {"tabId": tab_id}, "text": entry}}],
             "writeControl": {"requiredRevisionId": revision_id},
         }
         url = f"https://docs.googleapis.com/v1/documents/{args.document_id}:batchUpdate"
