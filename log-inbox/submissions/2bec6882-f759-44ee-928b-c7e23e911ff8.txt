@@ -1,0 +1,1 @@
+Retry centralized log-writer bootstrap with correctly comma-separated OAuth scopes. If permitted, the authorized workflow should enable docs.googleapis.com in project 137432928351 and then drain the entire immutable submission backlog into the Drive raw log exactly once per stable github-file submission ID.
