@@ -7,7 +7,7 @@ on:
       - vm-control
     paths:
       - control/command.json
-      - log-inbox/submissions/**
+      - log-inbox/submissions/entry-*.txt
 
 permissions:
   contents: read
@@ -34,7 +34,7 @@ jobs:
           while IFS= read -r path; do
             [[ -n "$path" ]] || continue
             [[ "$path" == 'control/command.json' ]] && lifecycle=true
-            [[ "$path" == log-inbox/submissions/* ]] && log_intake=true
+            [[ "$path" == log-inbox/submissions/entry-*.txt ]] && log_intake=true
           done <<<"$paths"
           echo "lifecycle=${lifecycle}" >> "$GITHUB_OUTPUT"
           echo "log_intake=${log_intake}" >> "$GITHUB_OUTPUT"
@@ -291,9 +291,9 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          files=(log-inbox/submissions/*.txt)
+          files=(log-inbox/submissions/entry-*.txt)
           if (( ${#files[@]} == 0 )); then
-            echo 'No immutable log submissions found.'
+            echo 'No immutable production log submissions found.'
             exit 0
           fi
 
