@@ -1,0 +1,1 @@
+Centralized log-writer authorization diagnostic. Queue detection, lifecycle isolation, and WIF authentication already pass. This immutable submission should cause the drainer to retry the backlog and, if Google Docs still rejects access, expose the provider's exact error body so the final API or permission defect can be corrected without guessing.
