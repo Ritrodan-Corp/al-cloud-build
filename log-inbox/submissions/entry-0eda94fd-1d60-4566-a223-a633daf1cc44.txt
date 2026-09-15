@@ -1,0 +1,3 @@
+2026-09-14 AL Cloud control-plane wake transport step
+
+Created a dedicated long-lived GitHub wake-bus surface in the actual Cloudflare deployment repository, Ritrodan-Corp/ALcloud. Created branch `wake-bus`, added `wake-bus.md`, and opened PR #1 titled `AL Cloud Wake Bus` against `main`. This supersedes use of the older wake-bus PR in al-cloud-build for Cloudflare wake delivery. The AL Cloud control-plane Worker will target ALcloud PR #1 for `ALCLOUD_WAKE` comments. The PR is intended to remain open permanently.
