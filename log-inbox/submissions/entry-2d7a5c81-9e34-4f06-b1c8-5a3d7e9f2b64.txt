@@ -1,0 +1,3 @@
+Browser streaming capture closeout: guest baseline restored before VM shutdown.
+
+Returned Android to Launcher with HOME after the representative recording. Verified `topResumedActivity` is again `com.android.launcher3/.uioverrides.QuickstepLauncher`, matching the pre-capture foreground state. Re-verified physical display `1280x720`, `azl-redroid-exp157.service` active, `azl-control-exp157.service` active, and controller root HTTP 200. No persistent display/service configuration was changed during the capture pass. The fixture bundle remains under `/home/ritrodano2/al-cloud-fixtures/browser-streaming-capture-20260914/`. Proceeding immediately to the required graceful VM STOP.
