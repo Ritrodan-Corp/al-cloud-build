@@ -1,0 +1,12 @@
+AL Cloud control-plane planning update
+
+User provided Cloudflare dashboard evidence that an existing Worker named `alvmgetter` is already connected through Cloudflare's GitHub integration. The visible repository is `Ritrodan-Corp/ALcalc`, not `Ritrodan-Corp/al-cloud-build`, and the Worker currently shows no active routes. The Worker name is acknowledged as outdated.
+
+Implications:
+- Cloudflare/GitHub organization authorization is already functioning, so a new Cloudflare login is probably unnecessary.
+- The existing Worker can potentially be repurposed for the AL Cloud timer/control-plane prototype, but its current source should not be overwritten blindly until we confirm nothing still depends on it.
+- Cloudflare documents that switching an existing Worker to a different Git repository requires disconnecting Builds and reconnecting it to the new repository.
+- For the AL Cloud project, preferred source remains `Ritrodan-Corp/al-cloud-build`, likely under a `control-plane/` directory on `vm-control` during the prototype.
+- If reusing the existing Cloudflare Worker, the Wrangler `name` must match the Worker dashboard name (`alvmgetter`) unless the Worker itself is renamed; keeping the outdated internal name temporarily is acceptable for the first test.
+
+Next concrete step: determine whether the old `alvmgetter` Worker has functionality that must be preserved; if not, repoint its Builds connection from `ALcalc` to `al-cloud-build` and deploy the timer/wake probe there.
