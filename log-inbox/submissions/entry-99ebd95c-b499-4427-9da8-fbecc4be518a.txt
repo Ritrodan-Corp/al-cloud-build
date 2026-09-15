@@ -1,0 +1,5 @@
+Browser streaming integration pass: prototype deployment inspection.
+
+Found `/opt/al-cloud/browser-streaming` already populated on the VM with the current prototype files, including server, web client, tests, README, and systemd unit. `/etc/systemd/system/azl-stream-prototype.service` is installed, configured for user azladmin, loopback 127.0.0.1:8766, ADB 127.0.0.1:5555, 854x480 video, 2 Mbps, unlimited stream time.
+
+Service is disabled and inactive before this pass. Qualified controller remains separate. No deployment mutation was needed at this step; proceeding to offline tests and service startup validation.
