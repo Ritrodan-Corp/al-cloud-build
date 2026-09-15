@@ -1,0 +1,5 @@
+Browser streaming integration pass: checked for an on-VM WebCodecs runtime after source synchronization.
+
+VM has Node v22.23.2 with `fetch`, but Node reports `VideoDecoder` and `EncodedVideoChunk` undefined. No Chromium/Chrome binary was previously found. Therefore the VM cannot itself execute the browser WebCodecs decode path without installing a substantial browser/runtime dependency, which would be unnecessary mutation of the qualified host.
+
+Browser-side visual/decode/input-to-visible qualification remains a user-browser-through-loopback-tunnel step. Server transport, H.264 cadence, cleanup, and concurrent control paths have been qualified directly on the VM.
