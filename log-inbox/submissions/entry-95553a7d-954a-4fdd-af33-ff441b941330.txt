@@ -1,0 +1,7 @@
+Delegated observe Work probe armed and triggered.
+
+The Work event-triggered task "AL Cloud Delegated Observe Probe" was confirmed enabled for new top-level comments on Ritrodan-Corp/al-cloud-build PR #6. Its configured delegation is exactly one gpt-5.6-luna subagent with fork_turns:none and low reasoning, with the observation restricted to the purpose-built /usr/local/bin/azl-agent observe command and no Android mutation.
+
+A single intentional top-level trigger comment was then posted to PR #6 with GitHub comment ID 5684580032. The comment requests probe_id delegated-observe-v1, single-shot execution, worker model gpt-5.6-luna, low reasoning effort, and read-only execution. No additional PR #6 comments should be posted while evaluating this run.
+
+Next: inspect the resulting Work run and determine whether the Luna model override was accepted, whether the delegated subagent can access Remote Desktop Commander and /usr/local/bin/azl-agent, whether it returns the required structured observation, and whether the parent Work run exposes enough runtime/model information to compare delegated-vs-direct usage.
