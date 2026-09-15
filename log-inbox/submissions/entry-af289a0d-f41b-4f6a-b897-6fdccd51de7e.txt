@@ -1,0 +1,3 @@
+2026-09-14 AL Cloud GitHub wake transport wiring
+
+Completed the repo-side wake transport wiring in Ritrodan-Corp/ALcloud@vm-control. Updated the Cloudflare Worker config to use `WAKE_MODE=github`, target `Ritrodan-Corp/ALcloud` PR #1, explicitly keep workers.dev enabled, and removed the temporary alarm self-test cron/wrapper. Added `src/runtime-wrapper.js` so public `/health` reports the configured wake mode/target and whether the runtime `GITHUB_TOKEN` secret is present, without exposing the secret. This allows the remaining credential state to be checked without asking the user to run commands. The only expected remaining external prerequisite for GitHub comment delivery is a Cloudflare Worker secret named `GITHUB_TOKEN` with permission to comment on ALcloud PR #1.
