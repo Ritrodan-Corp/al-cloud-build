@@ -1,0 +1,3 @@
+Browser streaming integration pass: first dynamic performance measurement attempt did not run because the current administrative user lacks direct access to `/var/run/docker.sock`; `docker stats` returned permission denied before the capture loop began.
+
+No stream/performance result was produced by this attempt and no prototype state was changed. Retrying the same bounded measurement with `sudo docker stats`, which is appropriate for this administrative session.
