@@ -1,0 +1,3 @@
+Browser streaming capture shutdown verification: Compute advanced to STOPPING.
+
+DESCRIBE run 34913357335 / lifecycle job 104205557628 directly observed `azl-android-arm64-01` in `STOPPING` at 2026-09-15T00:29:06Z after the extended graceful-shutdown period. This confirms the lifecycle progressed beyond PENDING_STOP into final Compute shutdown. No guest work occurred during the grace period. Perform one final lifecycle-only describe to confirm TERMINATED, then end the capture pass without starting browser-streaming implementation.
