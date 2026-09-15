@@ -1,0 +1,21 @@
+[Unit]
+Description=AL Cloud browser streaming prototype
+After=azl-redroid-exp157.service
+Requires=azl-redroid-exp157.service
+
+[Service]
+Type=simple
+User=azladmin
+Environment=HOME=/home/azladmin
+Environment=AZL_BIND=127.0.0.1
+Environment=AZL_PORT=8766
+Environment=AZL_SERIAL=127.0.0.1:5555
+Environment=AZL_VIDEO_SIZE=854x480
+Environment=AZL_VIDEO_BITRATE=2000000
+Environment=AZL_STREAM_TIME_LIMIT=0
+ExecStart=/usr/bin/python3 /opt/al-cloud/browser-streaming/azl_stream_server.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
