@@ -1,0 +1,9 @@
+Browser streaming user-interface readiness assessment.
+
+User asked whether the prototype is ready for them to interface with directly.
+
+Current state: VM-side integration passed, but the VM has been stopped and the prototype service was deliberately left inactive/disabled after restoring the qualified baseline. Therefore it is ready for a short user-facing validation session, but not reachable at this exact moment.
+
+To make it user-accessible for the validation session: start the VM, start the separate loopback prototype service on 127.0.0.1:8766, establish the same secure SSH/IAP local-forward model to that port, and open the local loopback URL in a browser with WebCodecs support. The existing qualified controller on 8765 should remain untouched.
+
+Next: perform a short user browser validation covering visible playback, controls, reconnect, and observed latency, then restore baseline and stop the VM.
