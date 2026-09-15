@@ -1,0 +1,9 @@
+2026-09-15 — GitHub -> ChatGPT Work wake path proven on dedicated PR #5.
+
+Evidence: Work produced an `issue_comment.created` run for Ritrodan-Corp/al-cloud-build PR #5, authored by dano-hash, and reported GitHub comment ID 5684087724 with a webhook delivery ID. The event was received by Work at 2026-09-15T09:35:30-07:00. This proves GitHub PR comment activity can wake a Work task in this account.
+
+Important caveat: the first wake-marker comment on PR #5 (comment ID 5684082543, event_id pr5-e2e-20260915-0932) was followed quickly by a diagnostic comment (5684087724), and Work surfaced the latter. OpenAI docs confirm GitHub PR comments are supported event triggers but do not document ordering/coalescing guarantees. Therefore, treat the GitHub comment as a doorbell, not the authoritative wake payload.
+
+Architecture implication: Durable Cloudflare scheduler state should remain the source of truth. A Work invocation should, on any wake comment, read all due/unacknowledged wake records from the control plane, process them idempotently, and acknowledge them. The transport can tolerate duplicate or reordered comments. Add bounded repeat-poke behavior for fired-but-unacknowledged wakes so a missed single webhook does not strand work, with Director-side idempotency/acknowledgement preventing duplicate game actions.
+
+A further wake-marker comment was posted to PR #5 for additional observation, but no additional transport conclusions should be drawn until its Work result is seen. Slack remains secondary/fallback; GitHub is now confirmed functional.
