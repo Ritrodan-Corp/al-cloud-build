@@ -1,0 +1,11 @@
+2026-09-14 PDT | AL Cloud control-plane timer implementation
+
+Implemented the first AL Cloud timer/control-plane prototype in Ritrodan-Corp/al-cloud-build on branch vm-control under a new isolated control-plane/ directory. The existing Cloudflare alvmgetter Worker and its Oracle A1 retry job remain untouched and protected.
+
+Added a standalone Cloudflare Worker project named al-cloud-control with a SQLite-backed Durable Object WakeScheduler. The scheduler stores multiple logical wake events, maintains a single physical Durable Object alarm at the next runnable event, supports arbitrary future one-time wake times, cancellation, listing, status, and acknowledgement, and retries failed outbound wake delivery with bounded exponential backoff. The scheduler deliberately contains no Azur Lane gameplay intelligence.
+
+Added authenticated HTTP endpoints GET /v1/status, GET/POST /v1/wakes, GET/DELETE /v1/wakes/:id, and POST /v1/wakes/:id/ack, with public GET /health. All control routes require a CONTROL_TOKEN Worker secret. ISO timestamps must include an explicit offset or Z. Payload size and schedule horizon are bounded.
+
+Wake delivery supports a safe default WAKE_MODE=log and an intended WAKE_MODE=github transport that posts ALCLOUD_WAKE comments with stable event IDs to a dedicated pull request in Ritrodan-Corp/al-cloud-build. Runtime GitHub access requires a separate least-privilege GITHUB_TOKEN for this Worker; the existing alvmgetter token must not be reused or modified. Downstream Work automation should deduplicate using event_id because delivery is at-least-once.
+
+Added control-plane/wrangler.jsonc using Cloudflare's current declarative Durable Object exports configuration, package metadata, deployment documentation, local-artifact ignores, and a GitHub Actions dry-run validation workflow. No Android VM or game runtime was started or changed during this implementation step.
