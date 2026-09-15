@@ -1,0 +1,15 @@
+2026-09-15
+
+Correction to AL Cloud wake architecture after successful GitHub -> Work trigger validation.
+
+The successful GitHub event trigger proves only that an external event can launch a fresh ChatGPT Work invocation. It does NOT resume or wake the existing human-facing Director/main chat. Prior architecture language that said `timer expires -> GitHub doorbell -> Work launches -> Director acts` was misleading because it conflated a fresh Work invocation with the main Director chat.
+
+Current product constraint for this project: Scheduled Tasks / event-triggered Work can start fresh Work runs, but cannot wake or resume the existing regular/main Director chat. Therefore an autonomous timer cannot hand control back into that exact main conversation.
+
+Consequences:
+- If autonomous gameplay is to remain inside ChatGPT, the fresh Work invocation itself must reconstruct the Director/worker role from durable state and perform the bounded task, or possibly delegate within Work. Usage/model-cost behavior for that remains a separate gate to test.
+- If the requirement is specifically that the existing main chat instance resumes, current architecture does not satisfy it and should not be described as solved.
+- Alternative is to move autonomous execution to an external agent/API runtime, keeping the main chat only as the human-facing control surface.
+- The GitHub wake transport remains useful evidence for fresh Work invocation, but it does not solve main-chat wakeup.
+
+Next decision gate: determine whether fresh Work invocations are acceptable as the autonomous runtime (and whether model/subagent overrides can control cost/quality), versus moving unattended execution outside ChatGPT.
