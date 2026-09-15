@@ -1,0 +1,21 @@
+{
+  "probe_id": "delegated-observe-v1",
+  "objective": "Perform one read-only observation of the persistent AL Cloud Android instance through the purpose-built azl-agent interface.",
+  "device_name": "azl-android-arm64-01",
+  "observe_command": "/usr/local/bin/azl-agent observe",
+  "screenshot_contract": "Read the screen.path returned by observe with the Remote Desktop Commander image file reader.",
+  "constraints": [
+    "Do not tap, type, swipe, launch, stop, or otherwise mutate Android state.",
+    "Do not use arbitrary shell exploration beyond invoking the exact observe command.",
+    "Return compact structured JSON only from the delegated worker."
+  ],
+  "expected_result_fields": [
+    "probe_id",
+    "worker_model",
+    "observation_ok",
+    "azur_lane_version",
+    "screen_summary",
+    "actions_taken",
+    "tool_errors"
+  ]
+}
