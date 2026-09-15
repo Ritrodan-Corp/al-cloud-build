@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import json
 import os
+import select
+import socket
 import subprocess
 import threading
 import time
@@ -267,8 +269,29 @@ class Handler(BaseHTTPRequestHandler):
             assert proc.stdout is not None
 
             sent = 0
+            client_closed = False
+            stdout_fd = proc.stdout.fileno()
             while True:
-                chunk = proc.stdout.read(STREAM_READ_SIZE)
+                readable, _, _ = select.select([stdout_fd, self.connection], [], [], 0.5)
+
+                if self.connection in readable:
+                    try:
+                        if self.connection.recv(1, socket.MSG_PEEK) == b"":
+                            client_closed = True
+                            break
+                    except (BlockingIOError, InterruptedError):
+                        pass
+                    except OSError:
+                        client_closed = True
+                        break
+
+                if stdout_fd not in readable:
+                    if proc.poll() is not None:
+                        clean_end = proc.returncode == 0
+                        break
+                    continue
+
+                chunk = os.read(stdout_fd, STREAM_READ_SIZE)
                 if not chunk:
                     clean_end = proc.poll() == 0
                     break
@@ -279,8 +302,9 @@ class Handler(BaseHTTPRequestHandler):
                 sent += len(chunk)
                 set_stream_state(bytes_sent=sent)
 
-            self.wfile.write(b"0\r\n\r\n")
-            self.wfile.flush()
+            if not client_closed:
+                self.wfile.write(b"0\r\n\r\n")
+                self.wfile.flush()
             if not clean_end and proc.poll() is not None:
                 stderr = b""
                 if proc.stderr is not None:
@@ -307,6 +331,14 @@ class Handler(BaseHTTPRequestHandler):
                         proc.wait(timeout=1)
                     except subprocess.TimeoutExpired:
                         pass
+            if proc is not None:
+                subprocess.run(
+                    ADB + ["shell", "pkill", "-f", "^screenrecord --output-format=h264 "],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=2,
+                    check=False,
+                )
             set_stream_state(active=False, started_at=None)
             stream_lock.release()
             self.close_connection = True
