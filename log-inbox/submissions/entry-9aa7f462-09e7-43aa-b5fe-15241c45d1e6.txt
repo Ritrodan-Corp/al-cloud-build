@@ -1,0 +1,10 @@
+Browser streaming integration pass: first live 12 Hz runtime stream measurement completed.
+
+With runtime-only ReDroid `androidboot.redroid_fps=12`, Azur Lane MainActivity foreground, and prototype encoder still 854x480/2 Mbps:
+- 12 s client capture received 2,183,168 bytes
+- Annex-B parse: 132 NALs, 130 VCL coded pictures (2 IDR, 128 P), approximately 10.8 coded pictures/s over the client interval; this confirms the ReDroid 12 Hz boot setting materially lowers encoder cadence from the ~29.5 fps seen at 30 Hz
+- stream cleanup PASS: active=false afterward, no server error, game remained foreground
+- CPU samples were highly variable because the game was still actively settling/loading after the ReDroid restart; baseline mean 441.67% with 233.94-545.38% range, stream sample mean 335.15% with 131.87-498.05% range, so this particular CPU comparison is not suitable for an overhead conclusion
+- RAM rose from ~1.38-1.58 GiB during warm-up to ~1.83-2.04 GiB during/after the capture, consistent with the game continuing to load state
+
+Cadence result is useful; CPU result is confounded. Next step is to allow the game to settle and repeat a short 12 Hz baseline/stream measurement before restoring the persistent 30 Hz service.
