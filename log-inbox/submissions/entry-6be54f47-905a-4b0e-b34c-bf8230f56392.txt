@@ -1,0 +1,7 @@
+2026-09-14 PDT | Cloudflare branch-control API handoff
+
+The AL Cloud control-plane Worker exists in Cloudflare, but the dashboard production-branch picker does not surface the repository's vm-control branch even though the branch exists in GitHub. Established the supported Cloudflare Builds API workaround: retrieve the Worker's immutable tag via GET /accounts/{account_id}/workers/scripts, then list its build triggers via GET /accounts/{account_id}/builds/workers/{worker_tag}/triggers, after which the production trigger can be PATCHed from main to vm-control.
+
+The required Cloudflare API token permissions are Workers Builds Configuration: Edit and Workers Scripts: Read. This API token is distinct from the Worker build token. The user's Cloudflare account identifier is intentionally not persisted in the project log; credentials and account-specific IDs should remain out of the public repository.
+
+Next step: user runs the supplied PowerShell lookup locally and returns only the Worker tag and trigger metadata, not the API token. Then patch the production trigger branch to vm-control and proceed with the first log-mode timer test.
