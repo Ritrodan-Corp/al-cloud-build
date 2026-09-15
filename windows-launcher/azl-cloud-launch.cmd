@@ -14,9 +14,9 @@ if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
 
 where gcloud.cmd >nul 2>&1
 if errorlevel 1 (
-  echo Google Cloud CLI was not found on PATH.
-  echo Install or repair gcloud, then run this launcher again.
-  pause
+  >"%LOG%" echo Google Cloud CLI was not found on PATH.
+  >>"%LOG%" echo Install or repair gcloud, then run Azur Lane Cloud again.
+  start "" notepad.exe "%LOG%"
   exit /b 1
 )
 
@@ -32,14 +32,10 @@ for /l %%I in (1,1,45) do (
   timeout /t 1 /nobreak >nul
 )
 
-echo.
-echo Azur Lane Cloud did not become reachable within 45 seconds.
-echo The VM may be off, gcloud authentication may need attention, or the tunnel failed.
-echo.
-echo Tunnel log: %LOG%
-echo.
-type "%LOG%" 2>nul
-pause
+>>"%LOG%" echo.
+>>"%LOG%" echo Azur Lane Cloud did not become reachable within 45 seconds.
+>>"%LOG%" echo The VM may be off, gcloud authentication may need attention, or the tunnel failed.
+start "" notepad.exe "%LOG%"
 exit /b 2
 
 :open_browser
