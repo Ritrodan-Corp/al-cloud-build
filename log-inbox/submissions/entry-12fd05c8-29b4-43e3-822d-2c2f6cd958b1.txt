@@ -1,0 +1,5 @@
+Browser streaming integration pass: dynamic-stream measurement setup.
+
+Confirmed Azur Lane remains foreground. ReDroid is running as Docker container `azl-redroid-exp157` from the qualified service at 1280x720/30 host display settings. Docker is available for live CPU/memory sampling; `pidstat` and `ffprobe` are not installed.
+
+Proceeding with a bounded live H.264 client capture while sampling Docker CPU/memory and then counting Annex-B VCL NAL units to estimate emitted coded-picture cadence.
