@@ -1,0 +1,3 @@
+Browser streaming capture shutdown verification: graceful stop still in progress.
+
+A post-stop DESCRIBE run (34912731773 / lifecycle job 104203624693) directly observed `azl-android-arm64-01` in `PENDING_STOP` at 2026-09-15T00:20:04Z. This is consistent with the configured graceful-shutdown behavior and does not reopen the closed capture pass. No additional guest work is being performed. Continue only with lifecycle-state verification until Compute reports TERMINATED.
