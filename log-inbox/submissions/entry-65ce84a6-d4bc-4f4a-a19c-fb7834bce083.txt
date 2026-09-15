@@ -1,0 +1,22 @@
+Browser streaming integration pass: restored persistent qualified baseline after bounded 12 Hz / 854x480 experiment.
+
+Restoration actions:
+- reset Android display override back to physical 1280x720
+- stopped isolated prototype service
+- removed runtime-only `/run` systemd override that had changed ReDroid fps to 12
+- daemon-reloaded systemd
+- restarted `azl-redroid-exp157.service` from its persistent unit
+- waited for ADB reconnect
+
+Verified restored state:
+- kernel `6.8.12-exp157-39va`
+- ReDroid active
+- qualified controller active
+- prototype inactive and disabled
+- ADB device on loopback 127.0.0.1:5555
+- Docker command restored to `androidboot.redroid_width=1280`, `androidboot.redroid_height=720`, `androidboot.redroid_fps=30`
+- Android display reports only physical 1280x720, no override
+- foreground Launcher
+- listeners only on loopback 5555 and 8765; no 8766 listener
+
+Guest baseline is restored. Remaining integration tasks are source-repository synchronization of the disconnect cleanup fix, browser-side/manual WebCodecs qualification, and final graceful VM stop.
