@@ -1,0 +1,11 @@
+Planning update: agent-control scope refined toward gameplay knowledge before macro automation.
+
+The user clarified that commissions are a representative reasoning task: opening the commission screen may later be macro-assisted, but choosing which commissions to run should remain an agent decision because it depends on the available options, rewards, duration, requirements, current resource priorities, expected absence/play schedule, and time-limited event incentives.
+
+Recommended architecture change: treat macros as optional low-level workload reduction, not as the primary gameplay intelligence. Build the gameplay agent first around (1) full-screen observation, (2) durable curated Azur Lane knowledge, (3) current event/patch context, (4) account-specific goals and safety/resource policies, and (5) an observe -> retrieve relevant knowledge -> reason -> act -> verify loop. Preserve deterministic state detection as support, not as a substitute for model vision.
+
+Recommended knowledge strategy: maintain a versioned agent-readable knowledge pack in the repository/VM, split into evergreen mechanics and strategy, current event/update briefs, user/account policy, and supervised corrections/lessons. Prefer retrieval over stuffing the whole game manual into every invocation. Official notices should supply changing mechanics/events; community guides/wiki material can supply strategic heuristics, with provenance and dates retained.
+
+Recommended validation order: begin in shadow/advisory mode on real screenshots, especially commission selection, where the agent observes the entire screen, explains its choice and reasoning, and takes no action. Collect user corrections into the durable knowledge pack. Progress to approval-gated actions only after repeated good decisions, then autonomous low-risk actions. Delay macro development until the gameplay agent demonstrates adequate understanding; later macros can handle navigation and deterministic transitions while leaving strategic choices to the agent.
+
+No VM or Android runtime work was required for this planning step.
