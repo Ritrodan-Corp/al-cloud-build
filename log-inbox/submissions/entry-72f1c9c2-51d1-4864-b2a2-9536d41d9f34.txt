@@ -1,0 +1,7 @@
+2026-09-14 PDT | Cloudflare deployment repo mismatch corrected
+
+Cloudflare build logs revealed the new al-cloud-control Worker was connected to Ritrodan-Corp/ALcloud, while the control-plane source had been created in Ritrodan-Corp/al-cloud-build. This caused the Cloudflare build to fail immediately with `root directory not found` for `control-plane`.
+
+To eliminate further user-side reconfiguration, ALcloud was adopted as the Cloudflare deployment repository for this Worker. A vm-control branch was created in Ritrodan-Corp/ALcloud and the control-plane package.json, wrangler.jsonc, and src/index.js were copied there under control-plane/. Existing Cloudflare trigger settings already target production branch vm-control and root directory control-plane, so the corrected repository layout now matches the configured build.
+
+Ritrodan-Corp/al-cloud-build remains the canonical project/development and progress-log repository; the long-lived wake-bus PR remains al-cloud-build#4. The existing alvmgetter Worker and its Oracle retry job were not modified.
