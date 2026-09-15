@@ -25,8 +25,9 @@ ENTRY_HEADER_RE = re.compile(r"(?m)^R(?P<num>\d{6,})\s+\|")
 SUBMISSION_ID_RE = re.compile(r"^[A-Za-z0-9._:/#-]{1,200}$")
 SENSITIVE_RE = re.compile(
     r"(?i)(authorization\s*:|bearer\s+[A-Za-z0-9._~+/=-]+|"
-    r"refresh[_ -]?token|access[_ -]?token|password\s*[:=]|cookie\s*:|"
-    r"client[_ -]?secret|private[_ -]?key)"
+    r"(?:refresh|access)[_ -]?token\s*[:=]\s*\S+|"
+    r"password\s*[:=]\s*\S+|cookie\s*:|"
+    r"client[_ -]?secret\s*[:=]\s*\S+|private[_ -]?key)"
 )
 
 
