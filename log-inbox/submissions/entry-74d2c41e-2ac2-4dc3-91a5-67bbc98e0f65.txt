@@ -1,0 +1,10 @@
+Browser streaming integration pass: first live H.264 HTTP stream probe exposed a cleanup bug.
+
+Observed:
+- `/stream.h264` returned HTTP 200 with expected `video/h264`, chunked transfer, 854x480 headers.
+- Server state became active and ADB screenrecord launched.
+- Captured client bytes begin with Annex-B SPS, PPS, IDR NALs (types 7,8,5), confirming raw H.264 stdout path works on the qualified guest.
+- After the test client timed out/disconnected, `/api/status` still reported active and the screenrecord/adb process chain remained alive.
+- Root cause candidate: server loop blocks waiting for the next stdout read and therefore does not promptly observe a disconnected HTTP client when the Android scene is static / encoder output is sparse.
+
+This is an implementation integration defect, not an Android compatibility failure. Next step is to clean up the stuck prototype stream, fix disconnect detection/read-loop behavior, rerun tests, and repeat the live probe before browser qualification.
