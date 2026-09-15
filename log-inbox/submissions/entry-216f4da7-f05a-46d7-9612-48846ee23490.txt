@@ -1,0 +1,9 @@
+Recovery/backfill: fresh Work bootstrap delegating a bounded observation to a low-cost worker.
+
+A Work event-triggered task was created on dedicated PR #6. Its contract was: on each new top-level comment, spawn exactly one subagent with fork_turns:none, requested model override gpt-5.6-luna, and low reasoning; the parent Work run must not perform the Android observation itself. The worker was instructed to invoke exactly /usr/local/bin/azl-agent observe on azl-android-arm64-01, parse the returned JSON, read the returned screen.path image, make no game inputs, and return compact JSON.
+
+A single trigger comment was posted to PR #6, comment ID 5684580032. Work reported that the requested model override was accepted. The subagent completed successfully with no tool errors and returned observation_ok:true, Azur Lane version 9.3.7, a screen summary identifying the Android home screen with Azur Lane not visibly open, and actions showing only the one azl-agent observe invocation plus reading /var/tmp/al-cloud-agent/latest.png. No tap/type/swipe/launch/stop action occurred.
+
+This proves the execution architecture: GitHub event -> fresh Work bootstrap -> delegated worker -> Remote Desktop Commander transport -> purpose-built azl-agent -> full-screen observation -> structured result. It also demonstrates that a weaker worker can complete a narrowly specified AL Cloud operation when the bootstrap gives it a precise bounded prompt.
+
+This is a recovery submission because the earlier immutable submission was misnamed without the required entry- prefix and therefore never reached the raw log.
