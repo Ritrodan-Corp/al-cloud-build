@@ -1,0 +1,5 @@
+2026-09-14 PDT | Control-plane validation and wake-bus setup start
+
+Added a dedicated GitHub Actions validation workflow for control-plane/ changes on vm-control. The workflow installs the Worker dependencies and runs a Wrangler deployment dry run so Cloudflare configuration and Worker bundling can be validated before deployment. Removed npm cache configuration that assumed a package-lock file which the prototype does not yet commit.
+
+Next setup step is creation of a long-lived wake-bus pull request in the existing al-cloud-build repository. That pull request will be used only as the GitHub event surface for AL Cloud timer wake comments and should not contain or replace the existing Oracle retry scheduler. No Cloudflare deployment or Android VM action occurred in this step.
