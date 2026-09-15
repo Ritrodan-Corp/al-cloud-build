@@ -1,0 +1,9 @@
+Planning review: browser streaming implementation scope and VM usage.
+
+The browser-streaming lane is moderate implementation work rather than a new compatibility research program. Most of the server/client scaffolding can be developed with azl-android-arm64-01 stopped. Offline work includes the streaming transport, browser playback path, reconnect/error handling, reuse of existing control endpoints, service/config packaging, and test harnesses using recorded H.264 fixtures.
+
+Live VM access is required for integration-specific steps only: verify the exact Android screenrecord/stdout behavior on the qualified ReDroid baseline, connect the live H.264 source to the browser path, test input-to-visible-response, measure end-to-end frame latency and CPU overhead, exercise reconnect/restart behavior, and validate with real Azur Lane scenes. The VM should be started only for those live passes and stopped promptly afterward.
+
+Recommended first implementation architecture: preserve the existing localhost-only browser controller and add a low-overhead H.264 live-video transport, starting from the already-qualified 854x480 @ 12 Hz, ~2 Mbps encoder point on two dedicated host cores. Prefer a copy/remux transport that avoids an additional encode. If a simple browser MSE/WebSocket path cannot meet latency/reconnect requirements, move to WebRTC as the next transport candidate.
+
+Oracle A1 remains capacity-gated and should not block this work.
