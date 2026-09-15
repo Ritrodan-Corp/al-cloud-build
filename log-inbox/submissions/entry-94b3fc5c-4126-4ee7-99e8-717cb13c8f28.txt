@@ -1,0 +1,13 @@
+Browser streaming integration pass: concurrent stream + control-path validation PASS.
+
+Ran an 18 s live H.264 stream while exercising prototype control endpoints twice:
+- HOME cycle 1: HTTP response ~39.9 ms; Launcher focus observed ~37.7 ms after response measurement start
+- LAUNCH cycle 1: HTTP response ~94.0 ms; Azur Lane MainActivity focus observed ~433.3 ms
+- HOME cycle 2: HTTP response ~39.0 ms; Launcher focus observed ~115.8 ms
+- LAUNCH cycle 2: HTTP response ~34.9 ms; Azur Lane MainActivity focus observed ~438.3 ms
+- stream remained active during the control cycles and continued delivering data
+- client received 3,612,672 bytes over the bounded stream
+- after disconnect, active=false, no server error, no guest screenrecord remains
+- final Android foreground is Azur Lane MainActivity
+
+This demonstrates that live video transport and ADB-backed input/control can operate concurrently without stream interruption. These are controller-to-Android state-transition measurements, not yet browser input-to-visible-frame latency, because no browser/WebCodecs runtime is installed on the VM.
