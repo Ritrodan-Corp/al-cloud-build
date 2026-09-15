@@ -1,0 +1,12 @@
+Browser streaming integration pass: repository synchronization prep validated.
+
+Cloned current `vm-control` branch to a temporary working tree on the VM, copied the deployed disconnect/cleanup-hardened server into the tree, and inspected the exact diff.
+
+Diff is limited to `browser-streaming/azl_stream_server.py`: +35/-3 lines adding socket/select-based client disconnect detection, nonblocking-ready stdout reads, conditional final HTTP chunk, and targeted guest screenrecord cleanup.
+
+Regression tests in the synchronized tree:
+- Python unittest 4/4 PASS
+- Node player tests 3/3 PASS
+- Python compile PASS
+
+The source change is ready to commit/synchronize to `vm-control`; qualified runtime baseline remains restored and prototype service remains inactive.
