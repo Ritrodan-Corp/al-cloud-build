@@ -1,0 +1,9 @@
+AL Cloud progress update, 2026-09-15
+
+Observed product behavior changed the wake-transport diagnosis. The existing GitHub Work task now shows "Last ran 9 hours ago" while the current local time is about 09:22, which indicates at least one GitHub event-triggered Work invocation did occur during the midnight test window. It produced no visible report. Because the GitHub trigger covers broad pull-request/comment activity and the test PR received several diagnostic/admin comments, this does not prove the wake-marker comment itself produced the run. The task prompt also explicitly suppresses output for non-matching comments, so a valid invocation can appear as no update.
+
+GitHub PR #1 contains the intended wake comments, including user-authored event manual-user-authored-probe-20260914-2334 with ALCLOUD_WAKE, plus several later diagnostic comments. The GitHub backend path remains proven: Cloudflare timer -> relay -> GitHub PR comment.
+
+The Slack task still shows no run after a matching top-level message in #al-cloud-wake. The message is present, ChatGPT had already joined the channel, and the message is labeled Sent using ChatGPT. Self-origin suppression is plausible but undocumented.
+
+Next diagnostic direction: stop treating GitHub as failed. Simplify the GitHub Work task so every event produces a diagnostic report, with no content-filter/no-report logic, then send exactly one clean PR comment and no follow-up admin comments. This will reveal the actual event payload and confirm whether GitHub delivery is prompt and reliable. If successful, dedicate a quiet PR to AL Cloud wake events and remove marker filtering entirely; the Work task can treat any comment on that PR as a wake and execute Director logic. Slack remains secondary until a native-user Slack message is tested or self-origin behavior is documented.
