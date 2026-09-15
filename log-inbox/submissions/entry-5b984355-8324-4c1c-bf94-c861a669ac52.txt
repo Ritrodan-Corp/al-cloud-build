@@ -1,0 +1,7 @@
+2026-09-15 — Slack Work-trigger diagnostic after first end-to-end message
+
+Verified the dedicated Slack wake channel #al-cloud-wake (C0C2QSZQVNU) contains the test marker message ALCLOUD_WAKE with event_id slack-e2e-20260915-001. The ChatGPT Slack app joined the channel before the test message. Slack reports the test message under the user's Slack identity, but marks it as “Sent using ChatGPT.” Work still showed “No updates available” several minutes later.
+
+Official OpenAI docs confirm Slack Work tasks are webhook-based and apply to new messages in channels the ChatGPT app has joined, but do not document delivery latency or whether messages originating through the ChatGPT Slack action path are suppressed to prevent trigger loops.
+
+Current hypothesis to isolate next: the Work trigger may suppress messages created through ChatGPT/connected-app actions even when Slack displays the human user's identity. A native Slack-authored test message would distinguish self-origin suppression from general Slack webhook failure. Do not alter the Durable Object timer core; only the final wake transport remains under investigation.
