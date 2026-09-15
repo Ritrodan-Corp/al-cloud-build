@@ -1,0 +1,9 @@
+Planning refinement: ChatGPT-side orchestration model for AL Cloud
+
+Reviewed current ChatGPT product capabilities relevant to the proposed Director/specialist architecture. For the user's Plus plan, do not depend on literal Workspace Agents, which are a Business/Enterprise capability. Instead, implement one persistent Director in the AL Cloud Project, with commission/research/tactical/grinding roles represented as instruction packs or conceptual specialist modes selected by the Director at runtime.
+
+Recommended control flow: the Director owns high-level goals, interprets specialist results, and creates/changes/cancels one-shot scheduled wakeups. The scheduler itself stays unintelligent. Durable state should live outside conversational memory, ideally in a small VM-side control plane (goals/state/timers plus role playbooks), because scheduled runs should reconstruct state reliably and the user's ChatGPT Memory is disabled. Remote Desktop Commander remains the intended execution bridge to the same Android instance.
+
+Important product gate: before deeper implementation, prove that a ChatGPT Scheduled Task/Work run can invoke the installed Remote Desktop Commander plugin unattended on this account and execute a harmless status/read operation. Current OpenAI documentation confirms Work supports scheduled tasks and plugins generally, but plugin availability varies by surface and account, so RDC-specific unattended invocation must be tested rather than assumed.
+
+If that gate passes, dynamic irregular timers can be handled by the Director creating exact one-time scheduled tasks for the next required wake, rather than polling hourly. On each wake, the Director reads durable AL Cloud state, decides which conceptual specialist role to use, operates the game through RDC, records the result, updates goals, and schedules the next wake. This preserves the conceptual-agent model without requiring literal persistent subagents.
