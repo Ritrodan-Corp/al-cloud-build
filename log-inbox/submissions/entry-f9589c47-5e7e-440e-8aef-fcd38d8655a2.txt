@@ -1,0 +1,7 @@
+Delegated observe probe completed successfully.
+
+A GitHub-triggered Work invocation delegated exactly one read-only AL Cloud observation to a requested gpt-5.6-luna / low-reasoning subagent. The Work parent reported that the requested model override was accepted. The worker successfully used Remote Desktop Commander to invoke /usr/local/bin/azl-agent observe on azl-android-arm64-01, read the returned full-screen PNG, and returned compact structured JSON with observation_ok=true, Azur Lane version 9.3.7, no Android mutations, and no tool errors.
+
+Important caveat: the worker self-reported model string was "gpt-5" while the authoritative runtime model and actual reasoning effort were not exposed. Therefore the delegation/tool-access path is proven, but actual runtime model selection and usage/cost savings from the Luna override remain unverified.
+
+Next: treat Work as a thin wake/bootstrap orchestrator, keep specialist execution delegated, and replace direct RDC exposure with the purpose-built AL Cloud control/plugin interface. Separately measure or verify model/usage accounting before relying on Luna for cost control.
