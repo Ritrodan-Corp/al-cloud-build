@@ -1,0 +1,11 @@
+Slack Work wake trigger armed and first end-to-end Slack event emitted.
+
+- User created/enabled Work task `ALcloud Slack Wake` monitoring new top-level messages in Slack channel #al-cloud-wake for exact case-sensitive marker `ALCLOUD_WAKE`.
+- Slack workspace: Ritrodan Corp.
+- Channel: #al-cloud-wake, channel ID C0C2QSZQVNU.
+- Normal ChatGPT Slack connector posted the first matching probe message directly into the channel.
+- Probe event_id: slack-e2e-20260915-001.
+- Probe reason: __slack_work_trigger_e2e__.
+- Payload identifies kind=slack-work-event-trigger-final-hop and source=normal-chat-slack-connector.
+- This test isolates the final Slack -> ChatGPT Work webhook hop. No user-managed timer or polling step is involved.
+- Next step: observe whether Work invocation appears and measure trigger latency. If successful, replace the current GitHub-comment wake transport with Slack delivery while leaving the Cloudflare Durable Object scheduler unchanged.
