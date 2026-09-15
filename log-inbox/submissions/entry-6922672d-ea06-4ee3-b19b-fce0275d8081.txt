@@ -1,0 +1,11 @@
+Browser streaming integration pass: guest work is complete and VM is ready for routine cleanup-confirmed STOP.
+
+Before stop:
+- qualified baseline restored: low-VA kernel, persistent ReDroid 1280x720/30, qualified controller active, ADB loopback-only, Launcher foreground
+- isolated prototype service inactive and disabled; no 8766 listener
+- temporary 12 Hz systemd override removed
+- temporary 854x480 display override reset
+- live-tested disconnect cleanup source synchronized to `vm-control`
+- no remaining guest-side integration work is required in this session
+
+Proceeding with lifecycle action `stop`, which is the cleanup-confirmed path and should move the instance to STOPPING or TERMINATED without the pre-ACPI application grace delay.
