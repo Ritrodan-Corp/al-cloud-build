@@ -4,12 +4,15 @@ let inputWidth = 1280;
 let inputHeight = 720;
 let videoWidth = 854;
 let videoHeight = 480;
+
+const stage = document.getElementById('stage');
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
 const fallback = document.getElementById('fallback');
 const statusEl = document.getElementById('status');
 const statsEl = document.getElementById('stats');
 const liveBadge = document.getElementById('live-badge');
+const textPanel = document.getElementById('text-panel');
 const textInput = document.getElementById('text');
 
 let streamAbort = null;
@@ -20,19 +23,27 @@ let running = false;
 let connecting = false;
 let retryTimer = null;
 let pngTimer = null;
-let down = null;
 let sequence = 0;
 let configuredCodec = null;
 let bytes = 0;
-let decodedFrames = 0;
 let renderedFrames = 0;
 let reconnects = 0;
 let lastStatsTime = performance.now();
 let lastStatsFrames = 0;
+let controlsTimer = null;
+
+let gesture = null;
+let touchStartPromise = null;
+let latestMove = null;
+let movePumpRunning = false;
+
+let textBuffer = '';
+let textTimer = null;
 
 function setStatus(text, kind = '') {
   statusEl.textContent = text;
   statusEl.dataset.kind = kind;
+  if (kind) showControls(5000);
 }
 
 async function post(path, obj = {}) {
@@ -47,32 +58,109 @@ async function post(path, obj = {}) {
   return text;
 }
 
+function showInputError(err) {
+  setStatus(`Input error: ${err.message}`, 'error');
+}
+
+function showControls(ms = 2400) {
+  stage.classList.add('controls-visible');
+  clearTimeout(controlsTimer);
+  if (ms > 0 && textPanel.hidden) {
+    controlsTimer = setTimeout(() => stage.classList.remove('controls-visible'), ms);
+  }
+}
+
+function focusStage() {
+  try { stage.focus({ preventScroll: true }); } catch (_) { stage.focus(); }
+}
+
 function xy(target, e) {
   const r = target.getBoundingClientRect();
   return [
-    Math.round((e.clientX - r.left) * inputWidth / r.width),
-    Math.round((e.clientY - r.top) * inputHeight / r.height),
+    Math.max(0, Math.min(inputWidth - 1, Math.round((e.clientX - r.left) * inputWidth / r.width))),
+    Math.max(0, Math.min(inputHeight - 1, Math.round((e.clientY - r.top) * inputHeight / r.height))),
   ];
+}
+
+function touchPost(action, point) {
+  return post('/touch', { action, x: point[0], y: point[1] });
+}
+
+async function pumpMoves() {
+  if (movePumpRunning) return;
+  movePumpRunning = true;
+  try {
+    if (touchStartPromise) await touchStartPromise;
+    while (latestMove && gesture) {
+      const point = latestMove;
+      latestMove = null;
+      await touchPost('move', point);
+    }
+  } catch (err) {
+    showInputError(err);
+  } finally {
+    movePumpRunning = false;
+    if (latestMove && gesture) queueMicrotask(pumpMoves);
+  }
 }
 
 function installPointerControls(target) {
   target.addEventListener('pointerdown', (e) => {
-    down = xy(target, e);
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    focusStage();
+    showControls();
+    const point = xy(target, e);
+    gesture = { pointerId: e.pointerId, start: point, last: point };
+    latestMove = null;
+    touchStartPromise = touchPost('down', point).catch((err) => {
+      showInputError(err);
+      gesture = null;
+    });
     target.setPointerCapture(e.pointerId);
   });
+
+  target.addEventListener('pointermove', (e) => {
+    showControls();
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    e.preventDefault();
+    const point = xy(target, e);
+    gesture.last = point;
+    latestMove = point;
+    pumpMoves();
+  });
+
   target.addEventListener('pointerup', async (e) => {
-    if (!down) return;
-    const up = xy(target, e);
-    const dx = up[0] - down[0];
-    const dy = up[1] - down[1];
-    const start = down;
-    down = null;
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    e.preventDefault();
+    const point = xy(target, e);
+    gesture.last = point;
+    latestMove = point;
     try {
-      if (Math.hypot(dx, dy) < 18) await post('/tap', { x: up[0], y: up[1] });
-      else await post('/swipe', { x1: start[0], y1: start[1], x2: up[0], y2: up[1], ms: 350 });
+      if (touchStartPromise) await touchStartPromise;
+      await pumpMoves();
+      while (movePumpRunning) await new Promise((resolve) => setTimeout(resolve, 1));
+      await touchPost('up', point);
+      setTimeout(() => post('/ime-hide').catch(() => {}), 120);
     } catch (err) {
-      setStatus(`Input error: ${err.message}`, 'error');
+      showInputError(err);
+    } finally {
+      gesture = null;
+      latestMove = null;
+      touchStartPromise = null;
     }
+  });
+
+  target.addEventListener('pointercancel', async (e) => {
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    const point = gesture.last;
+    try {
+      if (touchStartPromise) await touchStartPromise;
+      await touchPost('cancel', point);
+    } catch (_) {}
+    gesture = null;
+    latestMove = null;
+    touchStartPromise = null;
   });
 }
 
@@ -80,22 +168,117 @@ installPointerControls(canvas);
 installPointerControls(fallback);
 
 for (const button of document.querySelectorAll('[data-key]')) {
-  button.addEventListener('click', () => post('/key', { key: Number(button.dataset.key) }).catch(showInputError));
+  button.addEventListener('click', () => {
+    showControls();
+    post('/key', { key: Number(button.dataset.key) }).catch(showInputError);
+    focusStage();
+  });
 }
+
 document.getElementById('launch').addEventListener('click', () => post('/launch').catch(showInputError));
 document.getElementById('settings').addEventListener('click', () => post('/settings').catch(showInputError));
-document.getElementById('appinfo').addEventListener('click', () => post('/appinfo').catch(showInputError));
-document.getElementById('smaller').addEventListener('click', () => post('/density', { density: 240 }).catch(showInputError));
-document.getElementById('normal').addEventListener('click', () => post('/density', { density: 320 }).catch(showInputError));
-document.getElementById('send-text').addEventListener('click', () => post('/text', { text: textInput.value }).catch(showInputError));
-textInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('send-text').click();
-});
 document.getElementById('restart').addEventListener('click', () => restartStream('manual restart'));
 
-function showInputError(err) {
-  setStatus(`Input error: ${err.message}`, 'error');
+function openTextPanel() {
+  textPanel.hidden = false;
+  textPanel.classList.add('pinned');
+  showControls(0);
+  textInput.focus();
 }
+
+function closeTextPanel() {
+  textPanel.hidden = true;
+  textPanel.classList.remove('pinned');
+  textInput.value = '';
+  focusStage();
+  showControls();
+  post('/ime-hide').catch(() => {});
+}
+
+document.getElementById('keyboard').addEventListener('click', openTextPanel);
+document.getElementById('close-text').addEventListener('click', closeTextPanel);
+document.getElementById('send-text').addEventListener('click', async () => {
+  const text = textInput.value;
+  if (!text) return;
+  try {
+    await post('/text', { text });
+    textInput.value = '';
+    await post('/ime-hide').catch(() => {});
+  } catch (err) {
+    showInputError(err);
+  }
+});
+textInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('send-text').click();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeTextPanel();
+  }
+});
+
+const keyMap = new Map([
+  ['Enter', 66],
+  ['Backspace', 67],
+  ['Delete', 112],
+  ['Escape', 4],
+  ['ArrowUp', 19],
+  ['ArrowDown', 20],
+  ['ArrowLeft', 21],
+  ['ArrowRight', 22],
+  ['Tab', 61],
+  ['PageUp', 92],
+  ['PageDown', 93],
+]);
+
+function flushTextBuffer() {
+  clearTimeout(textTimer);
+  textTimer = null;
+  if (!textBuffer) return;
+  const text = textBuffer;
+  textBuffer = '';
+  post('/text', { text }).catch(showInputError);
+}
+
+function queueText(text) {
+  textBuffer += text;
+  if (textBuffer.length >= 24) return flushTextBuffer();
+  clearTimeout(textTimer);
+  textTimer = setTimeout(flushTextBuffer, 25);
+}
+
+stage.addEventListener('keydown', (e) => {
+  if (document.activeElement === textInput) return;
+  const code = keyMap.get(e.key);
+  if (code !== undefined) {
+    e.preventDefault();
+    flushTextBuffer();
+    post('/key', { key: code }).catch(showInputError);
+    post('/ime-hide').catch(() => {});
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key.length === 1) {
+    e.preventDefault();
+    queueText(e.key);
+    post('/ime-hide').catch(() => {});
+  }
+});
+
+stage.addEventListener('paste', (e) => {
+  if (document.activeElement === textInput) return;
+  const text = e.clipboardData?.getData('text') || '';
+  if (!text) return;
+  e.preventDefault();
+  flushTextBuffer();
+  post('/text', { text: text.slice(0, 256) }).catch(showInputError);
+  post('/ime-hide').catch(() => {});
+});
+
+stage.addEventListener('pointermove', () => showControls());
+stage.addEventListener('pointerdown', () => showControls());
+stage.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function closeDecoder() {
   if (decoder) {
@@ -120,7 +303,6 @@ async function configureDecoderFromSps(sps) {
   if (!support.supported) throw new Error(`WebCodecs does not support ${codec}`);
   decoder = new VideoDecoder({
     output(frame) {
-      decodedFrames++;
       try {
         ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
         renderedFrames++;
@@ -144,7 +326,7 @@ async function consumeNal(nal) {
   const unit = assembler.push(nal);
   if (!unit || !decoder) return;
   if (decoder.decodeQueueSize > 12) {
-    setStatus('Decoder fell behind; resyncing from a fresh keyframe…', 'warn');
+    setStatus('Decoder fell behind; resyncing…', 'warn');
     if (streamAbort) streamAbort.abort();
     return;
   }
@@ -200,6 +382,8 @@ async function connectStream() {
     connecting = false;
     liveBadge.textContent = 'LIVE';
     setStatus('Live H.264');
+    focusStage();
+    showControls();
     const reader = res.body.getReader();
     while (running && !document.hidden) {
       const { value, done } = await reader.read();
@@ -286,11 +470,9 @@ async function refreshStats() {
   const queue = decoder ? decoder.decodeQueueSize : 0;
   const parts = [
     `${fps.toFixed(1)} fps`,
-    `${(bytes / 1_000_000).toFixed(1)} MB`,
     `queue ${queue}`,
     `reconnects ${reconnects}`,
   ];
-  if (configuredCodec) parts.push(configuredCodec);
   if (server) parts.push(server.adb ? 'ADB up' : 'ADB down');
   statsEl.textContent = parts.join(' · ');
 }
@@ -300,5 +482,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopStream('paused while tab hidden');
   else connectStream();
 });
-window.addEventListener('beforeunload', () => stopStream('closing'));
+window.addEventListener('beforeunload', () => {
+  flushTextBuffer();
+  stopStream('closing');
+});
+showControls();
 connectStream();
