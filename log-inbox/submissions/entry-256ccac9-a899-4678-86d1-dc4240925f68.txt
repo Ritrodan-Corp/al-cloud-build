@@ -1,0 +1,9 @@
+AL Cloud control-plane timer validation completed.
+
+The Cloudflare Durable Object scheduler was validated autonomously, without relying on the user to schedule or poll timers. A temporary GitHub smoke-test workflow polled the deployed Worker health endpoint while the Worker created a one-time internal alarm test. The test event was due at 2026-09-15T05:46:32.203Z and fired at 2026-09-15T05:46:32.204Z with no error, and the GitHub workflow recorded PASS.
+
+The temporary smoke-test workflow and self-test hook were then removed, leaving the actual scheduler API and Durable Object alarm implementation in place. The timer core is therefore proven. User involvement in timer scheduling/polling is not part of the intended architecture; future Director/worker runs should call the scheduler themselves.
+
+Deployment reality corrected during this work: Cloudflare al-cloud-control is connected to Ritrodan-Corp/ALcloud, branch vm-control, root control-plane/. The canonical project progress log remains in Ritrodan-Corp/al-cloud-build.
+
+Next active task: wire fired timer events to an external ChatGPT Work wake transport, initially GitHub PR activity, then test event-triggered Work execution and acknowledgement.
