@@ -1,0 +1,1 @@
+Prepared the delegated-observe Work event surface by adding the probe marker/documentation to vm-control. This commit is intentionally non-operational; the next action is to branch from the current vm-control head and add one branch-only marker so a dedicated quiet PR can host exactly one comment per Work delegation test without triggering the existing PR #5 report task.
