@@ -1,0 +1,7 @@
+Browser streaming integration pass: cleanup after first live-stream disconnect defect.
+
+Restarting `azl-stream-prototype.service` cleared the host-side server state but did not terminate the guest-side `screenrecord` process that had been spawned through adb. This confirms cleanup must explicitly account for the remote Android process, not only the host adb subprocess.
+
+Issued a targeted guest `pkill` for the prototype screenrecord command. Verified no guest screenrecord remains, prototype service is active/idle, and `/api/status` reports no active stream and ADB up.
+
+Proceeding to harden the server disconnect/finally cleanup path before rerunning the live probe.
