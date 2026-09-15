@@ -1,0 +1,15 @@
+Documented the cleanup-confirmed fast-stop contract.
+
+Updated infra/gcp-lifecycle/README.md on branch vm-control at commit 34d6fe5d7ef7699e0e854e1d9bb0eb1a99e12a39.
+
+The documentation now:
+- Defines the required guest closeout checks before stop_after_cleanup.
+- Explains that noGracefulShutdown=true bypasses the Compute pre-ACPI application grace interval while retaining the ordinary guest ACPI/systemd shutdown phase.
+- States that the action is not reset or hard power.
+- Keeps ordinary stop as the path when cleanup status is unknown.
+- Defines idempotent behavior for PENDING_STOP, STOPPING, and TERMINATED.
+- Records that the lifecycle runner cannot independently inspect guest cleanup because its permissions remain intentionally constrained.
+
+No control command changed and no VM lifecycle or guest action occurred.
+
+Next: validate exact committed YAML parsing, action routing, fixed-target/no-permission-widening invariants, and changed-path trigger behavior.
