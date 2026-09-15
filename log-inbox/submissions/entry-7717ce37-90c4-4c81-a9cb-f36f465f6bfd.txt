@@ -1,0 +1,12 @@
+Browser streaming integration pass: lifecycle STOP accepted and experiment closure reached.
+
+Lifecycle workflow run 34919918629, lifecycle job 104225536196 completed successfully for action `stop` with nonce `bf3a91fe-7fbb-4515-bb20-41c785652112`.
+
+Observed lifecycle transition:
+- current status before request: RUNNING
+- cleanup-confirmed stop request accepted
+- status reached STOPPING at 2026-09-15T02:07:10Z
+- VM lastStartTimestamp reported as 2026-09-14T18:50:12.689-07:00
+- configured gracefulShutdown remains enabled with maxDuration 60 seconds
+
+Per project contract, STOPPING is sufficient closure after guest cleanup/baseline verification. The browser-streaming integration experiment is CLOSED. A final describe may be used only to confirm eventual TERMINATED state; it is not required for experiment closure.
