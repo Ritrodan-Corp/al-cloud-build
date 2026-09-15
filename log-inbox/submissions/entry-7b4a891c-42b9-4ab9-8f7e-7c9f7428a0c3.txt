@@ -1,0 +1,8 @@
+AL Cloud progress update — Slack wake transport setup
+
+- Slack plugin is connected to workspace `Ritrodan Corp`.
+- Created public channel `#al-cloud-wake` with channel ID `C0C2QSZQVNU`.
+- Posted an initialization message establishing this channel as the dedicated machine-generated wake-event channel and documenting the `ALCLOUD_WAKE` marker format.
+- Search for a Slack user named `ChatGPT` returned no user result through the connected Slack API, so adding a bot/app member could not be completed from this chat. Work-side Slack event-trigger setup remains the next step.
+- Recommended Work trigger: new messages in `#al-cloud-wake`; only act when message contains exact marker `ALCLOUD_WAKE`; for the initial test report event ID, reason, due time, and payload exactly.
+- After the Work trigger is armed, test with a user-authored Slack wake message before rewiring the Cloudflare control plane, then swap backend wake delivery from GitHub comments to Slack if the trigger proves reliable.
