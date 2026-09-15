@@ -1,0 +1,3 @@
+Browser streaming capture preparation: qualified guest baseline verified after startup.
+
+On `azl-android-arm64-01`, verified kernel `6.8.12-exp157-39va`; `azl-redroid-exp157.service` active; `azl-control-exp157.service` active; Android `sys.boot_completed=1`; physical display size `1280x720` with no logical override shown; ADB listening only on `127.0.0.1:5555`; controller listening only on `127.0.0.1:8765`; controller root returned HTTP 200; EGL=`angle`; Vulkan=`pastel`. Current Android focus was the Launcher, so no persistent game state was modified during this verification. Proceeding to save the controller/service definitions and capture a fresh bounded H.264 fixture, without changing the persistent service baseline.
