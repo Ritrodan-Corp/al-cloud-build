@@ -1,0 +1,2 @@
+Browser UI runtime verification after quick fixes
+Confirmed port 8766 remains loopback-only and is served by manual process PID 34036 running /usr/bin/python3 /opt/al-cloud/browser-streaming/azl_stream_server.py. Azur Lane MainActivity remains foreground. /api/status reports ADB up, no stream error, 1280x720 input mapping, 854x480 H.264 stream. The static asset changes require only a browser refresh; no server restart or game disruption is needed.
