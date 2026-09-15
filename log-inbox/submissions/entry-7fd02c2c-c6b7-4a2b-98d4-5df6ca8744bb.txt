@@ -1,0 +1,14 @@
+AL Cloud design update, 2026-09-14.
+
+Refined proposed control-plane architecture after discussion of Plus Work tool attachment and the still-unbuilt timer system.
+
+Recommendation:
+- Keep the gameplay tool surface minimal and decision-free: observe full Android screen, tap, swipe, key, text, launch_game, status. Waiting/polling behavior belongs to the worker/orchestration layer, not the interface.
+- Build timers outside the GCP Android VM so they still fire while the VM is stopped. Cloudflare Workers + a SQLite-backed Durable Object is a strong fit because Durable Object alarms can be set dynamically for arbitrary future times and then rescheduled to the next due event.
+- Treat scheduler as a dumb mechanism controlled by the Director. Expose narrow scheduler actions such as schedule_wake, cancel_wake, and list_wakes; Director decides when and why to use them.
+- On alarm, the external scheduler emits a supported wake event into ChatGPT Work. GitHub PR activity is the preferred first proof-of-concept because existing GitHub infrastructure already exists; Slack remains a cleaner eventual event bus.
+- Keep gameplay control and timer/wake logic separate modules even if they share one AL Cloud backend/front door.
+- Because private full-MCP write support on personal Plus is not clearly guaranteed by current docs, first build a tiny remote MCP/custom-app attachment probe rather than the full gameplay plugin. Verify that the user’s Plus Work can attach the tool and that a spawned Luna subagent can use it.
+- First end-to-end experiment should avoid game input: create a test timer, have Cloudflare alarm fire, emit the GitHub wake event, have Work start, and have the Work run read/acknowledge the event through the AL Cloud tool. This simultaneously validates dynamic timers, the wake path, and tool availability before adding gameplay controls.
+
+No VM or Android state modified in this design step.
