@@ -47,32 +47,37 @@ async function post(path, obj = {}) {
   return text;
 }
 
-function xy(e) {
-  const r = canvas.getBoundingClientRect();
+function xy(target, e) {
+  const r = target.getBoundingClientRect();
   return [
     Math.round((e.clientX - r.left) * inputWidth / r.width),
     Math.round((e.clientY - r.top) * inputHeight / r.height),
   ];
 }
 
-canvas.addEventListener('pointerdown', (e) => {
-  down = xy(e);
-  canvas.setPointerCapture(e.pointerId);
-});
-canvas.addEventListener('pointerup', async (e) => {
-  if (!down) return;
-  const up = xy(e);
-  const dx = up[0] - down[0];
-  const dy = up[1] - down[1];
-  const start = down;
-  down = null;
-  try {
-    if (Math.hypot(dx, dy) < 18) await post('/tap', { x: up[0], y: up[1] });
-    else await post('/swipe', { x1: start[0], y1: start[1], x2: up[0], y2: up[1], ms: 350 });
-  } catch (err) {
-    setStatus(`Input error: ${err.message}`, 'error');
-  }
-});
+function installPointerControls(target) {
+  target.addEventListener('pointerdown', (e) => {
+    down = xy(target, e);
+    target.setPointerCapture(e.pointerId);
+  });
+  target.addEventListener('pointerup', async (e) => {
+    if (!down) return;
+    const up = xy(target, e);
+    const dx = up[0] - down[0];
+    const dy = up[1] - down[1];
+    const start = down;
+    down = null;
+    try {
+      if (Math.hypot(dx, dy) < 18) await post('/tap', { x: up[0], y: up[1] });
+      else await post('/swipe', { x1: start[0], y1: start[1], x2: up[0], y2: up[1], ms: 350 });
+    } catch (err) {
+      setStatus(`Input error: ${err.message}`, 'error');
+    }
+  });
+}
+
+installPointerControls(canvas);
+installPointerControls(fallback);
 
 for (const button of document.querySelectorAll('[data-key]')) {
   button.addEventListener('click', () => post('/key', { key: Number(button.dataset.key) }).catch(showInputError));
@@ -125,7 +130,7 @@ async function configureDecoderFromSps(sps) {
     },
     error(err) {
       setStatus(`Decoder error: ${err.message}`, 'error');
-      scheduleReconnect();
+      if (streamAbort) streamAbort.abort();
     },
   });
   decoder.configure(support.config);
@@ -138,6 +143,11 @@ async function consumeNal(nal) {
   if (type === 7) await configureDecoderFromSps(nal);
   const unit = assembler.push(nal);
   if (!unit || !decoder) return;
+  if (decoder.decodeQueueSize > 12) {
+    setStatus('Decoder fell behind; resyncing from a fresh keyframe…', 'warn');
+    if (streamAbort) streamAbort.abort();
+    return;
+  }
   const timestamp = Math.round(sequence * (1_000_000 / 30));
   sequence++;
   decoder.decode(new EncodedVideoChunk({
