@@ -12,6 +12,9 @@ const fallback = document.getElementById('fallback');
 const statusEl = document.getElementById('status');
 const statsEl = document.getElementById('stats');
 const liveBadge = document.getElementById('live-badge');
+const hud = document.getElementById('hud');
+const nav = document.getElementById('nav');
+const statusPanel = document.getElementById('status-panel');
 const textPanel = document.getElementById('text-panel');
 const textInput = document.getElementById('text');
 
@@ -30,7 +33,7 @@ let renderedFrames = 0;
 let reconnects = 0;
 let lastStatsTime = performance.now();
 let lastStatsFrames = 0;
-let controlsTimer = null;
+const overlayTimers = new Map();
 let imeHideTimer = null;
 
 let gesture = null;
@@ -44,7 +47,7 @@ let textTimer = null;
 function setStatus(text, kind = '') {
   statusEl.textContent = text;
   statusEl.dataset.kind = kind;
-  if (kind) showControls(5000);
+  if (kind) revealOverlay(statusPanel, 5000);
 }
 
 async function post(path, obj = {}) {
@@ -63,12 +66,33 @@ function showInputError(err) {
   setStatus(`Input error: ${err.message}`, 'error');
 }
 
-function showControls(ms = 2400) {
-  stage.classList.add('controls-visible');
-  clearTimeout(controlsTimer);
-  if (ms > 0 && textPanel.hidden) {
-    controlsTimer = setTimeout(() => stage.classList.remove('controls-visible'), ms);
-  }
+function hideOverlay(el) {
+  const timer = overlayTimers.get(el);
+  if (timer) clearTimeout(timer);
+  overlayTimers.delete(el);
+  el.classList.remove('edge-visible');
+}
+
+function revealOverlay(el, ms = 1100) {
+  const timer = overlayTimers.get(el);
+  if (timer) clearTimeout(timer);
+  el.classList.add('edge-visible');
+  if (ms > 0) overlayTimers.set(el, setTimeout(() => hideOverlay(el), ms));
+  else overlayTimers.delete(el);
+}
+
+function updateEdgeOverlays(e) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const edge = 10;
+  if (e.clientY <= edge && e.clientX <= Math.min(360, w * 0.36)) revealOverlay(statusPanel);
+  if (e.clientY <= edge && e.clientX >= w - Math.min(460, w * 0.46)) revealOverlay(hud);
+  if (e.clientY >= h - edge && Math.abs(e.clientX - w / 2) <= Math.min(220, w * 0.22)) revealOverlay(nav);
+}
+
+for (const el of [hud, nav]) {
+  el.addEventListener('pointerenter', () => revealOverlay(el, 0));
+  el.addEventListener('pointerleave', () => revealOverlay(el, 500));
 }
 
 function focusStage() {
@@ -83,11 +107,31 @@ function scheduleImeHide(delay = 100) {
   }, delay);
 }
 
-function xy(target, e) {
-  const r = target.getBoundingClientRect();
+function fittedVideoRect(target) {
+  const box = target.getBoundingClientRect();
+  const aspect = videoWidth / videoHeight;
+  let width = box.width;
+  let height = box.height;
+  let left = box.left;
+  let top = box.top;
+  if (width / height > aspect) {
+    width = height * aspect;
+    left += (box.width - width) / 2;
+  } else {
+    height = width / aspect;
+    top += (box.height - height) / 2;
+  }
+  return { left, top, width, height, right: left + width, bottom: top + height };
+}
+
+function xy(target, e, clampOutside = false) {
+  const r = fittedVideoRect(target);
+  if (!clampOutside && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) return null;
+  const px = Math.max(r.left, Math.min(r.right, e.clientX));
+  const py = Math.max(r.top, Math.min(r.bottom, e.clientY));
   return [
-    Math.max(0, Math.min(inputWidth - 1, Math.round((e.clientX - r.left) * inputWidth / r.width))),
-    Math.max(0, Math.min(inputHeight - 1, Math.round((e.clientY - r.top) * inputHeight / r.height))),
+    Math.max(0, Math.min(inputWidth - 1, Math.round((px - r.left) * (inputWidth - 1) / r.width))),
+    Math.max(0, Math.min(inputHeight - 1, Math.round((py - r.top) * (inputHeight - 1) / r.height))),
   ];
 }
 
@@ -118,8 +162,8 @@ function installPointerControls(target) {
     if (e.button !== undefined && e.button !== 0) return;
     e.preventDefault();
     focusStage();
-    showControls();
     const point = xy(target, e);
+    if (!point) return;
     gesture = { pointerId: e.pointerId, start: point, last: point };
     latestMove = null;
     touchStartPromise = touchPost('down', point).catch((err) => {
@@ -130,10 +174,9 @@ function installPointerControls(target) {
   });
 
   target.addEventListener('pointermove', (e) => {
-    showControls();
     if (!gesture || gesture.pointerId !== e.pointerId) return;
     e.preventDefault();
-    const point = xy(target, e);
+    const point = xy(target, e, true);
     gesture.last = point;
     latestMove = point;
     pumpMoves();
@@ -142,7 +185,7 @@ function installPointerControls(target) {
   target.addEventListener('pointerup', async (e) => {
     if (!gesture || gesture.pointerId !== e.pointerId) return;
     e.preventDefault();
-    const point = xy(target, e);
+    const point = xy(target, e, true);
     gesture.last = point;
     latestMove = point;
     try {
@@ -178,7 +221,7 @@ installPointerControls(fallback);
 
 for (const button of document.querySelectorAll('[data-key]')) {
   button.addEventListener('click', () => {
-    showControls();
+    revealOverlay(nav);
     post('/key', { key: Number(button.dataset.key) }).catch(showInputError);
     focusStage();
   });
@@ -191,7 +234,7 @@ document.getElementById('restart').addEventListener('click', () => restartStream
 function openTextPanel() {
   textPanel.hidden = false;
   textPanel.classList.add('pinned');
-  showControls(0);
+  revealOverlay(hud, 0);
   textInput.focus();
 }
 
@@ -200,7 +243,7 @@ function closeTextPanel() {
   textPanel.classList.remove('pinned');
   textInput.value = '';
   focusStage();
-  showControls();
+  revealOverlay(hud);
   scheduleImeHide();
 }
 
@@ -285,8 +328,8 @@ stage.addEventListener('paste', (e) => {
   scheduleImeHide();
 });
 
-stage.addEventListener('pointermove', () => showControls());
-stage.addEventListener('pointerdown', () => showControls());
+stage.addEventListener('pointermove', updateEdgeOverlays);
+stage.addEventListener('pointerdown', updateEdgeOverlays);
 stage.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function closeDecoder() {
@@ -392,7 +435,6 @@ async function connectStream() {
     liveBadge.textContent = 'LIVE';
     setStatus('Live H.264');
     focusStage();
-    showControls();
     const reader = res.body.getReader();
     while (running && !document.hidden) {
       const { value, done } = await reader.read();
@@ -495,5 +537,4 @@ window.addEventListener('beforeunload', () => {
   flushTextBuffer();
   stopStream('closing');
 });
-showControls();
 connectStream();
