@@ -1,0 +1,7 @@
+2026-09-14 PDT | Wake-bus PR created and timer Worker validated
+
+Created long-lived branch al-cloud-wake-bus from vm-control and opened Ritrodan-Corp/al-cloud-build pull request #4 titled "AL Cloud Wake Bus". The PR contains only a marker file and is intended to remain open as the GitHub activity surface for timer wake comments. The control-plane configuration now records WAKE_ISSUE_NUMBER=4 while retaining WAKE_MODE=log as the safe initial deployment mode.
+
+GitHub Actions control-plane validation completed successfully for commit 3df1d852aef4f1a960b90abbf6028795d4a83ea5. The check installed the Worker dependencies and completed a Wrangler deployment dry run successfully, validating the current Worker bundle and Cloudflare Durable Object configuration before any live Cloudflare deployment.
+
+The existing Cloudflare alvmgetter Worker, its ALcalc repository connection, Oracle A1 retry cron, and its GITHUB_TOKEN were not modified. The new AL Cloud control-plane Worker still requires creation in the Cloudflare account and its own CONTROL_TOKEN secret before the live log-mode timer proof can run. GitHub wake delivery will later require a separate least-privilege GITHUB_TOKEN scoped to al-cloud-build and changing WAKE_MODE to github.
