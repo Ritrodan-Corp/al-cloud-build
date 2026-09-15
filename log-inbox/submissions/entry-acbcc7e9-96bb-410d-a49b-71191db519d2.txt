@@ -1,0 +1,14 @@
+No-delay STOP final reconciliation and TERMINATED verification
+
+Workstream: lifecycle control / canonical reconciliation
+
+Action:
+Completed post-R000262 closeout verification. Diagnostic-only DESCRIBE command commit `56baf2d630bef2b86d58366a683ce28f8b38aeee`, workflow run 34918224469, sent no lifecycle mutation and directly verified `azl-android-arm64-01` is TERMINATED with `lastStartTimestamp=2026-09-14T18:37:56.044-07:00` and `lastStopTimestamp=2026-09-14T18:40:14.239-07:00`. The VM still reports `gracefulShutdown.enabled=true` and `maxDuration.seconds=600`, confirming the safety fallback remains configured.
+
+Canonical Project State and Technical Reference were then updated with the live acceptance evidence: workflow run 34918092477 moved from observed RUNNING at 18:38:57.327 PDT to STOPPING at 18:39:03.666 after routine `stop`, about 5.9 seconds, and run 34918224469 later verified TERMINATED. Final exact stale-text checks returned no match for the former claims that routine STOP preserves the configured graceful-shutdown window, that the bridge allows exactly describe/start/stop, or that generic graceful STOP is the ordinary experiment closeout instruction.
+
+Result:
+PASS. Repository workflow, lifecycle README, Project State, Technical Reference, and operating rules now agree: routine `stop` is cleanup-gated and bypasses the redundant pre-ACPI 600-second delay; `stop_graceful` is the conservative fallback when cleanup status is unknown; `stop_after_cleanup` is a compatibility alias. VM is verified TERMINATED after the acceptance cycle.
+
+Next:
+Resume browser-streaming client validation and/or VM-local agent-control work on the qualified persistent baseline. Do not reintroduce the 600-second delay into routine cleanup-complete STOP.
