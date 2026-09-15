@@ -1,0 +1,1 @@
+Recovery work continuity. The logging repair remains active; user intervention is not required.
