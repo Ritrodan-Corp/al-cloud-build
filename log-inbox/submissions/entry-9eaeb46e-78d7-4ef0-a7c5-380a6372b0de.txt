@@ -1,0 +1,9 @@
+2026-09-14 AL Cloud GitHub wake transport proven and productionized
+
+Completed the external timer -> GitHub wake transport end to end without user timer management. The v2 bootstrap Durable Object event `7e5c1fbd-f526-4074-8888-9013897c91bf` became due at `2026-09-15T06:02:54.220Z` and fired at `2026-09-15T06:02:55.931Z`. `al-cloud-control` dispatched it through the private Cloudflare service binding to `alvmgetter`; `alvmgetter` reused its existing GitHub credential to dispatch the `AL Cloud Wake Relay` workflow; after adding both Issues and Pull Requests write permissions to the workflow token, relay run `34935229139` completed successfully and `github-actions[bot]` posted the expected `ALCLOUD_WAKE` comment on ALcloud PR #1.
+
+Verified the existing Oracle retry path remains operational after extending alvmgetter: Oracle retry workflow run `34935107807` (cloudflare-cron) completed successfully on the extended Worker revision.
+
+Removed all temporary bootstrap/testing machinery from production: removed the one-minute control-plane cron, removed the bootstrap scheduled handler/status logic, and deleted the temporary wake-readiness probe workflow. Final control-plane runtime version is `0.1.6-github-relay`; it retains the Durable Object scheduler, private service binding `GITHUB_RELAY -> alvmgetter`, public health/readiness metadata, and normal due-wake dispatch only. Long-lived wake target remains `Ritrodan-Corp/ALcloud` PR #1.
+
+Next product-gate step: configure/test ChatGPT Work event triggering from PR #1 activity so an `ALCLOUD_WAKE` comment launches a fresh Director invocation, then add acknowledgement handling.
