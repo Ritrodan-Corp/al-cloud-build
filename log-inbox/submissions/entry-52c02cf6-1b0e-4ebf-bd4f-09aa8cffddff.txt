@@ -1,0 +1,10 @@
+Browser streaming integration pass: entered lower-resolution portion of the bounded 12 Hz test.
+
+Applied temporary Android display override `wm size 854x480` while keeping the runtime-only ReDroid 12 Hz boot setting.
+Verified:
+- physical size remains 1280x720 with override 854x480
+- Azur Lane MainActivity remains foreground
+- game process remains alive
+- prototype is idle and healthy
+
+Prototype input metadata still reports 1280x720, so control-coordinate mapping is intentionally not being qualified during this resolution-only performance measurement. Next step is to measure baseline and live-stream CPU/memory/cadence at the 854x480 Android display override, then reset display size before restoring 30 Hz.
