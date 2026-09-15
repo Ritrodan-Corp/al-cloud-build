@@ -1,0 +1,14 @@
+AL Cloud progress update
+
+Step: Browser-streaming implementation research checkpoint
+Date: 2026-09-14 America/Los_Angeles
+
+Targeted pre-build research completed. Findings:
+- Android/AOSP screenrecord supports raw H.264 output mode and can send raw video to stdout when filename '-' is used, so a live encoder pipe is technically plausible and does not require writing complete MP4 files first. Actual behavior on the qualified ReDroid Android 14 guest should still be verified during live integration.
+- Browser Media Source Extensions can play H.264 in MP4/fMP4, but require suitable fragmented/containerized media and introduce buffering/container-management complexity.
+- WebCodecs provides low-level per-frame decode control useful for live streaming, but current browser support is not universal and it requires a secure context.
+- WebRTC is the standard browser real-time media path with broad support, but adds signaling/ICE machinery. It is likely the strongest option if the simpler WebSocket path cannot meet latency/reconnect goals.
+
+Implementation implication: do not commit blindly to WebSocket+MSE. Build should preserve the Android H.264 source and input APIs behind a transport boundary so MSE/WebCodecs can be tried cheaply, with WebRTC as the likely fallback or production path if browser latency/support warrants it.
+
+No VM start or guest change was required for this research step.
