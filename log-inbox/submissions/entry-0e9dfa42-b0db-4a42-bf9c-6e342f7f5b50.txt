@@ -1,0 +1,5 @@
+Browser streaming integration pass: post-stop lifecycle describe completed.
+
+Describe workflow run 34919969543, lifecycle job 104225695826 completed successfully. At 2026-09-15T02:07:46Z Compute reported VM status STOPPING, zone us-central1-a, lastStartTimestamp 2026-09-14T18:50:12.689-07:00, gracefulShutdown enabled with maxDuration 60 seconds.
+
+STOPPING remains sufficient experiment closure under the project contract. No further guest access is required. VM-side browser-streaming integration pass is complete; the remaining qualification item is user-browser WebCodecs visual playback/input-to-visible behavior through the secure local tunnel.
