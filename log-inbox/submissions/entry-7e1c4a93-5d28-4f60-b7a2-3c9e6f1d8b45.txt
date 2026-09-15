@@ -1,0 +1,3 @@
+Browser streaming capture pass: graceful VM STOP accepted.
+
+After restoring the guest baseline, submitted the normal constrained STOP command. GitHub Actions run 34912654066 / lifecycle job 104203383855 observed the VM RUNNING, sent exactly one stop request, and then directly observed `PENDING_STOP` at 2026-09-15T00:19:03Z. The workflow therefore returned `STOP_READY` under the project graceful-shutdown contract. The capture experiment is operationally closed at this accepted stop state. No browser-streaming server implementation was started. A final describe may be used only to confirm the Compute state reaches TERMINATED; it is not required for experiment closure.
