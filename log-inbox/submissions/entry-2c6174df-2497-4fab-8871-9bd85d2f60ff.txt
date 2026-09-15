@@ -1,0 +1,13 @@
+Browser streaming live integration pass: baseline verification after user manually started VM.
+
+Observed on azl-android-arm64-01:
+- kernel 6.8.12-exp157-39va
+- azl-redroid-exp157.service active
+- azl-control-exp157.service active
+- ADB 127.0.0.1:5555 reports device
+- current foreground Launcher
+- Android physical size 1280x720
+- loopback listeners present on 127.0.0.1:5555 and 127.0.0.1:8765
+- no listener on 8766 yet
+
+Baseline passed. Proceeding with isolated browser-streaming prototype deployment on loopback port 8766; qualified controller on 8765 remains untouched.
