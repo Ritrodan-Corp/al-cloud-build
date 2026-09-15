@@ -1,0 +1,9 @@
+Agent-control architecture refinement after user feedback.
+
+The Director should own scheduling authority, goal/threshold state, and interpretation of specialist results. A scheduler service should be a dumb mechanism that executes or wakes tasks at times chosen by the Director. This matters because commissions and PR research have irregular completion times, so specialist agents must report compact outcomes back to the Director, including relevant observed state, completion times, resource/goal progress, and any suggested next check. The Director then updates or cancels scheduled work and adjusts future specialist prompts as goals evolve, e.g. stopping cube-favoring commission behavior after reaching a target such as 1000 cubes.
+
+Avoid overengineering decision audit trails. Tune specialists well up front and keep their routine outputs concise, focusing on state/results needed for orchestration rather than detailed rationale unless useful for debugging or explicit user review.
+
+Treat Dorm handling as a shared capability rather than a dedicated agent. Grinding or other specialists may refill the Dorm opportunistically when convenient. Likewise, avoid maintaining an exact persistent morale model initially. A grinding agent can check morale in-game after a bounded number of auto battles and decide whether to continue, rest, or refill the Dorm. Add explicit morale formulas/state estimation only if later evidence shows they materially improve scheduling or efficiency.
+
+Likely specialist set becomes smaller and more task-centric: commissions, PR research, Tactical Class/training, grinding/leveling, plus possibly other bounded domains as justified. The Director remains the only agent with broad account goals and whole-game coordination context, and it should receive every specialist result before deciding subsequent scheduling and priorities.
