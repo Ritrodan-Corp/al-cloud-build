@@ -1,0 +1,5 @@
+Browser streaming integration pass: source synchronization completed.
+
+Updated `browser-streaming/azl_stream_server.py` on `vm-control` with the live-tested disconnect/cleanup hardening. GitHub commit: `f2af4ef36ae5809e783a383cd8c248db30e1a29f`; resulting content blob: `5cfafe6318c798c9710bd2281320dffe11888371`.
+
+The repository source now matches the deployed prototype logic that passed the live disconnect cleanup and concurrent stream/control tests. Guest runtime remains restored to qualified 1280x720/30 baseline with prototype inactive.
