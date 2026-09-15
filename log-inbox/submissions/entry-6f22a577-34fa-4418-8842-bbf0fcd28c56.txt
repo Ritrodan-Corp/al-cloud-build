@@ -1,0 +1,11 @@
+Browser streaming integration pass: isolated prototype service startup validation.
+
+Started `azl-stream-prototype.service` without enabling it.
+Observed:
+- prototype service active on 127.0.0.1:8766
+- qualified controller remains active on 127.0.0.1:8765
+- ADB remains loopback-only on 127.0.0.1:5555
+- `/api/status` HTTP endpoint reports ADB up, input 1280x720, video 854x480, 2 Mbps, h264-annexb, no active stream and no errors
+- root browser UI returns HTTP 200 and 1491 bytes
+
+Isolation/security assumptions hold so far. Proceeding to live H.264 stream validation.
