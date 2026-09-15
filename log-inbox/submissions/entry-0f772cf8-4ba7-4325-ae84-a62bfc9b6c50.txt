@@ -1,0 +1,9 @@
+2026-09-15 controller-access options summary checkpoint
+
+Summarized current manual-access options for AL Cloud browser controller:
+1. Current GCP IAP + SSH localhost forwarding, now wrapped in one-click Windows launcher. Proven, private, low-complexity, keeps controller bound to 127.0.0.1:8766.
+2. Cloudflare Tunnel with public hostname + Access. Best browser UX and portable across GCP/Oracle, but raw H.264 public-hostname streaming may fall under Cloudflare video/media restrictions and therefore needs terms/pricing validation before adoption.
+3. Cloudflare private-network/WARP access. Could stay in Zero Trust free tier for one user and avoids public-hostname streaming concern, but requires WARP client on each device and is less frictionless than browser-only access.
+4. Cloudflare Pages/Workers as frontend host only. Useful later for a polished installable PWA/offline shell, but does not solve VM connectivity and would introduce cross-origin/auth/CORS complexity if split from backend now.
+5. Quick Tunnel / trycloudflare for experiments only. No stable hostname/uptime guarantee, not suitable as normal controller access.
+Current recommendation: keep one-click IAP launcher as production manual access, defer Cloudflare until either private/WARP is desired or public-streaming terms are explicitly qualified. Pages remains optional later UI layer, not the transport solution.
