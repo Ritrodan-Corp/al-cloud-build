@@ -7,42 +7,37 @@
   <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
-  <header>
-    <div>
-      <h1>Azur Lane Cloud</h1>
-      <div class="sub">localhost browser controller</div>
-    </div>
-    <span id="live-badge" class="badge">OFFLINE</span>
-  </header>
-
-  <section class="toolbar">
-    <button data-key="4">Back</button>
-    <button data-key="3">Home</button>
-    <button data-key="187">Recents</button>
-    <button id="launch">Launch Azur Lane</button>
-    <button id="restart">Restart Stream</button>
-    <button id="settings">Settings</button>
-    <button id="appinfo">App info</button>
-    <button id="smaller">Smaller UI</button>
-    <button id="normal">Normal UI</button>
-  </section>
-
-  <main>
+  <main id="stage" class="controls-visible" tabindex="0" aria-label="Azur Lane remote display">
     <div id="screen-wrap">
-      <canvas id="screen" width="854" height="480"></canvas>
-      <img id="fallback" alt="Android screen fallback" draggable="false" hidden>
+      <canvas id="screen" width="854" height="480" tabindex="0"></canvas>
+      <img id="fallback" alt="Android screen fallback" draggable="false" tabindex="0" hidden>
     </div>
-    <div class="state-row">
+
+    <div id="hud" class="overlay">
+      <span id="live-badge" class="badge">OFFLINE</span>
+      <button id="launch" title="Launch Azur Lane">Launch</button>
+      <button id="keyboard" title="Open text input">Keyboard</button>
+      <button id="settings" title="Open Android settings">Settings</button>
+      <button id="restart" title="Restart video stream">Reconnect</button>
+    </div>
+
+    <div id="nav" class="overlay" aria-label="Android navigation">
+      <button data-key="4" title="Back" aria-label="Back">←</button>
+      <button data-key="3" title="Home" aria-label="Home">●</button>
+      <button data-key="187" title="Recents" aria-label="Recents">▢</button>
+    </div>
+
+    <div id="status-panel" class="overlay">
       <span id="status">Starting…</span>
       <span id="stats"></span>
     </div>
-  </main>
 
-  <section class="textbar">
-    <input id="text" maxlength="256" placeholder="Android text input">
-    <button id="send-text">Type</button>
-    <span>Tap or drag directly on the live display.</span>
-  </section>
+    <div id="text-panel" class="overlay" hidden>
+      <input id="text" maxlength="256" placeholder="Type or paste text" autocomplete="off">
+      <button id="send-text">Send</button>
+      <button id="close-text" title="Close text input">×</button>
+    </div>
+  </main>
 
   <script type="module" src="/assets/app.js"></script>
 </body>
