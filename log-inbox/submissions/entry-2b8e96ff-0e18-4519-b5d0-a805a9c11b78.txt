@@ -1,0 +1,5 @@
+2026-09-14 PDT | Cloudflare Builds API token permission-name correction
+
+While preparing a user-scoped Cloudflare API token for the AL Cloud control-plane production-trigger fix, the dashboard did not expose a permission named `Workers Builds Configuration` even though the current Workers Builds API guide uses that label. Cross-checking Cloudflare's current API token permission registry shows the dashboard-exposed account permission is `Workers CI Edit`, with `Workers Scripts Read` for retrieving the Worker tag. Updated the operational guidance accordingly: create a user-scoped API token with Workers CI Edit + Workers Scripts Read, scoped to the account containing `al-cloud-control`.
+
+No Cloudflare resources were modified and no secrets were collected in chat.
