@@ -14,15 +14,7 @@ The runtime service account is `alcloud-vm-lifecycle@project-97e3d26a-3ba2-4579-
 
 That custom role is bound on the individual VM, not at project scope.
 
-The WIF provider accepts only OIDC tokens that match all of the following:
-
-- GitHub repository ID `1366956589`
-- GitHub organization ID `316736398`
-- branch `refs/heads/main`
-- event `workflow_dispatch`
-- workflow `Ritrodan-Corp/al-cloud-build/.github/workflows/gcp-vm-lifecycle.yml@refs/heads/main`
-
-The workflow itself has only `contents: read` and `id-token: write` GitHub permissions and uses fixed GCP project, zone, and instance identifiers.
+The active chat-control path is branch `vm-control`, workflow `.github/workflows/gcp-vm-chat-control.yml`, triggered only by changes to the constrained lifecycle command file or immutable log-inbox submissions. The workflow has only `contents: read` and `id-token: write` GitHub permissions and uses fixed GCP project, zone, instance, WIF-provider, and service-account identifiers. Log-only commits skip the lifecycle job.
 
 ## Bootstrap
 
@@ -40,23 +32,19 @@ The script prints the numeric GCP project number. Add that value as the GitHub r
 
 ## Operation
 
-Run the GitHub Actions workflow **GCP VM lifecycle** manually and choose one action:
+The chat-control workflow accepts these lifecycle actions:
 
 - `describe` reads status and the lifecycle scheduling fields.
-- `start` sends a start request only when the VM is `TERMINATED`.
-- `stop` sends a normal stop request only when the VM is `RUNNING`.
+- `start` starts only from `TERMINATED`, or waits out an already-running stop/start transition instead of sending a duplicate request.
+- `stop` is the normal project closeout action. Its use asserts that guest cleanup and baseline verification are complete. It calls the fixed Compute stop endpoint with `noGracefulShutdown=true`, bypassing the configured pre-ACPI application grace interval while still allowing the guest to receive the ordinary ACPI soft-off signal and shut down through systemd.
+- `stop_graceful` is the conservative fallback when guest cleanup status is unknown. It omits `noGracefulShutdown`, so Compute Engine preserves the VM's configured application grace interval before ACPI shutdown.
+- `stop_after_cleanup` remains accepted as a backward-compatible alias for routine `stop`; new callers should use `stop`.
 
-The stop request deliberately omits `noGracefulShutdown`, so Compute Engine honors the VM's existing graceful-shutdown policy. The workflow does not change max run duration, termination action, scheduling, metadata, disks, network configuration, service accounts, ReDroid, Mesa, Android data, or Gate 2 configuration.
+The normal project lifecycle is therefore START -> guest work -> cleanup and baseline verification -> STOP. The former 600-second application-grace delay is not part of routine closeout anymore. The VM's configured graceful-shutdown setting is intentionally left intact so `stop_graceful` remains available for exceptional or uncertain cleanup cases.
 
-Start and stop requests use a UUID request ID for retry safety. The workflow reports the VM state shortly after request submission rather than waiting for graceful shutdown to finish. Use `describe` for subsequent status checks.
+Routine `stop` succeeds only after Compute is observed in `STOPPING` or `TERMINATED`, which proves the request has moved beyond the pre-ACPI `PENDING_STOP` grace phase. If a prior conservative stop has already left the VM in `PENDING_STOP`, routine `stop` may still be used after cleanup is confirmed to end the remaining application-grace interval. `stop_graceful` may return after `PENDING_STOP`, `STOPPING`, or `TERMINATED` is observed. START waits for `TERMINATED` before restarting if any stop is still in progress.
 
-### Cleanup-confirmed fast stop
-
-The chat-control workflow on branch `vm-control` also accepts `stop_after_cleanup`. Use it only after guest work has completed the established closeout checks: stop temporary services and encoders, return Android to the intended baseline foreground state, remove temporary files, and verify the qualified persistent services and configuration.
-
-`stop_after_cleanup` calls the same fixed instance stop endpoint with `noGracefulShutdown=true`. This bypasses Compute Engine's pre-ACPI application grace interval and lets Compute proceed immediately to the guest's ordinary ACPI/systemd shutdown. It does not reset the VM or perform a hard-power operation. The committed action is the cleanup assertion because the lifecycle runner has no guest-control permission and cannot independently inspect those checks.
-
-Use ordinary `stop` when cleanup status is unknown. If the VM is already `PENDING_STOP`, `stop_after_cleanup` can end the remaining application grace interval. If it is already `STOPPING` or `TERMINATED`, the workflow sends no duplicate request.
+Start and stop requests use a UUID request ID for retry safety. None of these actions changes max run duration, termination action, scheduling, metadata, disks, network configuration, service accounts, ReDroid, Android data, or renderer configuration.
 
 ## Safety boundary
 
