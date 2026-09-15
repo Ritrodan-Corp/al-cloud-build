@@ -1,0 +1,9 @@
+Recovery/backfill: Cloudflare control-plane scheduler implementation and Durable Object timer validation.
+
+A new AL Cloud control plane was added under the existing Ritrodan-Corp/al-cloud-build repository while preserving the pre-existing alvmgetter Cloudflare Worker and its Oracle A1 retry job. Cloudflare build/deploy configuration initially failed because the repository root/build trigger settings did not match the control-plane directory; after correcting the branch/root/watch configuration, al-cloud-control deployed successfully from the existing repo.
+
+The scheduler core was then validated autonomously rather than by user-managed polling. A one-time Durable Object alarm was scheduled for 2026-09-15T05:46:32.203Z and fired at 2026-09-15T05:46:32.204Z. The GitHub smoke test recorded PASS. Temporary self-test hooks/workflows were removed after the pass so the production control plane retained only the real scheduler behavior.
+
+Conclusion: the external timer core works without requiring the user to run PowerShell, poll alarms, or manually manage timers. The existing alvmgetter Oracle retry function remains preserved.
+
+This is a recovery submission because the earlier immutable submission was misnamed without the required entry- prefix and therefore never reached the raw log.
