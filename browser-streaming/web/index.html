@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Azur Lane Cloud</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Azur Lane Cloud</h1>
+      <div class="sub">localhost browser controller</div>
+    </div>
+    <span id="live-badge" class="badge">OFFLINE</span>
+  </header>
+
+  <section class="toolbar">
+    <button data-key="4">Back</button>
+    <button data-key="3">Home</button>
+    <button data-key="187">Recents</button>
+    <button id="launch">Launch Azur Lane</button>
+    <button id="restart">Restart Stream</button>
+    <button id="settings">Settings</button>
+    <button id="appinfo">App info</button>
+    <button id="smaller">Smaller UI</button>
+    <button id="normal">Normal UI</button>
+  </section>
+
+  <main>
+    <div id="screen-wrap">
+      <canvas id="screen" width="854" height="480"></canvas>
+      <img id="fallback" alt="Android screen fallback" draggable="false" hidden>
+    </div>
+    <div class="state-row">
+      <span id="status">Starting…</span>
+      <span id="stats"></span>
+    </div>
+  </main>
+
+  <section class="textbar">
+    <input id="text" maxlength="256" placeholder="Android text input">
+    <button id="send-text">Type</button>
+    <span>Tap or drag directly on the live display.</span>
+  </section>
+
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>
