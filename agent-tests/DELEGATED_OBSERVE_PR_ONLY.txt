@@ -1,0 +1,1 @@
+Dedicated branch-only marker for the Work bootstrap delegation probe. Keep the pull request conversation quiet except for intentional wake-test comments.
