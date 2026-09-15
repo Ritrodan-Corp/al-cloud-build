@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "al-cloud-control",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-14",
+  "observability": {
+    "enabled": true
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WAKE_SCHEDULER",
+        "class_name": "WakeScheduler"
+      }
+    ]
+  },
+  "exports": {
+    "WakeScheduler": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "vars": {
+    "WAKE_MODE": "log",
+    "WAKE_REPO": "Ritrodan-Corp/al-cloud-build"
+  }
+}
