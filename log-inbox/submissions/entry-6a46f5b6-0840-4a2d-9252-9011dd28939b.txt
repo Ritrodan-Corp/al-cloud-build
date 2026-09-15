@@ -1,0 +1,7 @@
+2026-09-14 PDT | Cloudflare production build trigger reached; build itself failed
+
+Confirmed from the Cloudflare dashboard that the newly configured production trigger on `vm-control` is firing for `control-plane/` changes, while the two existing Worker versions remain manually deployed. The dashboard reports `Latest build failed`, so the branch selection and build watch path configuration are working, but the GitHub-triggered Cloudflare build/deploy did not complete successfully.
+
+Also observed that the `workers.dev` route for `al-cloud-control` is currently disabled, so even after the build succeeds a public test route will still need to be enabled before `/health` can be exercised externally.
+
+Next diagnostic step: inspect the failed Cloudflare build log and capture the first actual error block around dependency installation, Wrangler deployment, Durable Object configuration, or build-token permissions. No changes were made to the existing `alvmgetter` Oracle retry Worker.
