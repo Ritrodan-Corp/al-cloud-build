@@ -13,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: al-cloud-log-drain
+  group: al-cloud-log-issue-drain
   cancel-in-progress: false
 
 jobs:
