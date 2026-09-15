@@ -1,0 +1,5 @@
+2026-09-14 PDT | Cloudflare branch trigger correction and first production-trigger exercise
+
+Verified Cloudflare Workers Builds trigger configuration for the new AL Cloud control-plane Worker. Production trigger 80ce2f12-1a3e-4e66-a219-1cf1d876b98f now includes only `vm-control` and excludes nothing. Non-production trigger 50365a61-221d-4e4c-a17a-93f1c00c8d4c includes all branches but excludes `vm-control`, preventing duplicate production/preview deployments from the same vm-control push. Both triggers use root directory `control-plane`; production deploy command is `npx wrangler deploy`.
+
+Added a harmless documentation-only commit under `control-plane/README.md` on `vm-control` to exercise the corrected Cloudflare production trigger without changing runtime behavior. Existing `alvmgetter` Worker, cron trigger, Oracle retry behavior, and secrets remain untouched.
