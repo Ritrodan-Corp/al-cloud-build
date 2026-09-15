@@ -65,7 +65,7 @@ jobs:
             type == "object" and
             (keys | sort) == ["action", "nonce"] and
             ($d.action | type == "string") and
-            ((["describe", "start", "stop", "stop_after_cleanup"] | index($d.action)) != null) and
+            ((["describe", "start", "stop", "stop_graceful", "stop_after_cleanup"] | index($d.action)) != null) and
             ($d.nonce | type == "string") and
             ($d.nonce | test("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"))
           ' <<<"$command_json" >/dev/null
@@ -211,7 +211,7 @@ jobs:
                   exit 0
                   ;;
                 PENDING_STOP|STOPPING)
-                  echo 'A graceful stop is already in progress. Waiting for TERMINATED before starting.'
+                  echo 'A stop is already in progress. Waiting for TERMINATED before starting.'
                   wait_for_status TERMINATED 720
                   ;;
                 STAGING|PROVISIONING)
@@ -239,7 +239,10 @@ jobs:
               echo 'START_READY: VM is RUNNING.'
               ;;
 
-            stop)
+            stop_graceful)
+              # Conservative fallback for cases where guest cleanup status is
+              # unknown. This preserves Compute Engine's configured application
+              # grace interval before the guest receives ACPI soft-off.
               case "$current_status" in
                 TERMINATED)
                   echo 'VM is already TERMINATED; no lifecycle request sent.'
@@ -256,7 +259,7 @@ jobs:
                 RUNNING)
                   ;;
                 *)
-                  echo "Refusing stop from unexpected state: ${current_status}" >&2
+                  echo "Refusing graceful stop from unexpected state: ${current_status}" >&2
                   exit 1
                   ;;
               esac
@@ -266,29 +269,29 @@ jobs:
                 -X POST \
                 -H "Authorization: Bearer ${ACCESS_TOKEN}" \
                 "${BASE_URL}/stop?requestId=${REQUEST_ID}")"
-              echo 'Stop request accepted:'
+              echo 'Conservative graceful stop request accepted:'
               jq '{name,status,operationType,targetLink}' <<<"$response"
               wait_for_stop_transition
               echo 'STOP_READY: graceful shutdown acknowledged; TERMINATED need not be awaited in this run.'
               ;;
 
-            stop_after_cleanup)
-              # The committed action is an explicit assertion that guest cleanup
-              # and baseline verification have completed. Bypass only Compute
-              # Engine's pre-ACPI application grace period; the guest still
-              # receives the normal ACPI soft-off signal and shuts down via
-              # systemd. This is not a reset or hard-power operation.
+            stop|stop_after_cleanup)
+              # Routine project STOP is issued only after guest cleanup and
+              # baseline verification have completed. Bypass Compute Engine's
+              # pre-ACPI application grace period; the guest still receives the
+              # normal ACPI soft-off signal and shuts down through systemd.
+              # stop_after_cleanup remains as a compatibility alias.
               case "$current_status" in
                 TERMINATED)
                   echo 'VM is already TERMINATED; no lifecycle request sent.'
                   print_status <<<"$current_json"
-                  echo 'FAST_STOP_READY: VM is TERMINATED.'
+                  echo 'STOP_READY: VM is TERMINATED.'
                   exit 0
                   ;;
                 STOPPING)
                   echo 'VM is already in the ACPI/final stop phase; no duplicate request sent.'
                   print_status <<<"$current_json"
-                  echo 'FAST_STOP_READY: VM is STOPPING.'
+                  echo 'STOP_READY: VM is STOPPING.'
                   exit 0
                   ;;
                 RUNNING|PENDING_STOP)
@@ -304,10 +307,10 @@ jobs:
                 -X POST \
                 -H "Authorization: Bearer ${ACCESS_TOKEN}" \
                 "${BASE_URL}/stop?requestId=${REQUEST_ID}&noGracefulShutdown=true")"
-              echo 'Cleanup-confirmed stop request accepted; bypassing the pre-ACPI application grace period:'
+              echo 'Routine cleanup-confirmed stop accepted; bypassing the pre-ACPI application grace period:'
               jq '{name,status,operationType,targetLink}' <<<"$response"
               wait_for_fast_stop_transition
-              echo 'FAST_STOP_READY: Compute reached STOPPING or TERMINATED without the application grace delay.'
+              echo 'STOP_READY: Compute reached STOPPING or TERMINATED without the application grace delay.'
               ;;
 
             *)
