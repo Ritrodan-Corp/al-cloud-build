@@ -58,6 +58,7 @@ GAME_PACKAGE = "com.YoStarEN.AzurLane"
 GAME_ACTIVITY = "com.manjuu.azurlane.MainActivity"
 
 adb_lock = threading.Lock()
+input_lock = threading.Lock()
 stream_lock = threading.Lock()
 stream_state_lock = threading.Lock()
 stream_state = {
@@ -351,6 +352,18 @@ class Handler(BaseHTTPRequestHandler):
                 x = clamp(int(data["x"]), 0, INPUT_W - 1)
                 y = clamp(int(data["y"]), 0, INPUT_H - 1)
                 run_adb(["shell", "input", "tap", str(x), str(y)])
+            elif path == "/touch":
+                action = str(data.get("action", "")).lower()
+                if action not in ("down", "move", "up", "cancel"):
+                    raise ValueError("unsupported touch action")
+                x = clamp(int(data["x"]), 0, INPUT_W - 1)
+                y = clamp(int(data["y"]), 0, INPUT_H - 1)
+                with input_lock:
+                    run_adb(["shell", "input", "motionevent", action.upper(), str(x), str(y)], timeout=4)
+            elif path == "/ime-hide":
+                state = run_adb(["shell", "dumpsys", "input_method"], timeout=5, capture=True).stdout
+                if b"mInputShown=true" in state:
+                    run_adb(["shell", "input", "keyevent", "4"], timeout=4)
             elif path == "/swipe":
                 x1 = clamp(int(data["x1"]), 0, INPUT_W - 1)
                 y1 = clamp(int(data["y1"]), 0, INPUT_H - 1)
