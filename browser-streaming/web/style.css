@@ -1,20 +1,40 @@
 * { box-sizing: border-box; }
 :root { color-scheme: dark; font-family: system-ui, sans-serif; }
-body { margin: 0; padding: 12px; background: #111; color: #eee; }
-header { max-width: 1280px; margin: 0 auto 10px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-h1 { font-size: 20px; margin: 0; }
-.sub { color: #aaa; font-size: 12px; margin-top: 2px; }
-.badge { font: 700 12px/1 system-ui; border: 1px solid #666; border-radius: 999px; padding: 7px 10px; min-width: 72px; text-align: center; }
-.toolbar, .textbar { max-width: 1280px; margin: 0 auto 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-button, input { font: inherit; padding: 8px 10px; background: #242424; color: #eee; border: 1px solid #555; border-radius: 6px; }
-button { cursor: pointer; }
-button:hover { background: #303030; }
-main { max-width: 1280px; margin: 0 auto; }
-#screen-wrap { background: #000; width: 100%; aspect-ratio: 16 / 9; border: 1px solid #444; overflow: hidden; }
-#screen, #fallback { width: 100%; height: 100%; display: block; object-fit: contain; touch-action: none; cursor: crosshair; }
-#fallback[hidden], #screen[hidden] { display: none; }
-.state-row { min-height: 28px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 6px 2px 0; color: #aaa; font-size: 13px; }
-#status[data-kind="error"] { color: #f7a5a5; }
-#status[data-kind="warn"] { color: #e6c27a; }
-#text { min-width: 220px; flex: 1; }
-.textbar span { color: #999; font-size: 13px; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #000; color: #eee; }
+button, input { font: inherit; color: #eee; }
+button { cursor: pointer; border: 1px solid rgba(255,255,255,.22); background: rgba(25,25,25,.82); border-radius: 9px; min-height: 38px; padding: 7px 11px; backdrop-filter: blur(8px); }
+button:hover { background: rgba(55,55,55,.9); }
+button:focus-visible, input:focus-visible { outline: 2px solid rgba(255,255,255,.85); outline-offset: 2px; }
+
+#stage { position: fixed; inset: 0; background: #000; outline: none; user-select: none; }
+#screen-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+#screen, #fallback { width: 100%; height: 100%; display: block; object-fit: contain; touch-action: none; cursor: default; outline: none; }
+#fallback[hidden], #screen[hidden], [hidden] { display: none !important; }
+
+.overlay { position: absolute; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 160ms ease; }
+.controls-visible .overlay, .overlay.pinned { opacity: 1; pointer-events: auto; }
+
+#hud { top: 10px; right: 10px; display: flex; gap: 6px; align-items: center; }
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 58px; min-height: 38px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(255,255,255,.22); background: rgba(18,18,18,.82); backdrop-filter: blur(8px); font-size: 11px; font-weight: 750; letter-spacing: .04em; }
+
+#nav { left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 3px; padding: 4px; border-radius: 999px; background: rgba(12,12,12,.72); backdrop-filter: blur(10px); }
+#nav button { width: 48px; min-height: 36px; padding: 4px; border: 0; border-radius: 999px; background: transparent; font-size: 17px; }
+#nav button:hover { background: rgba(255,255,255,.12); }
+
+#status-panel { left: 10px; top: 10px; max-width: min(62vw, 760px); display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; border-radius: 8px; background: rgba(12,12,12,.68); backdrop-filter: blur(8px); color: #bbb; font-size: 11px; }
+#status[data-kind="error"] { color: #ffb0b0; }
+#status[data-kind="warn"] { color: #f1cf86; }
+#stats { color: #888; }
+
+#text-panel { left: 50%; bottom: 62px; transform: translateX(-50%); width: min(680px, calc(100vw - 24px)); display: flex; gap: 6px; padding: 7px; border-radius: 11px; background: rgba(12,12,12,.84); backdrop-filter: blur(10px); }
+#text-panel[hidden] { display: none; }
+#text { min-width: 0; flex: 1; border: 1px solid rgba(255,255,255,.24); border-radius: 8px; padding: 8px 10px; background: rgba(30,30,30,.94); }
+#close-text { width: 38px; padding: 4px; font-size: 20px; }
+
+@media (max-width: 720px) {
+  #hud { top: 6px; right: 6px; gap: 4px; }
+  #hud button { padding: 6px 8px; min-height: 34px; font-size: 12px; }
+  .badge { min-height: 34px; min-width: 50px; padding: 0 7px; }
+  #status-panel { left: 6px; top: 6px; max-width: 46vw; }
+  #nav { bottom: 6px; }
+}
