@@ -1,0 +1,16 @@
+Browser streaming integration pass: entered bounded 12 Hz ReDroid test using a runtime-only systemd override.
+
+Actions:
+- stopped prototype streamer
+- installed `/run/systemd/system/azl-redroid-exp157.service.d/override.conf` that resets only ExecStart and changes `androidboot.redroid_fps=30` to `androidboot.redroid_fps=12`
+- restarted qualified ReDroid service on the same persistent data path
+- restarted prototype streamer
+
+Observed after restart:
+- ReDroid service active
+- prototype service active
+- Docker command confirms `androidboot.redroid_fps=12`
+- direct ADB checks were still in reconnect transition at the instant sampled and returned device-not-found
+- immediately afterward the prototype `/api/status` path reported ADB=true, indicating its reconnect logic succeeded
+
+The persistent unit file has not been modified; this is a `/run` runtime override and will be explicitly removed/restored after the bounded test. Next step is to verify stable ADB/display/game state before collecting 12 Hz measurements.
