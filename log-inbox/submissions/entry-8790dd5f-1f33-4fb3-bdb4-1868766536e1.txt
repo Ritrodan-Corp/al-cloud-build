@@ -1,0 +1,12 @@
+Browser streaming integration pass: disconnect/cleanup regression probe PASS.
+
+Live stream retest on patched VM prototype:
+- primary `/stream.h264` returned expected raw Annex-B stream and emitted SPS/PPS/IDR
+- concurrent second stream was rejected with HTTP 409 `stream already active`
+- after primary client timeout/disconnect, `/api/status` returned active=false within the test window
+- no host adb/screenrecord process remained
+- no guest Android screenrecord process remained
+- clients_rejected incremented to 1 as expected
+- no server last_error reported
+
+The disconnect/orphaned-encoder defect from the first probe is fixed in the deployed prototype. Proceeding with game-foreground dynamic-stream behavior, performance/timing measurements, input-to-visible-response checks, and browser-path qualification.
