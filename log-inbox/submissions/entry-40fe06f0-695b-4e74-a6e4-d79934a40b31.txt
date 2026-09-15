@@ -1,0 +1,1 @@
+Browser UI refinement step: deployed full-viewport CSS for the controller. The game canvas now occupies the viewport; HUD/navigation/status/text controls are translucent overlays that auto-hide when idle; navigation is a compact bottom-center pill; contextual text entry appears above it. CSS SHA256: 02b5f46c50f25c767cb3b41f90c7d05b611a35c82f0bc9a6a5f45081bb654080.
