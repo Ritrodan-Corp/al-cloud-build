@@ -1,0 +1,20 @@
+Graceful-stop latency review completed.
+
+Evidence:
+- The representative 2026-09-14 browser-capture stop entered PENDING_STOP at 17:19:03 -07:00, advanced to STOPPING after the configured grace interval, and reported lastStopTimestamp=17:30:23.830 -07:00. The roughly 11-minute wall-clock result matches the VM's configured gracefulShutdown.maxDuration=600 seconds plus final Compute teardown.
+- The current vm-control workflow sends a normal Compute instances.stop request and deliberately omits noGracefulShutdown. Its STOP job exits after observing PENDING_STOP/STOPPING/TERMINATED. START waits up to 720 seconds for an earlier stop to finish.
+- Google Compute Engine's current graceful-shutdown documentation states that PENDING_STOP is an application grace period before ACPI shutdown. Compute ends it only when the period expires or an operator ends it early. After the period ends, Compute sends an ACPI G2 Soft Off signal and enters STOPPING. Billing continues during PENDING_STOP.
+- Project agents already return Android to Launcher, stop/disable temporary services, remove temporary files, and verify the qualified persistent baseline before submitting STOP. The ten-minute application grace period therefore duplicates completed closeout work in ordinary sessions.
+
+Recommendation:
+1. Reduce azl-android-arm64-01 gracefulShutdown.maxDuration from 600 seconds to 60 seconds as the first change. Keep graceful shutdown enabled. This should reduce ordinary STOP-to-TERMINATED time by about nine minutes while retaining a bounded pre-ACPI safety interval and the guest OS's normal ACPI/systemd shutdown path.
+2. Make the scheduling change once from a trusted GCP admin surface using the documented beta instance update mechanism; do not expand the constrained lifecycle service account, whose intentional role remains compute.instances.get/start/stop only.
+3. Run one acceptance cycle after the change: restore/verify the qualified baseline, request STOP, record PENDING_STOP -> STOPPING -> TERMINATED timestamps, then START and verify the persistent Android state, ReDroid/controller services, Remote Desktop Commander reconnect, kernel, and loopback-only listeners.
+4. If 60 seconds passes acceptance, keep it. If a shutdown or restart check fails, raise it to 120 seconds. Do not disable graceful shutdown or use noGracefulShutdown as the default.
+5. A later optimization could explicitly stop the qualified ReDroid/controller services and invoke guest OS shutdown after cleanup, which would end PENDING_STOP almost immediately. The current GitHub/WIF bridge cannot do that without a new guest-control channel and broader permissions, so this is unnecessary complexity unless the one-minute policy remains too slow.
+
+No VM start, guest mutation, lifecycle request, IAM change, scheduling change, or repository workflow modification was performed during this review.
+
+Primary references:
+- https://docs.cloud.google.com/compute/docs/instances/graceful-shutdown-overview
+- https://docs.cloud.google.com/compute/docs/instances/enable-graceful-shutdown
