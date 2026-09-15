@@ -1,0 +1,9 @@
+Recovery/backfill: ChatGPT Work event-trigger diagnostics and final GitHub wake proof.
+
+Initial Work trigger tests on a noisy pull request were ambiguous: bot-authored and user-authored GitHub comments appeared delayed or produced no visible report, and a Slack fallback test in the Ritrodan Corp workspace likewise produced no visible Work result when the message was sent through ChatGPT. A public #al-cloud-wake channel was created (channel ID C0C2QSZQVNU) and the Slack path was parked after GitHub was isolated more cleanly.
+
+A dedicated quiet pull request, Ritrodan-Corp/al-cloud-build PR #5 'AL Cloud Wake Bus v2', was then used with a Work task configured to report every new top-level comment without filtering or suppressing output. Work successfully received GitHub issue_comment.created events. One visible run reported comment ID 5684087724, webhook delivery ID 348529f0-b123-11f1-906e-c5ee1c2571bb, received 2026-09-15T09:35:30-07:00. A second visible run reported comment ID 5684164150, webhook delivery ID e70f5730-b123-11f1-91ee-711f536db2c6, received 2026-09-15T09:40:40-07:00.
+
+Conclusion: GitHub PR comments can wake a fresh ChatGPT Work invocation. Ordering/coalescing must not be trusted for authoritative payload delivery because later comments could be the event surfaced by the run. Production design therefore uses GitHub only as a doorbell: after waking, Work must read durable AL Cloud state for due/unacknowledged work.
+
+This is a recovery submission because earlier immutable submissions for these trigger tests were misnamed without the required entry- prefix and therefore never reached the raw log.
