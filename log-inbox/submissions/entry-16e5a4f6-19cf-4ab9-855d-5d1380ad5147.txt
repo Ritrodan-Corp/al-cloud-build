@@ -1,0 +1,1 @@
+Recovery route selection checkpoint. The repository's existing centralized issue-based AL log drain is the next recovery mechanism to test because it does not scan the poisoned immutable file queue and is already part of the authorized logging design.
