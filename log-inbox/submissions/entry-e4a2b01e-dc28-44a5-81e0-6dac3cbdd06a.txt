@@ -1,0 +1,9 @@
+2026-09-14 AL Cloud GitHub wake relay reuses existing alvmgetter credential
+
+Reworked the wake transport to avoid requiring the user to create or install a second GitHub token. Determined that `Ritrodan-Corp/ALcalc` is the former name of the same repository now named `Ritrodan-Corp/ALcloud`, and that the existing Cloudflare Worker `alvmgetter` already has a working GitHub credential used for Oracle retry workflow_dispatch.
+
+Added `.github/workflows/al-cloud-wake-relay.yml` on ALcloud main. It accepts workflow_dispatch inputs for an AL Cloud wake and posts an `ALCLOUD_WAKE` comment to the long-lived ALcloud wake-bus PR #1 using the workflow's built-in GitHub token with Issues write permission.
+
+Extended `cloudflare/src/index.js` for `alvmgetter` with a non-public `/al-cloud/wake` fetch handler that validates a wake payload and dispatches the new relay workflow using the Worker's existing `GITHUB_TOKEN`. The pre-existing hourly Oracle retry `scheduled()` handler and its kill-switch behavior were preserved unchanged.
+
+Updated `control-plane` on ALcloud vm-control to bind to `alvmgetter` through a Cloudflare service binding named `GITHUB_RELAY`. The control-plane WakeScheduler now sends due wakes through this internal relay instead of requiring its own GitHub token. The temporary bootstrap cron remains armed so, once both Workers deploy, it will automatically schedule a single `__github_wake_bootstrap__` event and exercise timer -> service binding -> alvmgetter -> GitHub workflow -> PR comment without manual timer management.
