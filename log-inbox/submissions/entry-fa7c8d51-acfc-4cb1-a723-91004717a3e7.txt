@@ -1,0 +1,5 @@
+2026-09-14 AL Cloud GitHub wake relay permission correction
+
+The first end-to-end relay reached GitHub successfully: the Cloudflare control-plane bootstrap wake fired, called the internal alvmgetter service binding, and alvmgetter successfully dispatched the new `AL Cloud Wake Relay` GitHub Actions workflow. The workflow itself failed while posting to ALcloud PR #1 with HTTP 403 `Resource not accessible by integration`, despite its ephemeral token showing Issues: write.
+
+Corrected `.github/workflows/al-cloud-wake-relay.yml` on ALcloud main to request both `issues: write` and `pull-requests: write`. Updated the control-plane bootstrap reason to `__github_wake_bootstrap_v2__` and version `0.1.5-github-relay-retest` so the temporary one-minute bootstrap cron will create exactly one fresh test event after deployment and retest the full transport automatically. No user timer management is required.
