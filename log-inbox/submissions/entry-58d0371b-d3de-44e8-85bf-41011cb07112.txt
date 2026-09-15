@@ -1,0 +1,3 @@
+2026-09-14 Wake-bus cleanup after production transport proof
+
+Closed obsolete `Ritrodan-Corp/al-cloud-build` PR #4 (`AL Cloud Wake Bus`). It has been superseded by the proven production wake surface `Ritrodan-Corp/ALcloud` PR #1. The old PR body now explicitly points to ALcloud PR #1. This prevents accidentally configuring ChatGPT Work against the obsolete repository/event surface.
