@@ -1,0 +1,11 @@
+Hardened cleanup-confirmed fast-stop verification.
+
+Updated .github/workflows/gcp-vm-chat-control.yml on branch vm-control at commit 193ff1c218a3fdd3e04cf9ab73838aac2b3617dd.
+
+The initial implementation reused the ordinary STOP acknowledgement helper, which accepts PENDING_STOP. Added a dedicated wait_for_fast_stop_transition helper that continues polling through PENDING_STOP and succeeds only when Compute reports STOPPING or TERMINATED. The stop_after_cleanup action now uses this helper and fails if the VM has not left the application grace state within 60 seconds.
+
+This makes FAST_STOP_READY evidence-backed: it confirms that the noGracefulShutdown request actually advanced Compute into the ACPI/final stop phase rather than merely acknowledging another PENDING_STOP state. Ordinary stop behavior is unchanged.
+
+No control command changed and no VM lifecycle or guest action occurred.
+
+Next: repeat exact committed YAML and invariant validation, then update canonical Project State before the first live acceptance test.
