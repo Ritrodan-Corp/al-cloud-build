@@ -1,0 +1,14 @@
+Browser streaming integration pass: dynamic Azur Lane stream measurement completed on the persistent 1280x720/30 ReDroid baseline.
+
+Bounded client requested `/stream.h264` for 12 seconds while Azur Lane MainActivity stayed foreground.
+Results:
+- client received 1,896,448 bytes; server counted 1,898,835 bytes before disconnect
+- Annex-B parse found 356 NAL units: SPS + PPS + 354 VCL coded pictures (2 IDR, 352 P)
+- 354 coded pictures over the 12 s capture is approximately 29.5 fps, confirming `screenrecord` follows the current 30 Hz ReDroid display cadence; it is not producing the intended 12 fps prototype cadence
+- stream cleanup remained correct and `/api/status` returned active=false with no error afterward
+- Docker CPU before stream: 5 samples, mean 533.2%, range 522.16-566.29%
+- first 6 Docker samples while stream was active: 623.65, 638.68, 637.46, 633.38, 641.29, 633.05%, mean about 634.6%, roughly +101 CPU percentage points versus this short baseline
+- later samples after the 12 s stream ended returned to roughly 536-546%, consistent with baseline recovery
+- RAM stayed about 3.03-3.05 GiB
+
+Interpretation: live raw-H.264 delivery works and is stable, but at the persistent 30 Hz display the encoder runs at ~30 fps and has materially higher CPU cost than the earlier 854x480/12 Hz performance target. The hardcoded 30 fps WebCodecs timestamps currently match this observed baseline, but the target architecture still needs a deliberate 12 fps capture/display solution or a conscious acceptance of 30 fps cost. Next step is to qualify control/input behavior and decide/test the bounded 12 Hz integration approach without changing the persistent baseline permanently.
