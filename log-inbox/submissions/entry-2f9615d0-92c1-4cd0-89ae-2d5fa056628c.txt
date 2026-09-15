@@ -1,0 +1,5 @@
+2026-09-15 — Fixed-time daily-task architecture correction
+
+User clarified that the midnight/daily Scheduled Task should be treated as a one-shot autonomous run. There is no assumed rerun/recovery actor if the run crashes or makes a mistake. Therefore the design must not depend on retry semantics or per-day completion records for safe replay. A completion record may still be useful strictly as an audit/status artifact, but not as a recovery mechanism unless a separate explicit watchdog/recovery task is later designed.
+
+Architecture implication: fixed-time Daily Reset runs should be engineered to complete correctly in a single invocation, with conservative fail-closed behavior on ambiguity. If the run fails, it is simply a failed/missed daily until a human or some separately designed future process intervenes. Do not assume another agent will automatically resume unfinished chores.
