@@ -1,0 +1,7 @@
+Browser streaming integration pass: prototype control-path launch validation.
+
+POST `/launch` on the isolated 8766 prototype returned HTTP 200 `OK`. Within about one second the Android foreground resolved to `com.YoStarEN.AzurLane/com.manjuu.azurlane.MainActivity`; game process PID 1750 is present.
+
+This confirms the prototype can reuse the existing ADB control path to launch the qualified official client without modifying the 8765 controller.
+
+No Chromium/Chrome or ffprobe binary is installed on the VM, so browser/WebCodecs qualification will need either another available browser execution path or a user-side tunnel/browser check. Proceeding now with dynamic H.264 stream and host/guest performance/timing measurements while the game is foreground.
