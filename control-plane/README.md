@@ -27,11 +27,11 @@ Every `/v1/*` route requires `Authorization: Bearer <CONTROL_TOKEN>`.
 
 `WAKE_MODE=log` is the safe default. Due events are written to Worker logs and marked fired.
 
-`WAKE_MODE=github` posts an `ALCLOUD_WAKE` comment to a dedicated pull request using the GitHub Issues comments API. Required configuration:
+`WAKE_MODE=github` posts an `ALCLOUD_WAKE` comment to the dedicated long-lived wake-bus pull request, currently `Ritrodan-Corp/al-cloud-build#4`, using the GitHub Issues comments API. Required configuration:
 
 - Worker secret `GITHUB_TOKEN`: fine-grained token able to write pull-request/issue comments in `Ritrodan-Corp/al-cloud-build`.
 - Worker variable `WAKE_REPO`: defaults to `Ritrodan-Corp/al-cloud-build`.
-- Worker variable `WAKE_ISSUE_NUMBER`: the dedicated wake-bus pull request number.
+- Worker variable `WAKE_ISSUE_NUMBER`: currently `4` and committed in `wrangler.jsonc`.
 
 The GitHub build integration does not grant runtime API credentials to Worker code. Do not reuse or modify the `alvmgetter` Worker's token; give this Worker its own least-privilege token.
 
@@ -66,9 +66,8 @@ For local development, place secrets in `.dev.vars` and do not commit that file.
 1. Deploy with `WAKE_MODE=log` and confirm `/health`.
 2. Set `CONTROL_TOKEN`.
 3. Schedule a wake a few minutes in the future and verify it becomes `fired`.
-4. Create/configure the dedicated wake-bus PR.
-5. Add this Worker's own GitHub token, set `WAKE_ISSUE_NUMBER`, switch `WAKE_MODE` to `github`, and schedule another wake.
-6. Verify the Worker posts an `ALCLOUD_WAKE` comment.
-7. Configure ChatGPT Work to trigger on the wake-bus PR and acknowledge the event.
+4. Add this Worker's own GitHub token and switch `WAKE_MODE` to `github`.
+5. Schedule another wake and verify the Worker posts an `ALCLOUD_WAKE` comment to PR #4.
+6. Configure ChatGPT Work to trigger on wake-bus PR activity and acknowledge the event.
 
 No Android VM or Azur Lane process is required for this proof.
