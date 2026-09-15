@@ -1,0 +1,5 @@
+Browser streaming integration pass: inspected qualified ReDroid service before any 12 Hz experiment.
+
+`azl-redroid-exp157.service` is a systemd-managed Docker run with persistent `/var/lib/azl-android/exp157-lowva-data-1`, loopback ADB mapping, and boot arguments 1280x720 at `androidboot.redroid_fps=30`. ExecStartPre removes/recreates the named container and ExecStop stops it with a 30 s timeout.
+
+This makes a bounded runtime-only systemd ExecStart override feasible for testing 12 Hz without changing the persistent service file or data path. Any such test will be followed by removing the runtime override and restarting the original 30 Hz service, then re-verifying the baseline.
