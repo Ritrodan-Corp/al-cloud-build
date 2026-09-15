@@ -1,0 +1,7 @@
+2026-09-14 PDT | Cloudflare Workers Builds trigger discovery
+
+Confirmed the new AL Cloud Worker build connection is active and obtained Cloudflare Worker tag 314dcaa09be24f87a22bb5950eee6173. The Workers Builds API returned two triggers for al-cloud-control: production trigger UUID 80ce2f12-1a3e-4e66-a219-1cf1d876b98f currently includes main and deploys with `npx wrangler deploy`; non-production trigger UUID 50365a61-221d-4e4c-a17a-93f1c00c8d4c currently includes all branches except main and deploys with `npx wrangler versions upload`. Both use root_directory `control-plane`.
+
+Because vm-control is intended to be the prototype production branch, both trigger filters must be changed together. Production should include only vm-control; non-production should exclude vm-control. Changing only production would leave vm-control matching both triggers and could produce duplicate production/preview builds.
+
+No change was made to the existing alvmgetter Worker or its Oracle retry job.
