@@ -1,0 +1,3 @@
+AL Cloud design note — interface/worker boundary correction
+
+Clarified that wait/sleep/reobserve behavior belongs primarily to the worker/orchestrator, not to the conceptual AL Cloud gameplay interface. The minimal agent-facing control surface should stay focused on observation and input primitives such as observe, tap, swipe, key, text, launch_game, and status. A backend wait_for_change primitive may still exist as an optional transport/performance optimization to avoid repeated polling, but it should not encode gameplay logic or decide what constitutes meaningful progress. No VM or Android state modified.
