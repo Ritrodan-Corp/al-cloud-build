@@ -1,0 +1,7 @@
+Raw-log scanner refinement and second verification.
+
+Action: Refined the security scanner after the first verification run showed that an ordinary descriptive phrase was still being interpreted as a credential-shaped value.
+
+Result/evidence: The scanner now requires the relevant bearer-style value to have realistic token length before rejecting it. Existing checks for explicit assigned secrets and key material remain in place. The first verification run again confirmed the backlog through R000409 before encountering the false positive.
+
+Interpretation/next: Re-run the normal authorized immutable log drain. It should now pass the previously rejected scanner-repair report, append the final verification reports, and restore end-to-end logging.
