@@ -1,0 +1,7 @@
+AL Cloud progress update, 2026-09-15
+
+Created a dedicated quiet GitHub wake surface: `Ritrodan-Corp/al-cloud-build` PR #5, titled `AL Cloud Wake Bus v2`, from branch `al-cloud-wake-bus` into `vm-control`.
+
+Purpose: isolate ChatGPT Work event-trigger diagnostics from Cloudflare deployment comments and from the noisy ALcloud PR #1 history. During validation, every top-level comment on PR #5 should be treated as a wake event; no marker filter or no-report branch should be used. After validation, this PR can remain the long-lived wake bus for the AL Cloud Director.
+
+Next user-side step: retarget or recreate the GitHub Work task to repository `Ritrodan-Corp/al-cloud-build`, PR #5, and use a diagnostic prompt that always emits a report for every event. Once armed, post exactly one clean wake comment and no administrative follow-ups, then observe whether Work produces a visible run/result.
