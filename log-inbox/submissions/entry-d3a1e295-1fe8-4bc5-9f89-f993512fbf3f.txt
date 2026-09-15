@@ -1,0 +1,11 @@
+Browser streaming integration pass: settled 12 Hz measurement produced a clean CPU comparison.
+
+After allowing Azur Lane to settle at the runtime-only 1280x720/12 Hz ReDroid setting:
+- 5 baseline Docker CPU samples: 218.60, 215.26, 214.21, 213.33, 215.73%; mean 215.43%, median 215.26%
+- 6 samples while 854x480/2 Mbps H.264 stream active: 257.04, 256.01, 258.61, 254.52, 259.49, 255.14%; mean 256.80%, median 256.53%
+- integrated encoder/stream overhead on this scene is therefore about +41.37 CPU percentage points
+- memory remained essentially flat, about 1.97 GiB baseline and 1.98 GiB streaming
+- 12 s client capture received 1,118,208 bytes; Annex-B parse found 142 VCL pictures, about 11.8 fps, matching the intended 12 Hz cadence
+- cleanup PASS, no server error, Azur Lane remained foreground
+
+Interpretation: lowering only ReDroid refresh to 12 Hz solves stream cadence, but rendering the Android guest at 1280x720 still costs ~215% CPU before encoding, so this configuration does not reproduce the earlier two-core-friendly 854x480/12 result. The earlier performance target also used the lower Android display resolution. Next bounded measurement will set the Android display override to 854x480 while still at 12 Hz, measure the integrated stream, then restore the display and persistent 30 Hz baseline.
