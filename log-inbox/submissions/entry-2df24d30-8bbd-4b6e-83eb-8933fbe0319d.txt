@@ -1,0 +1,18 @@
+AL Cloud progress update — 2026-09-15
+
+Work/GitHub event-trigger behavior confirmed on dedicated wake PR #5.
+
+Evidence:
+- ChatGPT Work produced a run for GitHub event type `issue_comment.created` from PR #5 in `Ritrodan-Corp/al-cloud-build`.
+- The surfaced run reported comment ID 5684164150 with body `(do not process as a wake test)` and event received time 2026-09-15T09:40:40-07:00.
+- This confirms GitHub PR comment events can invoke Work in this account/configuration.
+- It also confirms that a broad PR-comment trigger will run for every matching comment, including administrative/non-wake comments.
+- Earlier wake comments and later diagnostic comments can be delivered/processed in an order that should not be treated as authoritative task state.
+
+Architecture consequence:
+- Treat GitHub comments strictly as a doorbell/wake transport, not as the source of truth for gameplay work.
+- On every Work wake, the Director should query durable AL Cloud scheduler/state for all due or fired-but-unacknowledged work, process those items, then acknowledge them.
+- Scheduler should use bounded re-ring/retry behavior for unacknowledged fired work so missed/coalesced webhook events do not strand tasks.
+- Dedicated wake PR should contain only machine-generated doorbells in production; no diagnostic chatter.
+
+Slack remains secondary/fallback; GitHub comment -> Work invocation is now proven.
