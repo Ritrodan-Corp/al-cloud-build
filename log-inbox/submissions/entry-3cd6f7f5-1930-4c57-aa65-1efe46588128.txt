@@ -1,0 +1,3 @@
+Browser streaming integration pass: direct git push from the VM is unavailable because the VM has read-only anonymous HTTPS access to GitHub and no interactive/authenticated git credentials. Local synchronized commit `dd54bfd` was created only in `/tmp/al-cloud-build-sync`; `git push --dry-run` failed with `could not read Username`.
+
+No repository source was changed by this failed push attempt. The production GitHub connector remains the correct write path and will be used to update the source file directly.
