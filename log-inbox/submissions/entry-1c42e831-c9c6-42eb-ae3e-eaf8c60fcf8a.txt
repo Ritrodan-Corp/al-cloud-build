@@ -1,0 +1,16 @@
+Browser streaming build status checkpoint, 2026-09-14/15 PT
+
+Step completed: inspected the committed browser-streaming implementation on branch vm-control.
+
+Current implementation exists under browser-streaming/ with:
+- azl_stream_server.py
+- web/index.html, app.js, player.js, style.css
+- tests/test_server.py and tests/test_player.mjs
+- systemd/azl-stream-prototype.service
+- README.md
+
+Architecture in the committed README is a loopback-only prototype on 127.0.0.1:8766. It streams Android screenrecord Annex-B H.264 over chunked HTTP directly to a browser WebCodecs VideoDecoder/canvas, with no host remux/re-encode. Existing ADB-backed input endpoints remain separate/preserved. Only one live H.264 client is allowed at once, with PNG fallback if WebCodecs is unavailable.
+
+Attempted offline execution validation in the assistant container by fetching the committed files from raw.githubusercontent.com. The container cannot resolve that host, so this particular validation attempt was blocked by container DNS/network isolation before any code was executed. This is not evidence of a code/test failure. Continue validation via GitHub file inspection and reserve VM runtime for live integration if necessary.
+
+VM remains off; no guest state changed.
