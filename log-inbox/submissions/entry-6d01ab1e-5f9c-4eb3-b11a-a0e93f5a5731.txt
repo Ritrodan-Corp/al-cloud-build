@@ -1,0 +1,7 @@
+AL Cloud control-plane deployment correction
+
+User confirmed an existing Cloudflare Worker named alvmgetter is already connected to GitHub, but it currently performs an operational Oracle retry-scheduler job against Ritrodan-Corp/ALcalc. Its existing scheduled handler, cron trigger, GitHub token secret, and deployment must remain intact.
+
+Decision: do not repurpose or modify alvmgetter for the AL Cloud timer/control-plane prototype. Instead create a second Cloudflare Worker in the same Cloudflare account, connected to Ritrodan-Corp/al-cloud-build (prototype branch vm-control / control-plane directory). Reuse the existing Cloudflare GitHub authorization where possible. This isolates the new AL Cloud scheduler from the legacy Oracle retry scheduler and eliminates risk of breaking the existing job.
+
+The new Worker will host the AL Cloud scheduler/control-plane proof only. The old worker remains operational and unchanged.
