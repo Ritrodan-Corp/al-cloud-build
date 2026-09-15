@@ -31,6 +31,7 @@ let reconnects = 0;
 let lastStatsTime = performance.now();
 let lastStatsFrames = 0;
 let controlsTimer = null;
+let imeHideTimer = null;
 
 let gesture = null;
 let touchStartPromise = null;
@@ -72,6 +73,14 @@ function showControls(ms = 2400) {
 
 function focusStage() {
   try { stage.focus({ preventScroll: true }); } catch (_) { stage.focus(); }
+}
+
+function scheduleImeHide(delay = 100) {
+  clearTimeout(imeHideTimer);
+  imeHideTimer = setTimeout(() => {
+    post('/ime-hide').catch(() => {});
+    imeHideTimer = setTimeout(() => post('/ime-hide').catch(() => {}), 250);
+  }, delay);
 }
 
 function xy(target, e) {
@@ -141,7 +150,7 @@ function installPointerControls(target) {
       await pumpMoves();
       while (movePumpRunning) await new Promise((resolve) => setTimeout(resolve, 1));
       await touchPost('up', point);
-      setTimeout(() => post('/ime-hide').catch(() => {}), 120);
+      scheduleImeHide(120);
     } catch (err) {
       showInputError(err);
     } finally {
@@ -192,7 +201,7 @@ function closeTextPanel() {
   textInput.value = '';
   focusStage();
   showControls();
-  post('/ime-hide').catch(() => {});
+  scheduleImeHide();
 }
 
 document.getElementById('keyboard').addEventListener('click', openTextPanel);
@@ -203,7 +212,7 @@ document.getElementById('send-text').addEventListener('click', async () => {
   try {
     await post('/text', { text });
     textInput.value = '';
-    await post('/ime-hide').catch(() => {});
+    scheduleImeHide();
   } catch (err) {
     showInputError(err);
   }
@@ -249,20 +258,20 @@ function queueText(text) {
 }
 
 stage.addEventListener('keydown', (e) => {
-  if (document.activeElement === textInput) return;
+  if (document.activeElement === textInput || document.activeElement?.tagName === 'BUTTON') return;
   const code = keyMap.get(e.key);
   if (code !== undefined) {
     e.preventDefault();
     flushTextBuffer();
     post('/key', { key: code }).catch(showInputError);
-    post('/ime-hide').catch(() => {});
+    scheduleImeHide();
     return;
   }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key.length === 1) {
     e.preventDefault();
     queueText(e.key);
-    post('/ime-hide').catch(() => {});
+    scheduleImeHide();
   }
 });
 
@@ -273,7 +282,7 @@ stage.addEventListener('paste', (e) => {
   e.preventDefault();
   flushTextBuffer();
   post('/text', { text: text.slice(0, 256) }).catch(showInputError);
-  post('/ime-hide').catch(() => {});
+  scheduleImeHide();
 });
 
 stage.addEventListener('pointermove', () => showControls());
