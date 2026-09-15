@@ -1,0 +1,9 @@
+Recovery/backfill: Director, specialist, and Work-orchestration architecture decisions.
+
+The AL Cloud gameplay architecture shifted from macro-first automation to intelligence-first orchestration. The human-facing Director should accept high-level goals such as farming cubes/oil, leveling a ship, or targeting research equipment; maintain broad game knowledge; own priorities and scheduling; and use conceptual specialist roles rather than fixed permanent agents. Useful role archetypes are long-running/preemptible Grinding plus short Commission, PR Research, and Tactical Training runs. One Android session means only one actor may control the game at a time. Grinding should yield at safe checkpoints for due maintenance work, and compact results flow back to the Director. Dorm handling is opportunistic and morale tracking starts with simple periodic checks rather than prediction models.
+
+A critical ChatGPT product constraint was clarified: Scheduled Tasks and event-triggered Work do not wake or resume the existing regular Director chat. They launch fresh Work invocations. Therefore the Director must be reconstructible from durable goals/state. Dynamic arbitrary self-rescheduling from an unattended Scheduled Task was not assumed, and the hourly Scheduled Task cadence is inadequate for irregular short game timers.
+
+The resulting combined architecture is: main regular chat remains the human-facing Director; durable shared state stores goals/policy; a timer/event wakes a fresh thin Work bootstrap; that bootstrap reads durable state, selects a bounded role/model, delegates gameplay work to a subagent, collects the structured result, updates durable state/timers, and exits. This preserves one conceptual Director without requiring the same chat process to remain alive.
+
+This is a recovery submission because earlier immutable submissions for these decisions were misnamed without the required entry- prefix and therefore never reached the raw log.
