@@ -1,0 +1,20 @@
+Browser streaming integration pass: integrated 854x480/12 Hz performance measurement PASS.
+
+Conditions:
+- runtime-only ReDroid 12 Hz boot setting
+- temporary Android `wm size 854x480` override
+- Azur Lane MainActivity foreground and settled
+- prototype H.264 stream 854x480, target 2 Mbps
+
+Results:
+- baseline Docker CPU samples: 111.90, 111.61, 112.49, 112.62, 111.80%; mean 112.08%, median 111.90%
+- streaming CPU samples: 150.59, 147.97, 150.94, 145.75, 147.32, 145.69%; mean 148.04%, median 147.65%
+- integrated encoder/stream overhead about +35.96 CPU percentage points on this scene
+- memory mean ~1.967 GiB baseline vs ~1.977 GiB streaming
+- 12 s client capture received 1,150,976 bytes
+- Annex-B parse found 143 VCL coded pictures, about 11.9 fps, matching 12 Hz target
+- stream cleanup PASS and no server error
+
+This is substantially better than 1280x720/12 Hz (~215% baseline, ~257% streaming in the settled comparison) and leaves meaningful CPU headroom. It also improves on the prior rough 2-core feasibility threshold in this specific scene: total measured container CPU while streaming is ~148%, though broader combat validation remains separate.
+
+Next step is to reset Android display to 1280x720, remove the runtime 12 Hz systemd override, restart the original persistent 30 Hz service, and verify the qualified baseline before any browser-side/manual tunnel test.
