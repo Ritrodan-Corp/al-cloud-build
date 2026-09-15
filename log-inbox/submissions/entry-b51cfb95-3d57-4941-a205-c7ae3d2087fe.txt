@@ -1,0 +1,1 @@
+Issue-intake recovery test is pending. No raw-log recovery success is claimed until the centralized issue drain returns an assigned raw-log entry ID.
