@@ -1,0 +1,15 @@
+Correction to the graceful-stop latency recommendation in R000257.
+
+The suggested 60-second gracefulShutdown.maxDuration was a conservative hedge, but it does not perform or trigger project cleanup. Under Compute Engine's documented sequence, PENDING_STOP is an application grace interval before Compute sends the guest OS the ACPI G2 Soft Off signal. The existing project procedure completes Android/runtime cleanup and baseline verification before it submits the Compute STOP request. Once that precondition is satisfied, an additional 60-second PENDING_STOP interval provides no active cleanup benefit.
+
+Revised recommendation:
+- Keep the ordinary normal-grace STOP path available for cases where cleanup status is unknown.
+- Add or use an explicitly cleanup-gated fast-stop path after the agent has verified Launcher/baseline state, stopped temporary services and encoders, and removed temporary files.
+- That fast path should end or bypass the Compute application grace interval with noGracefulShutdown=true, causing Compute to proceed immediately to the ACPI/systemd shutdown phase. It should not use reset or another hard-power operation.
+- Encode the distinction in the command contract rather than silently changing every STOP: for example, retain stop as the conservative fallback and add a cleanup-confirmed action such as stop_ready/stop_after_cleanup that maps to the same fixed VM stop endpoint with noGracefulShutdown=true.
+- Require the existing cleanup evidence before the cleanup-confirmed action. The current GitHub lifecycle runner cannot independently verify guest cleanup, so the safety condition remains procedural unless a later guest-control acknowledgement is added.
+- Validate once with a full stop/start acceptance cycle and persistent-state/service checks.
+
+Therefore, if project cleanup is known complete, there is no technical reason to retain a one-minute application grace delay. R000257's 60-second proposal remains a cautious policy-only fallback, not the optimal ordinary-session design.
+
+No VM, workflow, IAM, scheduling, or guest change was made during this correction.
