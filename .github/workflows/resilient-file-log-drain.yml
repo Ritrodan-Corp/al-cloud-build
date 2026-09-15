@@ -1,0 +1,106 @@
+name: AL Cloud resilient file log drain
+run-name: "Resilient AL Cloud file log drain @ ${{ github.sha }}"
+
+on:
+  push:
+    branches:
+      - vm-control
+    paths:
+      - log-inbox/submissions/entry-*.txt
+      - .github/workflows/resilient-file-log-drain.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: al-cloud-log-drain-v2
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: auth
+        name: Authenticate centralized log writer with Workload Identity Federation
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: project-97e3d26a-3ba2-4579-b03
+          workload_identity_provider: projects/137432928351/locations/global/workloadIdentityPools/alcloud-github/providers/alcloud-chat-control
+          service_account: alcloud-vm-lifecycle@project-97e3d26a-3ba2-4579-b03.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/documents
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Install append dependencies
+        run: python3 -m pip install --disable-pip-version-check google-auth requests
+
+      - name: Drain valid immutable submissions without queue poisoning
+        shell: bash
+        env:
+          RAW_LOG_DOC_ID: 1s9VbzdPnA7nm-ogDP4X9gt2bghQ4mcKTVNVk1AiAiWg
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+          files=(log-inbox/submissions/entry-*.txt)
+          if (( ${#files[@]} == 0 )); then
+            echo 'No immutable production log submissions found.'
+            exit 0
+          fi
+
+          tmp="$(mktemp)"
+          err="$(mktemp)"
+          trap 'rm -f "$tmp" "$err"' EXIT
+          for file in "${files[@]}"; do
+            add_commit="$(git log --diff-filter=A --format='%H' -- "$file" | tail -n 1)"
+            if [[ -z "$add_commit" ]]; then
+              echo "::warning::Cannot find creation commit for $file; skipping."
+              continue
+            fi
+            ordinal="$(git rev-list --count "$add_commit")"
+            printf '%012d\t%s\t%s\n' "$ordinal" "$add_commit" "$file" >> "$tmp"
+          done
+
+          rejected=0
+          while IFS=$'\t' read -r ordinal add_commit file; do
+            body="$(cat "$file")"
+            if [[ -z "${body//[[:space:]]/}" ]]; then
+              echo "::warning::Rejected empty immutable submission: $file"
+              rejected=$((rejected + 1))
+              continue
+            fi
+            created_at="$(git show -s --format='%cI' "$add_commit")"
+            submission_name="${file#log-inbox/submissions/}"
+            submission_name="${submission_name%.txt}"
+            step="$(printf '%s\n' "$body" | sed -n '/[^[:space:]]/ { s/^[[:space:]]*//; s/[[:space:]]*$//; p; q; }' | cut -c1-120)"
+            [[ -n "$step" ]] || step='Agent operational report'
+
+            echo "Draining $file (order=$ordinal)"
+            : > "$err"
+            entry_id="$({ printf '%s' "$body"; } | python3 tools/al-log-append.py \
+              --document-id "$RAW_LOG_DOC_ID" \
+              --workstream 'Agent operational report' \
+              --step "$step" \
+              --action 'Submitted through the immutable GitHub log inbox.' \
+              --result-stdin \
+              --next 'Continue from this report; later substantive findings use a new immutable submission.' \
+              --timestamp "$created_at" \
+              --submission-id "github-file:${submission_name}" 2>"$err")"
+            rc=$?
+            if (( rc != 0 )); then
+              rejected=$((rejected + 1))
+              reason="$(grep -m1 'al-log append failed:' "$err" || true)"
+              [[ -n "$reason" ]] || reason="append exited ${rc}"
+              echo "::warning::Skipped $file: $reason"
+              continue
+            fi
+            echo "$file -> $entry_id"
+          done < <(sort -n -k1,1 -k3,3 "$tmp")
+
+          echo "Drain completed; rejected_or_deferred=${rejected}. Rejected files remain immutable and will be retried on later drains."
