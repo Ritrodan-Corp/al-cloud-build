@@ -1,0 +1,15 @@
+2026-09-14 PDT | Agent-interface architecture recommendation
+
+Completed the planning pass for the next VM-local agent-control lane. Recommended stable external contract: `/usr/local/bin/azl-agent` invoked through Remote Desktop Commander and returning versioned JSON on stdout. Keep normal ChatGPT/Scheduled Task behavior at named state-aware actions/macros; retain raw tap/swipe/text/key primitives as lower-level diagnostic capabilities rather than the ordinary automation surface.
+
+Recommended internal layers: health/status -> shared human/agent ownership -> screenshot/state detector -> deterministic transition/macro engine -> current ADB-backed control adapter -> ReDroid/Azur Lane. Reuse/extract the existing browser-streaming service's ADB/screenshot/input implementations where practical, but do not make ChatGPT depend on the browser UI or issue raw HTTP coordinate calls directly.
+
+Ownership recommendation: permit passive browser viewing during automation, block manual input while an agent session owns control, expose a clear manual takeover path that requests agent cancellation, and make the local macro engine check cancellation between important actions and during waits. Agent start should refuse while recent manual control owns the session. Use cross-process VM-local locking/lease state under `/run`, with unique session IDs and fail-closed stale-state handling.
+
+State recognition recommendation: image-based deterministic anchors/ROIs over 1280x720 ADB screenshots, with optional Android UI hierarchy only where Android exposes useful system UI. Require high-confidence preconditions and postconditions for important transitions; unknown or ambiguous state stops execution and preserves bounded diagnostic evidence. Long waits and polling remain inside the VM-local controller.
+
+Initial CLI surface recommendation: `status`, `detect`, `screenshot`, `game launch/stop`, gated `input` primitives, `action <named-action>`, `macro <name> --mode detect|dry-run|execute`, and later session/job inspection/cancellation for longer routines. JSON results should include schema version, request/session IDs, ownership, start/end detected state and confidence, completion/block status, stop reason, warnings, and bounded evidence paths.
+
+Recommended first implementation sequence: build the contract/status/detector and ownership logic using offline screenshot fixtures; live-qualify read-only status/detection; add gated primitives; implement `home.ensure` and a non-destructive `commissions.collect` macro; add browser ownership indicator/takeover; then prove ordinary ChatGPT and Scheduled Task invocation. Expand to replacement commissions, Tactical Classes, reward collection, and bounded built-in-auto battle sessions only after the lower layer proves stable.
+
+No VM runtime was started and no Android/game state was changed during this planning step.
