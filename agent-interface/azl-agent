@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+import argparse
+import datetime
+import hashlib
+import json
+import os
+import struct
+import subprocess
+import sys
+
+SERIAL = "127.0.0.1:5555"
+ADB = ["adb", "-s", SERIAL]
+OUTDIR = "/var/tmp/al-cloud-agent"
+
+
+def adb(args, binary=False, timeout=15):
+    subprocess.run(["adb", "connect", SERIAL], stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL, timeout=5)
+    proc = subprocess.run(ADB + args, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, timeout=timeout, check=True)
+    return proc.stdout if binary else proc.stdout.decode("utf-8", "replace").strip()
+
+
+def png_size(data):
+    if len(data) >= 24 and data[:8] == b"\x89PNG\r\n\x1a\n":
+        return struct.unpack(">II", data[16:24])
+    return None, None
+
+
+def observe():
+    os.makedirs(OUTDIR, exist_ok=True)
+    shot = adb(["exec-out", "screencap", "-p"], binary=True, timeout=20)
+    path = os.path.join(OUTDIR, "latest.png")
+    with open(path, "wb") as handle:
+        handle.write(shot)
+    width, height = png_size(shot)
+
+    try:
+        activities = adb(["shell", "dumpsys", "activity", "activities"])
+        resumed = next((line.strip() for line in activities.splitlines()
+                        if "mResumedActivity" in line), "")
+    except Exception:
+        resumed = ""
+
+    try:
+        package = adb(["shell", "dumpsys", "package", "com.YoStarEN.AzurLane"])
+        version = next((line.split("=", 1)[1].strip()
+                        for line in package.splitlines() if "versionName=" in line), None)
+    except Exception:
+        version = None
+
+    try:
+        boot_completed = adb(["shell", "getprop", "sys.boot_completed"]) == "1"
+    except Exception:
+        boot_completed = False
+
+    result = {
+        "ok": True,
+        "observed_at": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+        "android": {
+            "serial": SERIAL,
+            "boot_completed": boot_completed,
+            "resumed_activity": resumed or None,
+        },
+        "azur_lane": {"package": "com.YoStarEN.AzurLane", "version": version},
+        "screen": {
+            "path": path,
+            "width": width,
+            "height": height,
+            "bytes": len(shot),
+            "sha256": hashlib.sha256(shot).hexdigest(),
+        },
+        "actions_taken": [],
+    }
+    print(json.dumps(result, separators=(",", ":")))
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="azl-agent")
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("observe")
+    args = parser.parse_args()
+    if args.command == "observe":
+        observe()
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.decode("utf-8", "replace")[-1000:]
+        print(json.dumps({"ok": False, "error": "adb_failed", "detail": detail}))
+        sys.exit(1)
+    except Exception as exc:
+        print(json.dumps({"ok": False, "error": type(exc).__name__, "detail": str(exc)}))
+        sys.exit(1)
