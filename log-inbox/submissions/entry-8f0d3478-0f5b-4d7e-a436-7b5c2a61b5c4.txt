@@ -1,0 +1,3 @@
+2026-09-15: Clean GitHub Work trigger validation started.
+
+Created a dedicated quiet event surface at Ritrodan-Corp/al-cloud-build PR #5 (AL Cloud Wake Bus v2) and configured ChatGPT Work to report every new comment with no filtering or suppression. Posted wake test event pr5-e2e-20260915-0932 to PR #5 for end-to-end delivery validation. A follow-up administrative note was accidentally posted afterward, making this run slightly less clean than intended; no further PR #5 comments should be posted until the Work result is observed. Slack trigger remains unproven and parked pending GitHub diagnosis.
