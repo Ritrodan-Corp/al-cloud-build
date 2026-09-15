@@ -1,0 +1,7 @@
+2026-09-14 PDT | AL Cloud timer control-plane deployment succeeded
+
+Cloudflare production build for Worker `al-cloud-control` completed successfully after correcting the deployment-repository mismatch. The Cloudflare Git integration was connected to `Ritrodan-Corp/ALcloud`, while the initial control-plane files had been created in `Ritrodan-Corp/al-cloud-build`; this caused repeated `root directory not found` failures. A `vm-control` branch was created in `Ritrodan-Corp/ALcloud`, and the `control-plane/` Worker project was placed there at the path already configured in Cloudflare.
+
+Cloudflare now successfully builds and deploys `al-cloud-control` from `Ritrodan-Corp/ALcloud@vm-control` with root directory `control-plane` and deploy command `npx wrangler deploy`. The deployment log reports the public workers.dev endpoint `https://al-cloud-control.ritrodan.workers.dev` and confirms the deploy command completed successfully. The Worker remains in safe `WAKE_MODE=log`; GitHub wake delivery is not enabled yet. Existing `alvmgetter` Oracle retry Worker remains untouched.
+
+Next functional step is to set the `CONTROL_TOKEN` Worker secret and run the first authenticated Durable Object alarm test: verify `/health`, schedule a short future wake, then poll until the event transitions from `pending` to `fired` in log mode. After that passes, add the AL Cloud Worker's own GitHub runtime token, switch wake mode to GitHub, and verify an `ALCLOUD_WAKE` comment appears on the dedicated wake-bus PR.
