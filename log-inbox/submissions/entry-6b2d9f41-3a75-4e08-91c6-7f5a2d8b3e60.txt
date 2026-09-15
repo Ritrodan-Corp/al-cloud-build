@@ -1,0 +1,3 @@
+Browser streaming capture shutdown verification: fourth lifecycle read remains PENDING_STOP.
+
+DESCRIBE run 34913089132 / lifecycle job 104204869517 directly observed `azl-android-arm64-01` still in `PENDING_STOP` at 2026-09-15T00:25:52Z, about 6 minutes 55 seconds after the stop request was accepted. This remains within the configured 600-second graceful-shutdown window. No guest work is occurring. Continue lifecycle-only verification until TERMINATED; do not force termination and do not begin browser-streaming implementation in this pass.
