@@ -50,6 +50,14 @@ The stop request deliberately omits `noGracefulShutdown`, so Compute Engine hono
 
 Start and stop requests use a UUID request ID for retry safety. The workflow reports the VM state shortly after request submission rather than waiting for graceful shutdown to finish. Use `describe` for subsequent status checks.
 
+### Cleanup-confirmed fast stop
+
+The chat-control workflow on branch `vm-control` also accepts `stop_after_cleanup`. Use it only after guest work has completed the established closeout checks: stop temporary services and encoders, return Android to the intended baseline foreground state, remove temporary files, and verify the qualified persistent services and configuration.
+
+`stop_after_cleanup` calls the same fixed instance stop endpoint with `noGracefulShutdown=true`. This bypasses Compute Engine's pre-ACPI application grace interval and lets Compute proceed immediately to the guest's ordinary ACPI/systemd shutdown. It does not reset the VM or perform a hard-power operation. The committed action is the cleanup assertion because the lifecycle runner has no guest-control permission and cannot independently inspect those checks.
+
+Use ordinary `stop` when cleanup status is unknown. If the VM is already `PENDING_STOP`, `stop_after_cleanup` can end the remaining application grace interval. If it is already `STOPPING` or `TERMINATED`, the workflow sends no duplicate request.
+
 ## Safety boundary
 
 The runtime identity cannot delete, reset, suspend, update, SSH into, modify metadata on, change scheduling for, or otherwise administer the VM because those permissions are absent from its custom role. It has no project-wide Compute role.
