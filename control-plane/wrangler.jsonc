@@ -22,6 +22,7 @@
   },
   "vars": {
     "WAKE_MODE": "log",
-    "WAKE_REPO": "Ritrodan-Corp/al-cloud-build"
+    "WAKE_REPO": "Ritrodan-Corp/al-cloud-build",
+    "WAKE_ISSUE_NUMBER": "4"
   }
 }
