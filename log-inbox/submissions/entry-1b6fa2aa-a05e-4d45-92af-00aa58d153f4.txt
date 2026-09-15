@@ -1,0 +1,12 @@
+Browser streaming integration pass: deployed disconnect/cleanup hardening patch on VM prototype.
+
+Changes to `/opt/al-cloud/browser-streaming/azl_stream_server.py`:
+- use `select` on both Android encoder stdout and HTTP client socket with 0.5 s polling
+- use `os.read` only when encoder stdout is readable
+- detect peer EOF even when encoder output is sparse, allowing prompt stream-loop exit
+- skip final HTTP chunk when peer has already closed
+- in `finally`, after terminating host adb subprocess, issue targeted guest `pkill` for the prototype H.264 screenrecord command so a remote Android encoder cannot be orphaned
+
+Patched source compiles successfully. Prototype service restarted and is active/idle with ADB up. Deployed server SHA256 is `42a00a0c50d4a9b8915efce85ce88a45af3cbceb34e9c01283a38184535c18a1`.
+
+Repository source synchronization and regression/live retesting follow immediately.
