@@ -1,0 +1,9 @@
+Recovery/backfill: Cloudflare timer to GitHub wake bridge.
+
+The deployed al-cloud-control control plane was placed in WAKE_MODE=github and wired through the existing alvmgetter Worker using a Cloudflare service binding, preserving alvmgetter's original Oracle retry scheduler. A real expired AL Cloud timer successfully propagated through the backend and produced an ALCLOUD_WAKE pull-request comment.
+
+This proved the backend transport chain: Cloudflare Durable Object timer expires -> alvmgetter relay -> GitHub workflow -> pull-request comment. The GitHub comment is treated as a doorbell/event transport, not as authoritative gameplay state.
+
+The backend bridge was verified before relying on ChatGPT Work delivery, separating timer correctness from Work trigger behavior.
+
+This is a recovery submission because the earlier immutable submission was misnamed without the required entry- prefix and therefore never reached the raw log.
