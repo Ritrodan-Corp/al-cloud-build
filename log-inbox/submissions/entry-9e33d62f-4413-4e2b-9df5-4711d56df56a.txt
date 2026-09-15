@@ -1,0 +1,7 @@
+Raw-log recovery cleanup completed.
+
+Action: Removed the temporary resilient recovery workflow after the normal authorized log intake successfully recovered the blocked queue and verified raw-log appends through R000412.
+
+Result/evidence: The temporary workflow was not authorized by the existing Workload Identity policy and is no longer present on vm-control. The canonical gcp-vm-chat-control workflow remains the only GitHub path used for Google Docs raw-log writes, preserving the existing identity boundary.
+
+Interpretation/next: Continue using correctly named immutable entry-* submissions through the canonical log intake. The scanner false-positive repair and end-to-end recovery are complete; verify this cleanup report drains successfully as the final logging check.
