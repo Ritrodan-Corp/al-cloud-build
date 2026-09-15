@@ -1,0 +1,1 @@
+Logging recovery verification requirement. Recovery is not complete until the authorized append workflow reports successful raw-log entry IDs for the backfilled chronology. GitHub file creation alone is not treated as proof that the raw log changed.
