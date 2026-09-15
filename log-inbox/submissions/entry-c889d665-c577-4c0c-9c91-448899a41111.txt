@@ -1,0 +1,11 @@
+Browser streaming integration pass: 12 Hz runtime stabilized after ReDroid restart.
+
+Verified:
+- ADB 127.0.0.1:5555 reports device
+- physical Android size remains 1280x720
+- foreground is Launcher after restart
+- Azur Lane process exists (PID 1759), showing persistent app state/process restoration behavior remains healthy
+- prototype `/api/status` reports ADB=true, idle stream, no error
+- prototype remains loopback-only on 127.0.0.1:8766
+
+Proceeding to launch Azur Lane foreground and measure emitted H.264 cadence plus CPU/memory at 12 Hz.
