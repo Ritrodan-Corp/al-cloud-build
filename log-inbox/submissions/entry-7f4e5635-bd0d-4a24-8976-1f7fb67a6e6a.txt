@@ -1,0 +1,5 @@
+2026-09-14 PDT | Automate deployed alarm smoke test
+
+Added `.github/workflows/control-plane-smoke.yml` to the Cloudflare-connected deployment repo `Ritrodan-Corp/ALcloud` on `vm-control`. The workflow runs on control-plane changes (and manually if needed), polls the public `https://al-cloud-control.ritrodan.workers.dev/health` endpoint, and passes only when the temporary Durable Object self-test reports `status=fired`. It tolerates deployment propagation by retrying for up to ten minutes.
+
+This replaces the earlier manual PowerShell polling procedure. The user should not need to schedule or poll timers by hand for this validation. After the smoke test passes, remove the temporary cron self-test hook while retaining the normal timer API for Director/worker use.
