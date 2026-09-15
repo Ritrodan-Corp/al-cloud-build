@@ -1,0 +1,9 @@
+Browser streaming integration pass: offline prototype tests on VM.
+
+Results in `/opt/al-cloud/browser-streaming`:
+- Python unittest: 4/4 PASS
+- Node player tests: 3/3 PASS
+- Initial `python3 -m py_compile` failed only because the deployed `__pycache__` directory is not writable by the current administrative user.
+- Re-ran compile with `PYTHONPYCACHEPREFIX=/tmp/azl-pycache`; compile PASS.
+
+No implementation test failure observed. Proceeding to start the isolated prototype service and validate its HTTP/ADB behavior.
