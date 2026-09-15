@@ -1,0 +1,11 @@
+Project sequencing update after Experiment 157 closure.
+
+User direction: Oracle Ampere A1 capacity has not been obtainable despite an existing hourly allocation-request script, so Oracle validation is an external availability gate and should not block current development.
+
+Canonical Project State was updated accordingly. The active development order is now: browser-based low-overhead live display/control on the qualified GCP low-VA baseline, followed by or developed in parallel with the VM-local agent-control layer. Oracle A1 validation remains a required portability/target-host check when capacity becomes available, but it is not the immediate next implementation lane.
+
+Browser streaming should start from the strongest tested local operating point from Experiment 157, 854x480 at 12 Hz on two dedicated host cores with H.264 around 2 Mbps, while measuring actual end-to-end browser latency and input-to-visible-response latency rather than treating local screenrecord feasibility as streaming validation.
+
+Agent-control work may proceed in GCP against the same persistent Android state and should focus on state detection, safe input primitives/macros, human/automation ownership or locking, structured machine-readable results, and eventual ordinary Scheduled Task invocation. The cleared low-VA compatibility diagnosis remains closed, and native Windows scrcpy remains paused unless explicitly reopened.
+
+No VM start, guest mutation, game launch, or Oracle resource change was performed for this planning/documentation step.
