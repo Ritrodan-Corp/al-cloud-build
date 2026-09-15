@@ -1,0 +1,7 @@
+2026-09-14 PDT | Replace manual timer polling with automatic self-test
+
+User correctly objected that manually running PowerShell to schedule and poll control-plane timers contradicts the intended unattended AL Cloud architecture. Manual timer management is not part of the user-facing design and should not be required for routine validation.
+
+Changed the deployment test strategy. In the Cloudflare-connected deployment repo `Ritrodan-Corp/ALcloud` on branch `vm-control`, added `control-plane/src/selftest-wrapper.js` and temporarily pointed Wrangler at it. Added a one-minute cron trigger whose only purpose is to create one idempotent internal Durable Object alarm self-test, due 30 seconds later. The wrapper exposes the resulting self-test state read-only through `/health`. Once a self-test event exists, subsequent cron invocations do not create duplicates.
+
+This is a temporary validation hook, not part of the final timer-management UX. The intended final behavior remains: Director/worker tooling schedules/cancels/lists wakes directly; the user does not run polling scripts or manage individual timers. Next step is to add an automated GitHub smoke test that polls the public health endpoint and verifies the self-test alarm fired, then remove the temporary cron trigger after success.
