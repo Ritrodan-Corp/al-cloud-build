@@ -1,0 +1,9 @@
+Recovery/backfill: purpose-built AL Cloud worker interface and live observe prototype.
+
+Because broad Remote Desktop Commander access is unnecessarily complex for lightweight delegated gameplay workers, the worker-facing direction was narrowed to a purpose-built AL Cloud interface. The model should receive the full current Android screen and bounded game-relevant operations rather than a general filesystem/terminal surface. Local ROI/template helpers may support deterministic detection later, but the agent's primary perception remains the full screen.
+
+For the live prototype, GCP VM azl-android-arm64-01 was started and the RDC device came online. /usr/local/bin/azl-agent was installed with an observe operation. A successful observe returned structured JSON including serial 127.0.0.1:5555, Android boot-completed state, package com.YoStarEN.AzurLane, Azur Lane version 9.3.7, and a full 1280x720 screenshot at /var/tmp/al-cloud-agent/latest.png with actions_taken empty. Reading that screenshot through RDC showed the Android home screen.
+
+Durable test instructions were stored at agent-tests/delegated-observe-probe.json, and dedicated quiet PR #6 'AL Cloud Delegated Observe Probe' was created for the subsequent Work/subagent validation.
+
+This is a recovery submission because earlier immutable submissions for this prototype were misnamed without the required entry- prefix and therefore never reached the raw log.
