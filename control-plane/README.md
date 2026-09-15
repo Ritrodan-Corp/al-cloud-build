@@ -46,6 +46,8 @@ Create a **new** Worker, suggested name `al-cloud-control`, from the existing Gi
 - Root directory: `control-plane/`
 - Deploy command: `npx wrangler deploy`
 
+Cloudflare Builds is configured so the production trigger includes only `vm-control`; the non-production trigger excludes `vm-control`. This prevents a `vm-control` push from starting both production and preview deployments.
+
 The `wrangler.jsonc` file is the source of truth. It declares one SQLite-backed Durable Object, `WakeScheduler`, using Cloudflare's current declarative `exports` configuration.
 
 After the Worker exists, set `CONTROL_TOKEN` as a Worker secret before using `/v1/*`.
