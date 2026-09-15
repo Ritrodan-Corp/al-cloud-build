@@ -1,0 +1,7 @@
+Recovery/backfill: delegated-worker model identity interpretation.
+
+The successful delegated observe worker self-reported worker_model:'gpt-5', while Work separately stated that the requested gpt-5.6-luna override had been accepted. The worker self-report is not authoritative runtime metadata. GPT-5 is retired/unavailable in current ChatGPT Work, so that string is stale or fabricated rather than evidence that a GPT-5 backend ran.
+
+The correct interpretation is therefore: Work explicitly accepted the gpt-5.6-luna override and the delegated task succeeded; this materially increases confidence that the requested Luna path was used. However, Work did not expose authoritative runtime-model metadata or actual reasoning effort, so exact model execution and usage/accounting remain unverified. Future cost comparisons must use product/runtime accounting rather than model self-identification.
+
+This is a recovery submission because the earlier immutable submission was misnamed without the required entry- prefix and therefore never reached the raw log.
