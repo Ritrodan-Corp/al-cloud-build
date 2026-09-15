@@ -1,0 +1,9 @@
+Agent architecture refinement: specialist overlap and preemption
+
+Discussion refined the Director/specialist model around the fact that all agents share one Android session and therefore cannot interact with the UI concurrently. The Grinding Agent is expected to be the longest-running and most involved specialist, potentially managing fleet setup, stage selection, auto-repeat battles, morale checks, Dorm refills when convenient, and recovery from ordinary battle-session states. Commission, PR Research, and Tactical Training tasks may become due while grinding is active.
+
+Recommended architecture: keep a single control-owner lease on the Android UI and treat grinding as a preemptible long-running workload. The Director retains scheduling authority. Timed specialists report completion times and results to the Director, which creates or adjusts timers. When a timed task becomes due during grinding, the system should hand off only at a safe gameplay boundary, such as after the current battle/result cycle or before launching the next auto-repeat batch. The Grinding Agent should be invoked with a bounded horizon informed by the Director's next known deadline, e.g. run until 21:35 or N sorties, whichever comes first, rather than owning an opaque multi-hour session with no yield points.
+
+Specialists should return enough compact state to resume the interrupted objective. After Commission/Research/Tactical work completes, the Director may relaunch the Grinding Agent with the same high-level leveling/farming objective; the agent can re-observe the full game screen and reconstruct local UI state rather than requiring a large serialized internal state. This preserves domain specialization while allowing task overlap in wall-clock time through cooperative serialization and safe preemption.
+
+No VM runtime or Android state was changed during this planning step.
