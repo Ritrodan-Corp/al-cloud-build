@@ -1,0 +1,3 @@
+Browser streaming capture shutdown verification: second lifecycle read remains PENDING_STOP.
+
+DESCRIBE run 34912847310 / lifecycle job 104203987236 directly observed `azl-android-arm64-01` still in `PENDING_STOP` at 2026-09-15T00:21:43Z, roughly three minutes after the accepted stop request. This remains within the configured 600-second graceful-shutdown window. No guest work is occurring and the capture experiment remains closed under the accepted-stop-state contract. Continue with lifecycle-only verification until Compute reports TERMINATED; do not start browser-streaming implementation in this pass.
