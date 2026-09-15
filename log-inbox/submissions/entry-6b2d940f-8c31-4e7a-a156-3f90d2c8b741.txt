@@ -1,0 +1,14 @@
+Implemented the cleanup-confirmed fast-stop control path in the constrained chat lifecycle workflow.
+
+Changed .github/workflows/gcp-vm-chat-control.yml on branch vm-control at commit cc891e61445b004e763534608a83bfaf471f0508.
+
+Details:
+- Added the exact allowed action stop_after_cleanup while retaining describe, start, and ordinary stop.
+- The new action treats its committed selection as an explicit assertion that guest cleanup and baseline verification have completed.
+- From RUNNING or PENDING_STOP, it calls the same fixed Compute Engine instance stop endpoint with noGracefulShutdown=true. This bypasses only Compute's pre-ACPI application grace interval so Compute can proceed to the guest's ACPI/systemd shutdown. It does not use reset or a hard-power operation.
+- From STOPPING or TERMINATED, it sends no duplicate stop request.
+- The existing ordinary stop behavior remains unchanged as the conservative path when cleanup status is unknown.
+- The WIF identity, fixed project/zone/instance, IAM permissions, start behavior, and lifecycle scope were not widened.
+- Changing the workflow file does not match the control/command.json trigger path, so this implementation commit did not start, stop, or otherwise mutate the VM.
+
+Next: update lifecycle documentation and validate the exact committed workflow before using stop_after_cleanup.
