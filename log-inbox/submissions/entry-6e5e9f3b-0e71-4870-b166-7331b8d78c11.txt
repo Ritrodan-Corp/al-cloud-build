@@ -1,0 +1,22 @@
+2026-09-14 — ChatGPT wake-path / Work-usage architecture review
+
+Reviewed current OpenAI product documentation for event-triggered tasks, Work/Chat separation, model availability, and usage behavior.
+
+Findings:
+- Event-triggered scheduled tasks currently run in ChatGPT Work and support Gmail new-message events, Slack channel messages, and supported GitHub pull-request activity for eligible Plus/Pro/etc. accounts.
+- Current documentation does not expose a generic custom-webhook trigger for personal Plus accounts. A custom AL Cloud plugin/MCP integration can provide tools/actions once ChatGPT is running, but should not currently be treated as a first-class event source that can wake Work.
+- Chat and Work are separate experiences. No supported mechanism was found for a Work run to spawn or hand off autonomous execution into a regular Chat conversation. Therefore an event-triggered wake should be assumed to consume Work/Codex allowance for whatever reasoning it performs.
+- Work on Plus currently offers GPT-5.6 Sol, Terra, and Luna. Luna is the lowest-usage/cost model in that family and is suitable for focused/repetitive tasks; Work usage is separate from ordinary Chat usage. A webhook task may preserve/select a Work model where that option is available, but this should be experimentally verified on the account.
+- Slack appears to be the cleanest production trigger bus: a VM-side scheduler can post a compact message to a dedicated channel, and a Slack-triggered Work task can wake on that message. Gmail is similarly supported but requires an outbound mail path and creates mailbox clutter. GitHub can be used by generating supported PR activity, potentially via a dedicated long-lived PR, and has the advantage of existing project integration, but it is semantically awkward as a timer/event bus.
+- GitHub pull-request triggers can include opened/ready/closed and, depending on trigger, reviews/comments/commit updates/merges. This makes a dedicated wake PR technically viable if a proof-of-concept is desired with minimal new SaaS setup.
+- Actions requiring approval can pause an event-triggered task. Unattended use of Remote Desktop Commander therefore remains a product gate that must be tested directly.
+- A separate fallback architecture is to let the VM scheduler call the OpenAI API directly at arbitrary times. This bypasses Work wake limitations and can use low-cost models, but uses API billing and is no longer a normal ChatGPT Chat invocation. It would require building the control/tool surface for the API model.
+- Direct self-chaining of arbitrary one-time Scheduled Tasks remains undocumented. Do not base the architecture on a scheduled run creating its own next scheduled run until proven experimentally.
+
+Recommended next proof sequence:
+1. Prefer Slack for a clean production trigger if the user is willing to connect/create a Slack workspace/channel; otherwise use GitHub PR activity for the fastest proof with existing infrastructure.
+2. Create one minimal event-triggered Work task using the lowest-usage model available (ideally Luna) and verify that it wakes reliably from an externally generated event.
+3. Verify that the triggered run can invoke Remote Desktop Commander without human approval and execute a harmless status command.
+4. Measure actual Work usage for that minimal run before deciding whether Work can economically host all specialist reasoning or should only act as a wake/dispatcher layer.
+
+No VM or Android state modified.
