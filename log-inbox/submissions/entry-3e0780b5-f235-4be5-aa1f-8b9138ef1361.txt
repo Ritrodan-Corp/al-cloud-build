@@ -1,0 +1,7 @@
+2026-09-14 PDT | Agent-interface planning review
+
+Reviewed the authoritative Azur Lane Cloud Running Progress Log / canon and the current vm-control repository before proposing the VM-local agent-control architecture. Canon confirms the next active lane is a VM-local state-aware controller callable from normal ChatGPT and ordinary Scheduled Tasks through Remote Desktop Commander, operating on the same persistent ReDroid instance as manual browser play. Required qualities include safe input primitives/macros, state detection with confidence and available actions, machine-readable results, local handling of long waits, evidence capture on unknown states, stricter safeguards for destructive/resource-spending actions, and a human/automation ownership mechanism.
+
+Repository inspection found the current browser-streaming service already centralizes loopback-only ADB access, screenshot capture, game launch, tap/touch/swipe/key/text input, Android settings helpers, and status reporting on 127.0.0.1:8766. The existing browser controller therefore provides reusable low-level transport/input code, while the agent layer should sit above it as a separate VM-local CLI/service boundary instead of exposing raw coordinate control directly to ChatGPT.
+
+No VM guest runtime was started and no persistent Android state was changed. This was document/source review only.
