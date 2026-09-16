@@ -1,0 +1,8 @@
+Oracle OCI migration status update
+
+- Instance ALcloud has been created successfully and is now Running in us-sanjose-1.
+- Confirmed target shape/image from prior review: VM.Standard.A1.Flex, 4 OCPUs, 16 GB RAM, Canonical Ubuntu 24.04 Minimal aarch64, private subnet, no public IPv4, 100 GB Balanced boot volume.
+- NSG was not attached during launch because the Specify OCID path did not expose the launch-time NSG selector.
+- Next step is to attach the primary VNIC to existing NSG al-cloud-instance-nsg, then establish private access through OCI Bastion.
+- Important OCI documentation check: Managed SSH has a known issue on Ampere A1 instances running Ubuntu; Oracle recommends using an SSH port-forwarding Bastion session instead. The Bastion plugin is therefore not required for initial access.
+- Before software installation, ensure private-subnet outbound access through a VCN gateway/route (NAT is the intended general-internet path) and then verify host architecture, page size, CPU, memory, and kernel after SSH access is established.
