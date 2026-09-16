@@ -1,0 +1,5 @@
+2026-09-16 PDT — Reconciliation/pruning Step 3
+Workstream: Canon pruning
+Action: Pruned current-state language after Oracle reconciliation.
+Result/evidence: Project State's browser-streaming section was collapsed from implementation-detail evidence into a concise current interface summary with Technical Reference as the evidence home. The event-driven Work milestone was relabeled as a supporting automation proof so it no longer reads as the active implementation lane; its body had already been compressed during reconciliation and explicitly defers routine gameplay to the ALAS-first plan. A planned Objectives wording cleanup for the Oracle candidate did not match the current paragraph in this batch and was not applied; no state was inferred from that failed replacement.
+Interpretation/next: Run final stale-phrase and structural verification on the updated canonical document, apply any remaining exact-match cleanup if found, and log the verification result.
