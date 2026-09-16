@@ -1,0 +1,5 @@
+Raw-log cleanup: removed the protocol-breaking direct edit inserted ahead of the log header.
+Action: Deleted only the unnumbered paragraph at Google Docs indexes 1-723 after revision comparison showed R000440-R000452 already existed in the prior authorized intake revision.
+Result: The direct-edit paragraph beginning "Progress update 2026-09-16" was removed with revision collision protection. The authorized R-numbered Oracle setup chronology was preserved.
+Evidence: Raw log document 1s9VbzdPnA7nm-ogDP4X9gt2bghQ4mcKTVNVk1AiAiWg changed from revision ANLCKQlxiSirfjtgHj7Kv82e9jrQsr59IJ6N_8To9xQXhjk-kqS5qzL3M6aNDJM_ywNt0A3IaDBBu4hUcAastZV9fW33FkOKLZ1oOKY5Bjxo to ANLCKQlvVc0CzXihdeucaWmhCmWVfVgheJh4eTWetI0gdBmF8D9F6YE4-Nz4viX7wm5JqRgoOKOQpy22nQKTo-AwR3VCUiM3jBIhhrFcSwXh.
+Next: Verify the document now begins with the intended AL Cloud Raw Log header, confirm no additional out-of-band VM-review paragraph remains, and confirm this immutable submission receives a permanent R-number.
