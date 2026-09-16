@@ -1,0 +1,5 @@
+2026-09-16 PDT — Reconciliation/pruning Step 2
+Workstream: Canon reconciliation / Oracle current state
+Action: Reconciled R000440-R000452 into the canonical Project State, Technical Reference, Immediate next action, and Experiment History using only numbered raw-log evidence.
+Result/evidence: Canon now records PAYG as active; the San Jose home-region VCN, private subnet, NSG, and Bastion as actually created; the 200 GB Block Volume Free Tier quota checkpoint; and the absence through R000452 of any compute instance, NAT gateway, extra block volume, load balancer, or public VM IP. The first A1 host remains an intended on-demand 4 OCPU / 16 GB Ubuntu 24.04 aarch64 configuration with a 100 GB Balanced boot volume, not a deployed instance. The $4.25/month boot-volume number is explicitly identified as an untiered console estimate rather than proof of a charge. Experiment History was advanced from design-only status to partial infrastructure created.
+Interpretation/next: Prune stale current-state wording and superseded model-control language, then verify no remaining canonical text still claims PAYG is pending or that no OCI resources exist.
