@@ -1,0 +1,16 @@
+2026-09-15 ALAS capability review
+
+Reviewed current AzurLaneAutoScript implementation to determine how much planned AL Cloud gameplay responsibility can be delegated to ALAS instead of ChatGPT workers.
+
+Findings:
+- ALAS natively exposes routines for Research, Commission, Tactical, Dorm, Guild, rewards, frequent/one-shot shops, event shop, Daily Raid, Hard Mode, Exercises, campaign/event/raid farming, War Archives, Operation Siren, and additional game systems.
+- ALAS has its own task scheduling (`task_delay`/NextRun) and local recovery/error handling, including game restart, maintenance/server wait, stuck-state evidence capture, and human-takeover stops.
+- Commission selection is policy-driven through presets/custom filters and can exclude Major commissions.
+- Research selection has configurable project filters plus separate cube/coin/part spending policies and delay behavior.
+- Tactical can filter book choices, control EXP overflow, use rapid-training slots, and automatically add a new student; the latter is limited compared with the user's desired external priority list.
+- Exercises support a native `leftmost` opponent selection mode, matching the user's chosen policy.
+- Dorm feeding is filter-driven, and shop logic has explicit gem-spend protection plus configurable refresh behavior.
+
+Architecture implication: if ALAS runs reliably against the cloud client, most deterministic scheduled gameplay can move into ALAS. ChatGPT should primarily own high-level goals/policy changes, optional priority lists, selecting among ALAS routines/configurations, and handling exceptional/unsupported states rather than performing routine screen-by-screen gameplay. The fixed-agent scheduling architecture may therefore shrink substantially or disappear for chores ALAS already schedules itself.
+
+Important integration constraint: ALAS currently enforces 1280x720 screenshots. AL Cloud has a qualified 1280x720 baseline and a separately tested 854x480 low-resource configuration. First integration should target the 1280x720 baseline; lower-resolution support can be added later with a scaling/coordinate translation layer if needed.
