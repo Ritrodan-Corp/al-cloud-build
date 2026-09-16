@@ -1,0 +1,1 @@
+Oracle VM creation manual restart: reached shape selector. Selected Virtual machine instance type; next choice is Ampere shape series, then VM.Standard.A1.Flex, 4 OCPUs, 16 GB RAM. This follows the planned Oracle A1 target.
