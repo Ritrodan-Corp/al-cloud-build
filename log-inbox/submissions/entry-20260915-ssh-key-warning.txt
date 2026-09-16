@@ -1,0 +1,1 @@
+Oracle VM provisioning checkpoint: manual launch reached a blocking OCI warning stating no SSH access because the generated private SSH key had not been saved. Action required: cancel the launch confirmation, return to the SSH keys step, generate/download and securely retain the private key before creating the instance. Do not launch without a retained private key.
