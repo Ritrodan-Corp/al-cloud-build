@@ -1,0 +1,1 @@
+Oracle VM setup checkpoint: OCI image picker shows Canonical Ubuntu 24.04, Canonical Ubuntu 24.04 Minimal, and Canonical Ubuntu 24.04 Minimal aarch64. For the A1 ARM instance, selected target should be Canonical Ubuntu 24.04 Minimal aarch64.
