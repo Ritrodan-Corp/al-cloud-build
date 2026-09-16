@@ -1,0 +1,3 @@
+Oracle PAYG upgrade confirmed and Work handoff prepared.
+The OCI console now shows the tenancy successfully upgraded with plan type Pay As You Go. For the next setup step, use one compact Work prompt after the user has logged into OCI. The prompt should authorize routine console navigation and resource creation for the agreed Oracle migration profile, while requiring Work to stop only for MFA/account consent, unexpected charges, A1 capacity failure, or conflicting OCI defaults. Keep the first Work run focused on browser-side infrastructure creation and verification rather than kernel/ReDroid migration.
+Next: run the single Work prompt, then inspect the created OCI resources before beginning host/kernel qualification.
