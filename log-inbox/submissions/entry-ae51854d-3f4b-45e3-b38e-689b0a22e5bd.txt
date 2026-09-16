@@ -1,0 +1,7 @@
+Scheduled-agent policy research pass.
+
+Confirmed user policy: dorm should overstock using stored premium foods and finish with Naval Curry or seasonal equivalent; no gems are ever spent; Hard Mode target is 13-4; shop purchase rules are now explicit for General, Merit, Guild, and Medal shops, including one Guild Coin restock per timed Guild Shop reset; Bulins may be purchased when an agent specifically needs one.
+
+Research findings: T3 skill books train for 8h and give 1200 EXP on a matching-color skill; T4 books train for 12h and give 3000 matching-color EXP. A pure T3 cadence aligns exactly at 00:00, 08:00, 16:00 server time. Exercises replenish at 00:00, 12:00, and 18:00 with a 10-attempt cap, so two runs at 00:00 and 12:00 can consume all 15 daily attempts. General Shop refreshes at 00:00, 12:00, and 18:00; Guild Shop auto-refreshes Monday and Friday at 00:00 and allows one manual Guild Coin refresh. Research Academy supports a five-project queue plus the active project, making fixed periodic queue maintenance practical. Commission durations remain variable and commission selection should use explicit reward priorities rather than guessed rules.
+
+Next: resolve remaining user-specific policy for Tactical Class target selection/book fallback, Commission reward priorities and major-oil usage, Research focus/resource spending, and whether every General Shop refresh should be checked.
