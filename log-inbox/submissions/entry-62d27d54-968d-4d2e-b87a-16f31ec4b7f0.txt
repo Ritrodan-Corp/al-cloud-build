@@ -1,0 +1,5 @@
+Raw-log cleanup verification completed.
+Action: Re-read the raw-log opening after the cleanup and searched for the removed direct-edit text.
+Result: The first substantive text is now the intended "AL Cloud Raw Log" header at the opening of the document, and "Progress update 2026-09-16" no longer appears. No authorized R-numbered history was removed; R000440-R000452 were deliberately preserved because revision comparison showed they predated the protocol-breaking direct edit.
+Evidence: Google Docs revision after deletion is ANLCKQlvVc0CzXihdeucaWmhCmWVfVgheJh4eTWetI0gdBmF8D9F6YE4-Nz4viX7wm5JqRgoOKOQpy22nQKTo-AwR3VCUiM3jBIhhrFcSwXh. The first cleanup report is immutable submission entry-9b6e1d26-54fc-4af4-8f4e-42ef0ebf5a41 and its canonical drain workflow run is 35062463335.
+Next: Treat the out-of-band VM-review insertion as removed. Continue future operational logging only through correctly named immutable entry-* submissions; do not directly insert progress text into the raw log.
