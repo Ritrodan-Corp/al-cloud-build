@@ -1,0 +1,7 @@
+Scheduled-agent policy/reuse research update, 2026-09-15
+
+Guild Operation dispatch timing is low priority and should not drive the fixed-agent schedule. Remaining policy questions should focus only on choices that cannot be inferred from game mechanics or already supplied user preferences.
+
+Reviewed LmeSzinc/AzurLaneAutoScript as an implementation reference. The project is GPLv3. Its architecture contains directly relevant 1280x720 EN assets and UI geometry, page/navigation logic, shop item recognition and filters, Tactical Class book/slot handling, commission detection/filtering, Research Academy project OCR/filtering/queue logic, guild logistics/operations flows, and ADB-oriented device control. AL Cloud currently also observes Azur Lane at 1280x720, making the perception assets/geometry particularly relevant.
+
+Proposed reuse direction: do not adopt ALAS scheduling/policy wholesale. Prefer using it as a reference or an isolated GPL component for perception and deterministic UI mechanics behind AL Cloud's narrow fail-closed agent interface. Keep policy, scheduling, human/agent locking, frame-hash concurrency, and model reasoning in AL Cloud. If code/assets are copied or modified into a conveyed/distributed component, GPLv3 obligations must be considered; private execution/modification is allowed by the license.
