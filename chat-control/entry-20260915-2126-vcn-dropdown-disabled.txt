@@ -1,0 +1,1 @@
+Oracle VM setup checkpoint: In the OCI instance networking step, the existing VCN selector is disabled even though Work previously created al-cloud-vcn and al-cloud-private-subnet. Current workaround is to use OCI's Specify OCID / Enter subnet OCID flow and provide the existing private subnet OCID, which implicitly selects the VCN. No new network resources should be created.
