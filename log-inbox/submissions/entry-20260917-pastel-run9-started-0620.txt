@@ -1,0 +1,13 @@
+Pastel control run 9 started
+
+Workflow: SwiftShader Android 14 Pastel control
+Run ID: 35189176529
+Trigger commit: f94a3cd3c8209dad00874128aa6fc85339ee4cf3
+Status at checkpoint: in_progress
+Current step: Build stock Android 14 r45 Pastel control
+
+Run 9 includes the corrected platform-manifest validator using:
+  repo list --all --groups all -p
+rather than plain `repo list -p`.
+
+Purpose of this run: verify the upstream build-tools manifest closure can proceed past the run-8 false-negative and continue into the actual source sync / Soong build path.
