@@ -1,0 +1,9 @@
+Pastel control run 10 full diagnosis
+
+Run 10 (GitHub Actions 35250199323) successfully synced the Android 14 r45 plain PDK selection: 967 projects, about 76 GB checkout, leaving about 29 GB free on the 145 GB hosted runner. Exact SwiftShader commit 32ad39a320606948f09692cb91b71e1cd95d0e51 and Clang r487747c were verified. lunch module_arm64only-eng succeeded and Soong bootstrap reached the bp2build Android.bp graph stage.
+
+The failure was not a bootstrap-tool dependency failure. Six unrelated Android modules in the plain PDK graph reference defaults/providers that are outside the plain pdk group: MtsTimeZoneDataTestCases -> cts_defaults; updatable-media-srcs -> framework-sources-module-defaults; loganalysis-tests -> tradefed_defaults; framework-virtualization -> non-updatable-framework-module-defaults; neuralnetworks_utils_hal_adapter -> neuralnetworks_utils_defaults; FrameworksTelephonyTests -> framework-connectivity-test-defaults.
+
+Upstream Android 14 r45 manifest grouping explains the pattern: consumers such as frameworks/opt/telephony, system/timezone, tools/loganalysis, Media and Virtualization are included in plain pdk, while provider projects such as CTS, frameworks/base, packages/modules/common, Connectivity and NeuralNetworks are assigned pdk-fs/pdk-cw-fs rather than plain pdk. Therefore plain pdk is intentionally not a globally closed full-source Android.bp graph.
+
+No run 11 started. Next step is to verify AOSP's canonical missing-dependency behavior for PDK/partial-source builds before changing the script, rather than adding provider projects individually.
