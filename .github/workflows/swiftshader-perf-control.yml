@@ -1,4 +1,4 @@
-name: SwiftShader Android control build
+name: SwiftShader Android 14 Pastel control
 
 on:
   push:
@@ -8,21 +8,24 @@ on:
       - '.github/workflows/swiftshader-perf-control.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-control:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - name: Install host tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build cmake git unzip curl file
-      - name: Build Android ARM64 control ICD
+
+      - name: Build stock Android 14 r45 Pastel control
         run: bash experiments/160-swiftshader-perf/build-android-control.sh
-      - name: Upload control artifact
+
+      - name: Upload Pastel control artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: swiftshader-r21-android-arm64-control
+          name: vulkan-pastel-android14-r45-stock-control
           path: experiments/160-swiftshader-perf/out-control/
           if-no-files-found: error
+          retention-days: 1
