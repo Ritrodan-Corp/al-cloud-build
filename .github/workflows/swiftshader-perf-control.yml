@@ -2,11 +2,6 @@ name: SwiftShader Android 14 Pastel control
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - vm-control
-    paths:
-      - '.github/workflows/swiftshader-perf-control.yml'
 
 permissions:
   contents: read
