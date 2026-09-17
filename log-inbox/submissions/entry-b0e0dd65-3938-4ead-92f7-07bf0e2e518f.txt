@@ -1,0 +1,7 @@
+Oracle live host/runtime health assessment.
+
+Action: Performed read-only health checks on alcloud-a1-01 through the established Remote Desktop Commander connection.
+
+Result/evidence: Host is online on kernel 6.8.12-alcloud39 and had been up about 2h23m at inspection. Memory showed 15 GiB total with about 12 GiB available and no swap. Root filesystem is 96 GiB with 66 GiB used and 31 GiB available (69% used). Load average was about 4.14/4.24/4.28 on the 4-OCPU host. Process inspection showed ReDroid Android running with 1280x720 at 30 FPS, loopback docker-proxy on 127.0.0.1:5555, adb server/adbd present, tailscaled present, and live Remote Desktop Commander processes. The Azur Lane process com.YoStarEN.AzurLane was alive and consuming about 369% CPU at the snapshot, explaining most of the host load and consistent with active first-run asset processing. Unprivileged direct docker inspection was denied by the Docker socket, and the documented desktop-commander-remote.service unit name was inactive on this host even though RDC processes and the live control connection were healthy.
+
+Interpretation/next: Host/kernel/ReDroid/RDC/Tailscale fundamentals remain healthy. Determine Android/game foreground state and whether the first-run asset download has completed or is still actively downloading/unpacking; also verify storage trajectory before any migration decision.
