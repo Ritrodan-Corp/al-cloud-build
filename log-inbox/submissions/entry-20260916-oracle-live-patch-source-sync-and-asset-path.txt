@@ -1,0 +1,5 @@
+Post-patch deployment/source reconciliation check.
+
+The Oracle source checkout contains the tested `web/app.js` idle-NAL-flush modification, but that VM clone has no GitHub CLI or write credentials, so no direct VM-side source push was attempted. The live deployment remains patched.
+
+While verifying the HTTPS-served asset, found that the page imports `/assets/app.js`, not `/app.js`; the initial verification request to `/app.js` correctly returned 404. The server also does not implement HEAD and returned 501 to a HEAD probe. Next step is to verify `/assets/app.js` over HTTPS and, if needed, version the module URL to bypass browser cache.
