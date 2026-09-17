@@ -17,10 +17,9 @@ log_disk() {
   du -sh "$ROOT" 2>/dev/null || true
 }
 
-# GitHub's hosted runner is disposable. Reclaim large unrelated preinstalled
-# payloads before the AOSP checkout, but do not prune anything from the r45 PDK
-# source/toolchain after repo sync. The first successful control build should
-# prioritize reproducibility over minimum checkout size.
+# The GitHub-hosted runner is disposable. Reclaim unrelated preinstalled
+# payloads before syncing AOSP, but do not prune the selected Android source or
+# host toolchain after repo sync.
 sudo rm -rf \
   /usr/share/dotnet \
   /usr/local/lib/android \
@@ -35,11 +34,10 @@ chmod 0755 "$REPO_BIN"
 
 cd "$ROOT"
 
-# Android 14 r45's own platform manifest is the source of truth. The pdk group
-# contains the platform build system and development dependencies needed for
-# module builds, including Soong/Blueprint, SwiftShader, graphics/HIDL sources,
-# SPDX/go-cmp/starlark support, and the host toolchain. Explicitly exclude
-# Darwin-host projects and select the Linux host platform.
+# Use Android 14 r45's own platform PDK selection. The PDK group supplies the
+# complete build-system bootstrap closure and the platform sources needed for
+# module development, while avoiding a full Android checkout. Darwin host
+# projects are excluded because the Actions runner is Linux.
 "$REPO_BIN" init \
   -u https://android.googlesource.com/platform/manifest \
   -b "$TAG" \
@@ -49,21 +47,19 @@ cd "$ROOT"
   --no-tags \
   --no-clone-bundle
 
-# Sync the complete r45 PDK selection instead of manually predicting Soong's
-# dependency closure. Keep network parallelism moderate for runner stability.
 "$REPO_BIN" sync \
   -c \
   -j4 \
   --no-tags \
   --no-clone-bundle
 
-# Preserve the exact resolved source closure used for the control build.
+# Preserve the exact resolved source closure used by the control build.
 "$REPO_BIN" manifest -r -o "$ART/pdk-manifest.xml"
 "$REPO_BIN" list -p | sort -u > "$ART/synced-projects.txt"
 printf 'synced_project_count=%s\n' "$(wc -l < "$ART/synced-projects.txt")"
 
-# Verify the checkout is the intended Android release and Linux-only PDK
-# environment before invoking Soong.
+# Verify the intended release, build-system bootstrap closure, target product,
+# and Linux host toolchain before invoking Soong.
 test -f build/envsetup.sh
 test -f build/make/target/product/module_arm64only.mk
 test -f build/make/target/board/module_arm64only/BoardConfig.mk
@@ -83,25 +79,40 @@ test -d prebuilts/clang/host/linux-x86
 test -d prebuilts/go/linux-x86
 test -d prebuilts/jdk/jdk17
 
-# Darwin host prebuilts should have been filtered by the manifest group.
 test ! -e prebuilts/bazel/darwin-x86_64
 test ! -e prebuilts/clang/host/darwin-x86
 test ! -e prebuilts/go/darwin-x86
 
-# Pin the exact SwiftShader source identity previously identified for r45.
 ACTUAL_SWIFTSHADER_COMMIT="$(git -C external/swiftshader rev-parse HEAD)"
 printf '%s\n' "$ACTUAL_SWIFTSHADER_COMMIT" | tee "$ART/source-commit.txt"
 test "$ACTUAL_SWIFTSHADER_COMMIT" = "$SWIFTSHADER_COMMIT"
 
 grep -F 'ClangDefaultVersion      = "clang-r487747c"' \
   build/soong/cc/config/global.go
-
 grep -q 'name: "vulkan.pastel"' external/swiftshader/src/Android.bp
+
+# A plain PDK source checkout is intentionally not a globally closed Android.bp
+# graph. Android 14 r45 supports this through ALLOW_MISSING_DEPENDENCIES. Guard
+# against accidentally relying on behavior that is absent from the pinned
+# release: soong_build must read the setting and bp2build must propagate it.
+grep -Fq 'configuration.Getenv("ALLOW_MISSING_DEPENDENCIES") == "true"' \
+  build/soong/cmd/soong_build/main.go
+grep -Fq 'ctx.SetAllowMissingDependencies(ctx.Config().AllowMissingDependencies())' \
+  build/soong/cmd/soong_build/main.go
 log_disk
 
 export OUT_DIR="$OUT_DIR_BUILD"
-unset ALLOW_MISSING_DEPENDENCIES || true
 unset TARGET_BUILD_APPS || true
+
+# Run 10 proved that the PDK checkout has the full Soong/Blueprint bootstrap
+# closure, but several unrelated Android tests/framework modules refer to
+# providers in pdk-fs/pdk-cw-fs projects. Permit those global graph holes using
+# AOSP's partial-source mechanism. Missing dependencies are retained on the
+# affected Android modules as error build rules, so this cannot make the
+# requested vulkan.pastel target succeed if its own transitive closure is
+# incomplete.
+export ALLOW_MISSING_DEPENDENCIES=true
+export SOONG_ALLOW_MISSING_DEPENDENCIES=true
 
 # AOSP envsetup/lunch functions intentionally probe optional unset variables,
 # so nounset must be disabled while using the Android build environment.
@@ -109,8 +120,18 @@ set +u
 source build/envsetup.sh
 lunch module_arm64only-eng
 
-# The standard hosted runner is close to AOSP's minimum recommended memory.
-# Keep compile parallelism conservative for the first stock control build.
+# Reassert and print the settings after lunch so the Actions log proves exactly
+# what the subsequent Soong invocation receives.
+export ALLOW_MISSING_DEPENDENCIES=true
+export SOONG_ALLOW_MISSING_DEPENDENCIES=true
+[ "$ALLOW_MISSING_DEPENDENCIES" = true ]
+[ "$SOONG_ALLOW_MISSING_DEPENDENCIES" = true ]
+printf 'ALLOW_MISSING_DEPENDENCIES=%s\n' "$ALLOW_MISSING_DEPENDENCIES"
+printf 'SOONG_ALLOW_MISSING_DEPENDENCIES=%s\n' "$SOONG_ALLOW_MISSING_DEPENDENCIES"
+
+# Keep compile parallelism conservative on the standard 15.6 GB hosted runner.
+# Building only this target remains the validation: any missing dependency in
+# vulkan.pastel's reachable graph becomes an error rule and stops the build.
 m -j2 vulkan.pastel 2>&1 | tee "$ART/build.log"
 set -u
 
@@ -136,7 +157,8 @@ Soong target: vulkan.pastel
 Product: module_arm64only-eng
 Variant: unmodified stock-control source
 Source closure: Android 14 r45 platform manifest group pdk,-darwin on Linux
-Missing dependencies allowed: no
+Global partial graph mode: ALLOW_MISSING_DEPENDENCIES=true
+Target validation: vulkan.pastel and its reachable dependency graph must build successfully
 Live target path: /vendor/lib64/hw/vulkan.pastel.so
 Live SHA-256 reference: 67c210363a565a8a9376c4e6ddaa349f79e2aa08828c9a2151f18aa932398f90
 Live build ID reference: a84688481a52cf740d0af7938960f25e
