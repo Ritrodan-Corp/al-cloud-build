@@ -1,0 +1,5 @@
+Pastel control workflow autotrigger paused
+
+Changed .github/workflows/swiftshader-perf-control.yml on branch vm-control to workflow_dispatch-only while the control-build script is being redesigned. This prevents additional push-triggered attempts during script editing and review. The job timeout was increased from 90 to 180 minutes because the next approach will sync the authoritative Android 14 r45 pdk source group instead of a hand-trimmed dependency set.
+
+No control build was intentionally started by this change.
