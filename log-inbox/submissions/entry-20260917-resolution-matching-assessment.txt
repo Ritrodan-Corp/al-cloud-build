@@ -1,0 +1,9 @@
+Resolution matching assessment
+
+Reviewed whether the Oracle browser stream should continue encoding at 854x480 while the ReDroid display runs at 1280x720.
+
+Current state: ReDroid renders at 1280x720 @ 30 FPS. Browser H.264 stream is 854x480 @ 30 FPS at 2 Mbps.
+
+Assessment: matching the stream to 1280x720 is technically reasonable and would improve text/UI sharpness and remove scaling blur. The tradeoff is approximately 2.25x as many pixels per frame, which increases Android screenrecord/encode work, client decode work, and network bandwidth. At the current 2 Mbps, 720p game imagery may show more compression; a higher bitrate would likely be appropriate. Given the VM has only 4 OCPUs and Azur Lane can consume most of them during heavy activity, the resolution increase should be qualified for latency, CPU load, frame drops, and stream stability before making it permanent.
+
+Recommended next step: test 1280x720 @ 30 FPS at roughly 3.5-5 Mbps over Tailscale HTTPS, compare latency/CPU/quality against the current 854x480 @ 2 Mbps profile, and keep 720p if the VM remains stable.
