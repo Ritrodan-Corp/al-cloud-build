@@ -1,0 +1,13 @@
+Workstream: Oracle SwiftShader/Pastel performance optimization
+
+Action: Completed the first shallow 23-project Android 14 r45 dependency sync for the minimal Soong vulkan.pastel build tree.
+
+Result:
+- repo sync finished successfully.
+- Tree path: /home/ubuntu/alcloud-pastel/aosp-mini
+- Tree size after sync: ~14 GiB.
+- Root filesystem free after sync and cleanup: ~17 GiB.
+- external/swiftshader in the Soong tree is exact r45 commit 32ad39a320606948f09692cb91b71e1cd95d0e51.
+- Removed redundant standalone SwiftShader clone after commit identity verification, recovering ~858 MiB.
+
+Next: bootstrap Soong using only this tree and request vulkan.pastel. Add further projects only for concrete missing dependencies reported by the build.
