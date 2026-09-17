@@ -1,0 +1,17 @@
+2026-09-17 14:57 PDT
+Applied the principled run 13 correction to the Pastel control builder.
+
+Root cause addressed:
+- Run 13 eliminated the service-media-s scope error after adding packages/modules/common.
+- The new failure came from Bazel mixed-build cquery analyzing an unrelated system/timezone test and requiring //frameworks/base/api:api_fingerprint outside the partial PDK checkout.
+- This was not in vulkan.pastel's target dependency closure.
+
+Correction committed as fd3ebb9b4af7ca93b0c8c808a919d4ce8367f231:
+- export BUILD_BROKEN_DISABLE_BAZEL=true before lunch and reassert after lunch;
+- preflight r45 build/soong/ui/build/config.go for IsBazelMixedBuildForceDisabled and BUILD_BROKEN_DISABLE_BAZEL support;
+- retain ALLOW_MISSING_DEPENDENCIES and SOONG_ALLOW_MISSING_DEPENDENCIES for the intentional partial source tree;
+- retain m -j2 vulkan.pastel as the sole requested target;
+- record mixed Bazel disabled state in control manifest.
+
+AOSP precedent: partial-source build scripts use ALLOW_MISSING_DEPENDENCIES with BUILD_BROKEN_DISABLE_BAZEL to keep analysis in Soong when Bazel cannot support the partial build.
+Workflow remained manual-only during this script commit. No run 14 started at this checkpoint.
