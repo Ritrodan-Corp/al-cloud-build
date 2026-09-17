@@ -17,8 +17,9 @@ log_disk() {
   du -sh "$ROOT" 2>/dev/null || true
 }
 
-# Standard public runners are free for this public repository. Reclaim image
-# payloads unrelated to an Android platform build before syncing AOSP.
+# The runner is ephemeral. Prefer a complete, reproducible build-tool closure
+# over prematurely minimizing checkout size. Reclaim unrelated runner payloads
+# first, but do not prune AOSP host toolchains after they are synced.
 sudo rm -rf \
   /usr/share/dotnet \
   /usr/local/lib/android \
@@ -38,27 +39,46 @@ cd "$ROOT"
   --depth=1 \
   --no-clone-bundle
 
-# Audited minimal source set for an Android 14 r45 Soong module build of
-# vulkan.pastel. The Soong microfactory bootstrap explicitly maps these Go
-# package roots: build/soong, build/make/tools/rbcrun,
-# prebuilts/bazel/common/proto, external/golang-protobuf, and
-# external/starlark-go. Android 14's golang-protobuf Soong graph also directly
-# references the go-cmp module supplied by external/go-cmp. The remaining
-# projects are the Android graphics, HIDL, libc++ and system dependencies needed
-# by SwiftShader's Android HAL.
-SOURCE_PROJECTS=(
+# Bootstrap the source-of-truth build-tool dependency list from the r45
+# prebuilts/build-tools repository itself. Its manifest.xml is the closure
+# Google uses to produce Android host build tools, and includes support
+# projects such as spdx-tools, go-cmp and starlark-go that a hand-maintained
+# minimal list repeatedly missed.
+"$REPO_BIN" sync -c -j4 --no-tags --no-clone-bundle prebuilts/build-tools
+
+test -s prebuilts/build-tools/manifest.xml
+sha256sum prebuilts/build-tools/manifest.xml | tee "$ART/build-tools-manifest-sha256.txt"
+
+mapfile -t BUILD_TOOL_PROJECTS < <(
+  python3 - <<'PY'
+import xml.etree.ElementTree as ET
+root = ET.parse('prebuilts/build-tools/manifest.xml').getroot()
+paths = set()
+for project in root.findall('project'):
+    path = project.attrib.get('path')
+    if not path:
+        continue
+    # The Actions host is Linux; Darwin host prebuilts are not useful here.
+    if '/darwin' in path or path.startswith('prebuilts/go/darwin'):
+        continue
+    paths.add(path)
+for path in sorted(paths):
+    print(path)
+PY
+)
+
+# Projects needed specifically to build Android 14's ARM64 SwiftShader/Pastel
+# HAL. Some are already in the build-tools manifest; the final union is
+# deduplicated below. JDK17/Bazel are explicit because they are release build
+# requirements even if the historical build-tools manifest contains older host
+# variants.
+PASTEL_PROJECTS=(
   build/make
   build/bazel
   build/bazel_common_rules
   build/blueprint
   build/soong
   external/bazel-skylib
-  external/go-cmp
-  external/golang-protobuf
-  external/starlark-go
-  packages/modules/common
-  prebuilts/bazel/common
-  prebuilts/bazel/linux-x86_64
   external/swiftshader
   external/libcxx
   external/libcxxabi
@@ -76,78 +96,66 @@ SOURCE_PROJECTS=(
   system/libfmq
   system/tools/aidl
   system/tools/xsdc
+  packages/modules/common
+  prebuilts/bazel/common
+  prebuilts/bazel/linux-x86_64
+  prebuilts/clang/host/linux-x86
+  prebuilts/go/linux-x86
+  prebuilts/jdk/jdk17
+  prebuilts/build-tools
 )
-"$REPO_BIN" sync -c -j4 --no-tags --no-clone-bundle "${SOURCE_PROJECTS[@]}"
 
+# Only request paths that exist in the r45 platform manifest, and fail before
+# the expensive sync if either upstream closure contains an unavailable path.
+mapfile -t AVAILABLE_PROJECTS < <("$REPO_BIN" list -p | sort -u)
+declare -A AVAILABLE=()
+for path in "${AVAILABLE_PROJECTS[@]}"; do
+  AVAILABLE["$path"]=1
+done
+
+ALL_PROJECTS=()
+declare -A SEEN=()
+for path in "${BUILD_TOOL_PROJECTS[@]}" "${PASTEL_PROJECTS[@]}"; do
+  if [[ -z "${AVAILABLE[$path]:-}" ]]; then
+    echo "required r45 project not present in platform manifest: $path" >&2
+    exit 1
+  fi
+  if [[ -z "${SEEN[$path]:-}" ]]; then
+    ALL_PROJECTS+=("$path")
+    SEEN["$path"]=1
+  fi
+done
+
+printf 'build_tools_manifest_projects=%s\n' "${#BUILD_TOOL_PROJECTS[@]}"
+printf 'total_synced_projects=%s\n' "${#ALL_PROJECTS[@]}"
+printf '%s\n' "${ALL_PROJECTS[@]}" > "$ART/synced-projects.txt"
+
+"$REPO_BIN" sync -c -j4 --no-tags --no-clone-bundle "${ALL_PROJECTS[@]}"
+
+# Verify exact source identity and core platform inputs before invoking Soong.
 test "$(git -C external/swiftshader rev-parse HEAD)" = "$SWIFTSHADER_COMMIT"
 printf '%s\n' "$SWIFTSHADER_COMMIT" > "$ART/source-commit.txt"
-
-clone_full() {
-  local name="$1" path="$2"
-  mkdir -p "$(dirname "$path")"
-  git clone -q --depth=1 --branch "$TAG" \
-    "https://android.googlesource.com/${name}" "$path"
-}
-
-clone_sparse() {
-  local name="$1" path="$2"
-  shift 2
-  mkdir -p "$(dirname "$path")"
-  git clone -q --depth=1 --branch "$TAG" --filter=blob:none --sparse \
-    "https://android.googlesource.com/${name}" "$path"
-  git -C "$path" sparse-checkout set "$@"
-}
-
-# r45 default compiler is clang-r487747c. Keep clang-3289846 because Soong
-# still defines the legacy RenderScript tool path, plus stable tools/profiles.
-clone_sparse platform/prebuilts/clang/host/linux-x86 \
-  prebuilts/clang/host/linux-x86 \
-  clang-r487747c clang-3289846 clang-stable llvm-binutils-stable profiles soong
-
-clone_sparse platform/prebuilts/jdk/jdk17 \
-  prebuilts/jdk/jdk17 \
-  linux-x86
-
-clone_full platform/prebuilts/go/linux-x86 \
-  prebuilts/go/linux-x86
-
-clone_full platform/prebuilts/build-tools \
-  prebuilts/build-tools
-rm -rf \
-  prebuilts/build-tools/darwin-x86 \
-  prebuilts/build-tools/linux_musl-arm64
-
-# Verify the selected compiler and the complete known Soong bootstrap/module
-# closure before discarding repo metadata.
 grep -F 'ClangDefaultVersion      = "clang-r487747c"' \
   build/soong/cc/config/global.go
-test -d build/soong
-test -d build/blueprint/microfactory
-test -d build/make/tools/rbcrun
-test -d prebuilts/bazel/common/proto/analysis_v2
+test -d external/spdx-tools
 test -d external/golang-protobuf/proto
 test -d external/starlark-go/starlark
-grep -Rqs 'name:[[:space:]]*"go-cmp"' external/go-cmp/Android*.bp
+test -d frameworks/native
 test -f hardware/libhardware/Android.bp
-
-# No further repo operations are needed. Reclaim shallow Git object storage.
-rm -rf .repo
 log_disk
 
 export ALLOW_MISSING_DEPENDENCIES=true
 export OUT_DIR="$OUT_DIR_BUILD"
 export TARGET_BUILD_APPS=
 
-# AOSP envsetup/lunch functions are not compatible with bash nounset because
-# they intentionally probe optional variables such as TOP. Keep errexit and
-# pipefail, but disable nounset only while using the AOSP shell environment.
+# AOSP envsetup/lunch functions intentionally probe optional unset variables.
 set +u
 source build/envsetup.sh
 lunch module_arm64only-eng
 
-# Build only the stock Android module. This must succeed unchanged before any
-# Reactor optimization candidate is considered valid.
-m -j4 vulkan.pastel 2>&1 | tee "$ART/build.log"
+# The hosted runner reports 15.6 GB RAM while AOSP warns that ~16 GB is the
+# minimum. Favor reliability over compile speed for the first stock control.
+m -j2 vulkan.pastel 2>&1 | tee "$ART/build.log"
 set -u
 
 LIB=$(find "$OUT_DIR_BUILD" -type f \
@@ -171,6 +179,7 @@ SwiftShader commit: ${SWIFTSHADER_COMMIT}
 Soong target: vulkan.pastel
 Product: module_arm64only-eng
 Variant: unmodified stock-control source
+Build-tool closure: r45 prebuilts/build-tools/manifest.xml + Pastel-specific union
 Live target path: /vendor/lib64/hw/vulkan.pastel.so
 Live SHA-256 reference: 67c210363a565a8a9376c4e6ddaa349f79e2aa08828c9a2151f18aa932398f90
 Live build ID reference: a84688481a52cf740d0af7938960f25e
