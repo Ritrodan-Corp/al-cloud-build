@@ -1,0 +1,11 @@
+Pastel control build strategy correction after run 9
+
+Run 9 failed before source sync/build because the manifest-driven validator tried to require every project path in prebuilts/build-tools/manifest.xml to also exist as a project path in the Android 14 r45 platform manifest. The first mismatch was build/kati.
+
+Upstream verification shows this assumption is invalid. Android 14 r45's platform manifest does not contain build/kati as a project, while the prebuilts/build-tools manifest intentionally references build/kati and other projects from the separate build-tools-release lineage used to reproduce host build tools. Therefore prebuilts/build-tools/manifest.xml is not an appropriate source closure for building a platform module at the r45 platform tag.
+
+The correct upstream source-of-truth for a platform-module build is the r45 platform manifest itself. Its pdk group already contains the relevant platform/build, Soong, SwiftShader, SPDX, go-cmp, starlark-go, Linux host toolchain/JDK, frameworks/native, hardware, HIDL and system projects required for platform development.
+
+New plan: stop hand-maintained or build-tools-manifest dependency translation. Use repo init against android-14.0.0_r45 with the platform pdk group (excluding Darwin host projects), then sync that authoritative group shallowly and build only module_arm64only-eng -> vulkan.pastel. Keep compile parallelism conservative due the standard runner's ~15.6 GB RAM.
+
+No run 10 should begin until the workflow is temporarily made manual-only and the replacement script is fully reviewed.
