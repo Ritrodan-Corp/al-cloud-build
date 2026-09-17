@@ -1,0 +1,19 @@
+AL Cloud progress log
+Timestamp: 2026-09-17 20:28 UTC
+Step: Diagnose Pastel control run 11 failure.
+
+Observed:
+- Run 11 (35256292683) completed the 967-project Android 14 r45 PDK sync (~77 GB), exact SwiftShader commit check, Clang version check, lunch, Soong/Blueprint bootstrap, bp2build conversion, and reached final Android.bp analysis.
+- ALLOW_MISSING_DEPENDENCIES and SOONG_ALLOW_MISSING_DEPENDENCIES were both confirmed true in the Actions log.
+- The prior undefined-module failures from run 10 did not recur.
+- Run 11 stopped on packages/modules/Media/apex/service/Android.bp because java_sdk_library service-media-s could not find its previously released API tracking modules: service-media-s.api.system.latest, service-media-s-removed.api.system.latest, and service-media-s-incompatibilities.api.system.latest.
+
+Upstream verification:
+- Android 14 manifest includes prebuilts/sdk in the pdk group.
+- prebuilts/sdk uses prebuilt_apis to generate *.api.*.latest tracking modules from finalized SDK/extension API txt files.
+- Android SDK prebuilts contain historical service-media-s API files, so the next audit is to determine why the r45 PDK checkout does not expose the expected system-scope tracking modules to this source java_sdk_library.
+
+Status:
+- No run 12 started.
+- Workflow remains manual-only.
+- Next step is to inspect the exact r45 prebuilts/sdk module generation and service-media-s scope mapping before changing the checkout or source.
