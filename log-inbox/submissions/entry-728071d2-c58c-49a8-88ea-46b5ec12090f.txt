@@ -1,0 +1,7 @@
+Oracle browser-streaming local deployment and live smoke test.
+
+Action: Cloned the vm-control source, ran the qualified browser-streaming Python and Node test suites on Oracle, deployed the unchanged component under /home/ubuntu/al-cloud/browser-streaming, and started it bound only to 127.0.0.1:8766 against loopback ADB 127.0.0.1:5555.
+
+Result/evidence: Python server tests passed 4/4 and browser player tests passed 3/3. `/api/status` reports ADB=true, 1280x720 input, 854x480 H.264 at 2 Mbps. `/screen.png` returned a valid 1280x720 PNG. A bounded four-second `/stream.h264` probe delivered about 340 KB, then cleaned up with status active=false and no reported stream error. Server log contains only the expected listening message. No game input was issued.
+
+Interpretation/next: The qualified GCP interface application is functionally ported to Oracle on loopback. Next add durable user-level startup and a private remote browser transport, preferably Tailscale Serve HTTPS so desktop and mobile retain WebCodecs support without public exposure.
