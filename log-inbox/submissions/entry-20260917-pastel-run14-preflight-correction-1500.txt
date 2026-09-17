@@ -1,0 +1,10 @@
+2026-09-17 15:00 PDT
+Pre-run review caught an incomplete first edit before run 14.
+The first BUILD_BROKEN_DISABLE_BAZEL commit had the pre-lunch export but did not contain the intended r45 source guards or post-lunch reassertion because two string replacements failed to match the current script.
+No run was started with that incomplete edit.
+Corrected in commit e58c13ee88e639ba2838a4256879847ee9e905d5:
+- verify build/soong/ui/build/config.go contains IsBazelMixedBuildForceDisabled;
+- verify the pinned source contains BUILD_BROKEN_DISABLE_BAZEL;
+- reassert BUILD_BROKEN_DISABLE_BAZEL=true after lunch;
+- assert and print the flag in Actions logs.
+Next: fetch committed script and workflow and require all pre-run checks to pass before triggering run 14.
