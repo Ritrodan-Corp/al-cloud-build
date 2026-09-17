@@ -1,0 +1,11 @@
+Applied the completed run 5 dependency audit to experiments/160-swiftshader-perf/build-android-control.sh on vm-control.
+
+Changes:
+- Added AOSP build-system baseline projects omitted by the earlier trimmed tree: build/bazel, build/bazel_common_rules, external/bazel-skylib, packages/modules/common, prebuilts/bazel/common, prebuilts/bazel/linux-x86_64.
+- Added hardware/libhardware because vulkan.pastel directly links libhardware and hwvulkan_headers depends on libhardware_headers.
+- Kept existing SwiftShader, libc++, bionic, frameworks/native, hardware/interfaces, HIDL, system and host-toolchain projects.
+- Added preflight assertions for external/golang-protobuf/proto, prebuilts/bazel/common/proto/analysis_v2, and hardware/libhardware/Android.bp.
+- Still builds only module_arm64only-eng -> vulkan.pastel; full AOSP is not synced.
+
+Script update commit: 527e46a23cfad853570def5808df3d8f0500950c
+Because the workflow is push-triggered, this script update may automatically start run 5.
