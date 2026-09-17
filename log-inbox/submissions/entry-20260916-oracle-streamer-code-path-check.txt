@@ -1,0 +1,5 @@
+Inspected the deployed Oracle browser streamer implementation after isolating the black-screen issue to live H.264.
+
+Confirmed the deployed server launches `adb exec-out screenrecord --output-format=h264 --size 854x480 --bit-rate 2000000 --time-limit 0 -` and relays stdout as HTTP/1.1 chunked `video/h264`. The handler tracks client disconnects and terminates screenrecord when the client closes. No Oracle-specific capture command divergence was found in the deployed server code.
+
+Next step: capture a bounded raw H.264 sample directly from the same screenrecord command and inspect Annex-B NAL ordering/SPS/PPS/IDR behavior against the browser player's assumptions.
