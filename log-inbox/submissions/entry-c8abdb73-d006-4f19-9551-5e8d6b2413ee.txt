@@ -1,0 +1,7 @@
+Oracle Azur Lane application-state checkpoint after first-run provisioning.
+
+Action: Performed read-only ADB and screenshot inspection of the live Oracle ReDroid session.
+
+Result/evidence: ADB is connected at 127.0.0.1:5555 and sys.boot_completed=1. Installed Azur Lane is versionName 9.3.7 / versionCode 93007. The game process is alive. A live 1280x720 screencap shows the official Azur Lane User Agreement dialog with Cancel and Accept controls, meaning the application has progressed past the first-run download UI and is awaiting first user consent before login. Package storage now measures about 28G at /sdcard/Android/data/com.YoStarEN.AzurLane plus about 1.4G at /sdcard/Android/obb/com.YoStarEN.AzurLane; host root filesystem remains at about 31G available. A bounded logcat scan found no FORTIFY, SIGABRT, destroyed-mutex, LuaJIT/bad-lightuserdata, Pastel, or FATAL EXCEPTION markers. The actual Oracle administration unit is alcloud-rdc.service, which is active alongside docker.service and tailscaled.service; the earlier desktop-commander-remote.service name applies to the GCP host, not this Oracle service definition.
+
+Interpretation/next: Treat the 27.6 GB first-run asset-download checkpoint as effectively complete. Oracle acceptance is now blocked on manual acceptance of the Yostar agreement and subsequent login/session/gameplay qualification. No input was issued during this assessment.
