@@ -1,0 +1,3 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+Step: Stage guarded FPS-switch script on live Oracle VM without disturbing existing local modifications.
+Finding: Full git pull refused because local working-tree changes exist in infra/oracle/migrate-redroid-data.sh and browser-streaming/web/app.js. No stash/reset/overwrite was performed. Instead extracted only infra/oracle/switch-redroid-fps.sh directly from origin/vm-control into the working tree. Script passes bash -n and has SHA-256 cc484028fc879923b2fd10f5712da6494ceed66f4699a8abd1ca6f4eed00b482. Runtime/container state remains unchanged at physical 30 Hz.
