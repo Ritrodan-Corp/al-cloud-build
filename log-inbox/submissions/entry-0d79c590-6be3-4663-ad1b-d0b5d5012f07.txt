@@ -1,0 +1,7 @@
+Oracle browser-streaming durable user-owned startup.
+
+Action: Added /home/ubuntu/al-cloud/run-browser-streaming.sh as a restart-on-exit supervisor, preserved the existing updater crontab entry, added an @reboot launch for the supervisor, and replaced the temporary one-shot streamer with the supervised process.
+
+Result/evidence: The Oracle account has no persistent user systemd manager, so no user unit was used. Crontab now retains the existing daily azl-update job plus the browser-streaming @reboot supervisor. The supervised streamer is running again on 127.0.0.1:8766 and `/api/status` reports ADB=true with the expected 1280x720 input / 854x480 2 Mbps stream configuration.
+
+Interpretation/next: Browser streaming now has a user-owned reboot persistence path without modifying the ReDroid container or requiring root. Next qualify remote access. Tailscale Serve is preferred for private HTTPS; if tailnet policy blocks it, retain a Tailscale-only HTTP fallback for immediate control and ask for the one-time Serve enablement needed for full live H.264 in browsers.
