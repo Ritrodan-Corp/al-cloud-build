@@ -53,6 +53,7 @@ VIDEO_W, VIDEO_H = parse_size(VIDEO_SIZE_TEXT)
 VIDEO_BITRATE = env_int("AZL_VIDEO_BITRATE", 2_000_000)
 STREAM_TIME_LIMIT = env_int("AZL_STREAM_TIME_LIMIT", 0)
 STREAM_READ_SIZE = env_int("AZL_STREAM_READ_SIZE", 64 * 1024)
+STREAM_STALL_TIMEOUT = env_int("AZL_STREAM_STALL_TIMEOUT_MS", 3000) / 1000.0
 WEB_ROOT = Path(os.environ.get("AZL_WEB_ROOT", Path(__file__).with_name("web"))).resolve()
 GAME_PACKAGE = "com.YoStarEN.AzurLane"
 GAME_ACTIVITY = "com.manjuu.azurlane.MainActivity"
@@ -155,6 +156,17 @@ def adb_available() -> bool:
         return False
 
 
+def cleanup_stale_screenrecord() -> None:
+    subprocess.run(
+        ADB + ["shell", "pkill", "-f", "^screenrecord --output-format=h264 "],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=2,
+        check=False,
+    )
+    time.sleep(0.2)
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "ALCloudStream/0.1"
@@ -251,6 +263,7 @@ class Handler(BaseHTTPRequestHandler):
         clean_end = False
         try:
             ensure_adb()
+            cleanup_stale_screenrecord()
             set_stream_state(active=True, started_at=time.time(), bytes_sent=0, last_error=None)
             proc = subprocess.Popen(
                 screenrecord_command(),
@@ -272,6 +285,7 @@ class Handler(BaseHTTPRequestHandler):
             sent = 0
             client_closed = False
             stdout_fd = proc.stdout.fileno()
+            last_output_at = time.monotonic()
             while True:
                 readable, _, _ = select.select([stdout_fd, self.connection], [], [], 0.5)
 
@@ -290,6 +304,9 @@ class Handler(BaseHTTPRequestHandler):
                     if proc.poll() is not None:
                         clean_end = proc.returncode == 0
                         break
+                    if time.monotonic() - last_output_at >= STREAM_STALL_TIMEOUT:
+                        set_stream_state(last_error=f"screenrecord stalled for {STREAM_STALL_TIMEOUT:.1f}s")
+                        break
                     continue
 
                 chunk = os.read(stdout_fd, STREAM_READ_SIZE)
@@ -301,6 +318,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(b"\r\n")
                 self.wfile.flush()
                 sent += len(chunk)
+                last_output_at = time.monotonic()
                 set_stream_state(bytes_sent=sent)
 
             if not client_closed:
