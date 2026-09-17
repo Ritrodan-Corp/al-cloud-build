@@ -1,0 +1,11 @@
+2026-09-17 SwiftShader/Pastel control build verification before run 5
+
+Run 4 (GitHub Actions run 35184582666) failed during Soong bootstrap, before compiling vulkan.pastel. After adding external/golang-protobuf, the next missing path was:
+  prebuilts/bazel/common/proto/analysis_v2
+
+Upstream verification performed before any fifth run:
+- Android 14 Soong go.mod requires Blueprint, protobuf, and prebuilts/bazel/common/proto/analysis_v2 in the bootstrap dependency set.
+- The Android 14 r45 manifest includes prebuilts/bazel/common as its own project.
+- SwiftShader's Android vulkan.pastel module depends on its bundled LLVM/SwiftShader libraries plus Android graphics mapper 3/4, nativewindow, hardware, HIDL base, cutils, sync, log, utils, and libarect integration.
+
+Conclusion: run 4 failed because the deliberately trimmed AOSP source/build tree omitted an explicit Soong bootstrap dependency. This is not a SwiftShader compile failure. Do not start run 5 until the trimmed dependency set is checked against upstream AOSP sources rather than continuing blind one-error-at-a-time guessing.
