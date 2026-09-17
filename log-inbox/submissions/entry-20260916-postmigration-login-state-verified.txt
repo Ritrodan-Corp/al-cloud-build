@@ -1,0 +1,3 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+Step: Validate preserved Azur Lane account state after /data migration.
+Result: Launched com.YoStarEN.AzurLane successfully. Direct 1280x720 framebuffer capture shows the normal Azur Lane login screen with saved-account controls (Log Out, Recovery, LOG IN), confirming the migrated persistent /data retained application/account state. Game process PID 1679 is alive. No ReDroid boot-time FPS change has been made yet. Next action: use the saved-account LOG IN control, wait for the logged-in home scene, and capture the physical-30-Hz / in-game-60-FPS control benchmark.
