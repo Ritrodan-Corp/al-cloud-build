@@ -1,0 +1,7 @@
+Pastel PDK control-builder post-rewrite review
+
+Reviewed the committed experiments/160-swiftshader-perf/build-android-control.sh after rewrite. Confirmed it now uses the Android 14 r45 platform manifest directly with `-g pdk,-darwin -p linux`, syncs the full selected group, records a revision-locked repo manifest and synced project list, validates the module_arm64only product and Linux build inputs, verifies the exact r45 SwiftShader commit, rejects Darwin host prebuilts, unsets ALLOW_MISSING_DEPENDENCIES, and builds only `vulkan.pastel` with `module_arm64only-eng` at -j2.
+
+Also rechecked .github/workflows/swiftshader-perf-control.yml. It remains workflow_dispatch-only with no push trigger, so the script rewrite and review did not start run 10.
+
+No further build attempt was launched in this step.
