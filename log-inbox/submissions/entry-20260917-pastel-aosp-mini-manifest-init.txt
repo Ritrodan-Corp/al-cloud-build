@@ -1,0 +1,12 @@
+Workstream: Oracle SwiftShader/Pastel performance optimization
+
+Action: Initialized a shallow Android 14 r45 AOSP manifest for a minimal Soong build tree at /home/ubuntu/alcloud-pastel/aosp-mini.
+
+Environment:
+- repo launcher: v2.67 in /home/ubuntu/.local/bin/repo
+- manifest branch/tag: android-14.0.0_r45
+- manifest commit: cdd65f69a8434b04def0262e13b55af8da8527cd
+- manifest metadata size after init: ~20 MiB
+- root filesystem free before project sync: ~30 GiB
+
+Reason: plain NDK/CMake is not a stock-equivalent control because the AOSP vulkan.pastel module enables gralloc1/3/4, Android hardware buffer support, mapper 3/4, HIDL, nativewindow, sync, and related Android shared libraries. Proceed by syncing only the Soong/build/toolchain and direct Android graphics dependencies needed for vulkan.pastel, adding further projects only when Soong reports a concrete missing dependency.
