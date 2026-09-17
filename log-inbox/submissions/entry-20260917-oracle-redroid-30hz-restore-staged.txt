@@ -1,0 +1,10 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Action: Staged and syntax-validated a guarded 60 Hz -> 30 Hz restore script after the matched 60 Hz benchmark showed no material benefit.
+
+Artifact:
+- Repo source: infra/oracle/restore-redroid-30hz.sh
+- VM copy: /home/ubuntu/alcloud-restore-redroid-30hz.sh
+- VM SHA-256: 6a8b6f11680d80f520c2916436f3da387cdf993decdca02ce0453380380f6761
+
+Behavior: preserve current 60 Hz container temporarily, reactivate the exact saved 30 Hz container that shares persistent /data, validate Android boot, package presence, bind mount, and physical 1280x720 @ 30 Hz, then remove the no-benefit 60 Hz container. Any validation failure triggers rollback to the 60 Hz runtime.
