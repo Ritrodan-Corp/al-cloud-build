@@ -1,0 +1,7 @@
+Oracle browser interface port planning.
+
+Action: Reviewed the qualified GCP browser-streaming component and its deployment model before changing the Oracle host.
+
+Result/evidence: The existing interface already provides the required H.264 browser stream plus ADB-backed touch, keyboard, Android navigation, reconnect, and screenshot fallback. Its application code is portable; the documented systemd unit is GCP-specific only in its azladmin user and azl-redroid-exp157.service dependency. WebCodecs requires a secure context, so direct plain HTTP over a Tailscale IP is not sufficient for the preferred phone/browser path.
+
+Interpretation/next: Port the unchanged application to Oracle first, adapt only the service identity/dependency, qualify loopback operation, then use a private HTTPS Tailscale Serve endpoint if the installed Tailscale version and tailnet policy permit it. Do not expose ADB or the controller publicly.
