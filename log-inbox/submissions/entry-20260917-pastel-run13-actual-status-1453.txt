@@ -1,0 +1,10 @@
+2026-09-17 14:53 PDT
+Corrected current Pastel status.
+
+Latest control build is run 13, GitHub Actions run 35274167834.
+Run 13 confirms the packages/modules/common correction worked: the prior service-media-s missing *.api.system.latest error is gone.
+Run 13 completed source sync, Soong bootstrap, bp2build conversion and reached final build.ninja analysis.
+Current blocker is Bazel mixed-build cquery from an unrelated system/timezone test APEX. Bazel reports implicit dependency //frameworks/base/api:api_fingerprint missing because frameworks/base/api is outside the partial PDK checkout.
+This is not a vulkan.pastel dependency failure.
+Next action: verify Android 14 r45 supported switch for disabling mixed Bazel analysis in a partial-source Soong build, then patch the control script instead of adding frameworks/base and continuing dependency expansion.
+No run 14 started at this checkpoint.
