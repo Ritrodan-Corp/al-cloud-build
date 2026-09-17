@@ -1,0 +1,9 @@
+Pastel control build current progress checkpoint
+
+Run 9 remains the latest SwiftShader Android 14 Pastel control attempt. It failed before source sync/build because the build-tools-release manifest contained build/kati, which is not a project in the Android 14 r45 platform manifest.
+
+The strategy was corrected after run 9: prebuilts/build-tools/manifest.xml is not the right source closure for a platform-module build. The intended next approach is to use the authoritative android-14.0.0_r45 platform manifest pdk group, exclude irrelevant Darwin host projects, shallow-sync that source set, and build only module_arm64only-eng -> vulkan.pastel with conservative parallelism.
+
+The workflow is currently workflow_dispatch-only with a 180-minute timeout, so no further automatic Pastel runs can trigger while the script is redesigned.
+
+No run 10 has started. The replacement pdk-based build script has not yet been committed; the current build-android-control.sh still contains the superseded build-tools-manifest translation logic. Next substantive step is to replace and review that script before manually launching run 10.
