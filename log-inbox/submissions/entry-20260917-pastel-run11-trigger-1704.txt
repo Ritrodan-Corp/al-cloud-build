@@ -1,0 +1,5 @@
+AL Cloud progress log
+Timestamp: 2026-09-17T17:04Z
+Step: Triggered reviewed SwiftShader Android 14 r45 Pastel control run 11.
+Details: Temporarily added a push trigger scoped only to vm-control changes of .github/workflows/swiftshader-perf-control.yml. Trigger commit: 9f02ebf89d2111e99826ea8cc875bf5073f0239e. The build script at experiments/160-swiftshader-perf/build-android-control.sh already contains the reviewed PDK partial-graph correction using ALLOW_MISSING_DEPENDENCIES and SOONG_ALLOW_MISSING_DEPENDENCIES, with source guards and target vulkan.pastel only.
+Next: Restore workflow to manual-only immediately, then verify run 11 exists and inspect its live job state.
