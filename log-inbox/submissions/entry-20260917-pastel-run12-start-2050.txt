@@ -1,0 +1,8 @@
+2026-09-17 20:50 UTC
+Pastel control run 12 started after the packages/modules/common source-closure correction.
+
+Run ID: 35272037189
+Trigger commit: 8236f45aa35106d3d9e6c33f18a6ddefd0d2b616
+Workflow was immediately restored to workflow_dispatch-only in commit b9590a1a1bd9cb2b5decb47d11b1b03ed59e99a8.
+
+Run 12 tests Android 14 r45 groups pdk,path:packages/modules/common,-darwin with the exact SwiftShader commit 32ad39a320606948f09692cb91b71e1cd95d0e51 and target module_arm64only-eng -> vulkan.pastel.
