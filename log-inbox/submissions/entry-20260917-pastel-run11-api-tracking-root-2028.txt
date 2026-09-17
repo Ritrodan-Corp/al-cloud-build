@@ -1,0 +1,16 @@
+2026-09-17 20:28 UTC
+Pastel control run 11 API-tracking investigation checkpoint.
+
+Run 11 completed the Android 14 r45 PDK sync (967 projects), full Soong/Blueprint bootstrap, bp2build conversion, and reached final Android.bp analysis. ALLOW_MISSING_DEPENDENCIES resolved the prior partial-graph undefined-module failures.
+
+The remaining hard failure is packages/modules/Media/apex/service module service-media-s. Soong requests three released-API tracking modules: service-media-s.api.system.latest, service-media-s-removed.api.system.latest, and service-media-s-incompatibilities.api.system.latest.
+
+Research findings so far:
+- Android 14 r45 includes prebuilts/module_sdk/Media in pdk.
+- service-media-s current module SDK metadata exposes public and system_server scopes.
+- Soong names system-server tracking modules *.api.system-server.latest, so the run-11 request for *.api.system.latest is evidence that the source java_sdk_library is also enabling legacy system scope.
+- Android 14 Soong can enable legacy system/test API scopes when java_sdk_library sdk_version is non-none, even when system_server is explicitly enabled by defaults.
+- ALLOW_MISSING_DEPENDENCIES does not bypass java_sdk_library released-API tracking validation. The validation is a separate ModuleErrorf path.
+- Soong explicitly offers unsafe_ignore_missing_latest_api or supplying prebuilt released-API txt files, but neither should be applied blindly before confirming whether the source Media project should be present in this PDK module build and whether r45 has an upstream fix/expected configuration.
+
+Next step: trace packages/modules/Media manifest group and r45 service-media-s history/configuration, then choose the least invasive control-build correction. No run 12 started.
