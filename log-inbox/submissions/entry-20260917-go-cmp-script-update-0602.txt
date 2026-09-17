@@ -1,0 +1,15 @@
+AL Cloud progress update
+Timestamp context: 2026-09-17 UTC
+
+Step: update Pastel control build script after audited run 6 failure.
+
+Changes committed to experiments/160-swiftshader-perf/build-android-control.sh:
+- Added external/go-cmp to SOURCE_PROJECTS.
+- Documented why it belongs with external/golang-protobuf in Android 14 r45.
+- Added a preflight grep that verifies a Soong module named go-cmp exists in external/go-cmp before lunch/graph evaluation.
+- Retained existing bootstrap preflights for Soong, Blueprint microfactory, rbcrun, Bazel analysis_v2 proto, golang-protobuf, starlark-go, and hardware/libhardware.
+- Kept the build target restricted to module_arm64only-eng -> vulkan.pastel.
+
+Script commit: d9efcd245778f07833337de0d54c624ded9c23e2
+
+The script change triggers the next Actions control-build run automatically through the existing workflow path filter.
