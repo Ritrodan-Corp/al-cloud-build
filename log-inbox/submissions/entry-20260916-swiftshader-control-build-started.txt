@@ -1,0 +1,3 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+Step: Start exact-source Android ARM64 SwiftShader control build.
+Action: Added experiments/160-swiftshader-perf/build-android-control.sh and .github/workflows/swiftshader-perf-control.yml on vm-control. Build pins AOSP external/swiftshader commit 32ad39a320606948f09692cb91b71e1cd95d0e51 (Android 14 release lineage), Android NDK r27d/API 34, LLVM Reactor backend, Release build, and no Reactor optimization override. It builds only vk_swiftshader, audits the resulting ARM64 shared library, and uploads the artifact. GitHub Actions run 35178566985 was queued from commit c0f7a3db2625b1a550bf6ce32c10c4257c1b8d40. No Oracle runtime state changed by this build step.
