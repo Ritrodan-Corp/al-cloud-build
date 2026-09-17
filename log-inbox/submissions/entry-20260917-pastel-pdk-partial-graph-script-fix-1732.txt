@@ -1,0 +1,7 @@
+Pastel PDK partial-graph script correction
+
+Updated experiments/160-swiftshader-perf/build-android-control.sh on vm-control after run 10 diagnosis. The script keeps the Android 14 r45 pdk,-darwin Linux checkout and the exact SwiftShader/Clang/source preflights. It now verifies that the pinned r45 soong_build source reads ALLOW_MISSING_DEPENDENCIES and propagates it into bp2build, then explicitly exports ALLOW_MISSING_DEPENDENCIES=true and SOONG_ALLOW_MISSING_DEPENDENCIES=true before lunch and reasserts/prints both values immediately before m -j2 vulkan.pastel.
+
+This mode is limited to loading the intentionally incomplete global PDK Android.bp graph. Soong records missing dependencies on affected Android modules and emits error build rules, so the requested vulkan.pastel target still cannot complete if its own reachable dependency closure is missing anything.
+
+No workflow trigger was changed and no run 11 was started by this script commit. Script update commit: a98eb7451d83c9d821865b4f95781af5c52d5ad9.
