@@ -1,11 +1,6 @@
 name: SwiftShader Android 14 Pastel control
 
 on:
-  push:
-    branches: [vm-control]
-    paths:
-      - 'experiments/160-swiftshader-perf/**'
-      - '.github/workflows/swiftshader-perf-control.yml'
   workflow_dispatch:
 
 permissions:
@@ -14,7 +9,7 @@ permissions:
 jobs:
   build-control:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 
