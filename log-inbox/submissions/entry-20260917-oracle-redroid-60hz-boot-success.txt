@@ -1,0 +1,15 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Action: Completed guarded ReDroid 30 Hz -> 60 Hz runtime handoff using persistent /data.
+
+Result:
+- Experiment script reached EXPERIMENT_READY at 2026-09-17T04:04:30Z.
+- Android boot_completed=1.
+- Physical display is 1280x720 at 60.000004 Hz.
+- Display presentation deadline is 16,666,666 ns.
+- Android init boot args include androidboot.redroid_fps=60.
+- Persistent /data remains host-backed.
+- The working 30 Hz container is preserved as rollback container alcloud-redroid-smoke-30hz-20260917T040350Z.
+- Permanent launcher remains unchanged at 30 Hz until benchmark results justify retaining 60 Hz.
+
+Next: launch Azur Lane, return to the same logged-in home screen, and repeat SurfaceFlinger presentation/CPU benchmark with browser streaming inactive.
