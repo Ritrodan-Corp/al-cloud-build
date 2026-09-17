@@ -1,0 +1,12 @@
+Workstream: Oracle ReDroid performance optimization
+
+Action: Tested Android's reversible user-preferred display mode command as a no-restart way to request 1280x720 at 60 Hz.
+
+Result:
+- Android accepted a user preference of 1280x720 @ 60.0.
+- SurfaceFlinger/DisplayDeviceInfo still reported the actual display as 1280x720, renderFrameRate 30.000002, with only one supported physical mode at 30.000002 Hz.
+- Therefore the preference cannot create a 60 Hz physical/compositor mode on the currently booted ReDroid instance.
+- The preference was cleared immediately and get-user-preferred-display-mode returned null.
+
+Decision:
+A genuine 60 Hz compositor experiment requires changing the boot-time ReDroid fps property and restarting/recreating the runtime. Defer that until the current writable-layer-only /data state has been safely made persistent. Continue with reversible in-place performance experiments first.
