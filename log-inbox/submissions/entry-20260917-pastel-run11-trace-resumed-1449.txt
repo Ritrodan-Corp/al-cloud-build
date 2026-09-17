@@ -1,0 +1,5 @@
+2026-09-17 14:49 PDT
+Resumed run 11 investigation after user requested immediate action.
+Confirmed run 11 completed PDK sync, Soong bootstrap, bp2build conversion, and failed only at final Android.bp analysis on service-media-s API compatibility tracking.
+Fetched current vm-control build script. It already includes packages/modules/common in the source selection and remains manual-run oriented. No run 12 started.
+Next: trace Android 14 r45 service-media-s prebuilt_apis generation and identify why *.api.system.latest filegroups are absent.
