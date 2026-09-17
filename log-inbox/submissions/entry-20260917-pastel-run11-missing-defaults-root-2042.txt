@@ -1,0 +1,17 @@
+2026-09-17 20:42 UTC
+Pastel control run 11 exact root cause identified.
+
+Run 10's unresolved-default list and run 11's service-media-s failure were correlated against the Android 14 r45 manifest and Soong java_sdk_library behavior.
+
+Key facts:
+- packages/modules/Media IS in the plain pdk group.
+- packages/modules/common is NOT in plain pdk; r45 assigns it to pdk-cw-fs,pdk-fs.
+- packages/modules/common defines framework-system-server-module-defaults, framework-sources-module-defaults, and non-updatable-framework-module-defaults.
+- service-media-s in packages/modules/Media inherits framework-system-server-module-defaults.
+- That default explicitly enables the system_server API scope. Without it, partial-graph mode leaves the defaults reference unresolved and java_sdk_library falls back to legacy system/test scope generation.
+- That fallback explains run 11 exactly: Soong incorrectly requested service-media-s.api.system.latest even though the released Media module SDK exposes public + system_server, not system.
+- Run 10 had already shown framework-sources-module-defaults and non-updatable-framework-module-defaults missing as well, confirming packages/modules/common is a foundational configuration project omitted by plain pdk rather than a one-off Media dependency.
+
+Correction chosen: keep the lean pdk selection but explicitly include the manifest's implicit path group path:packages/modules/common. Do not add all pdk-fs projects, which would materially increase the already 77 GB checkout. Add preflight checks for packages/modules/common/sdk/ModuleDefaults.bp and the three required defaults definitions. Keep ALLOW_MISSING_DEPENDENCIES for unrelated test/source graph holes.
+
+No run 12 started at this checkpoint.
