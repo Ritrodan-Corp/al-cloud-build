@@ -1,0 +1,16 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Action: A/B tested Azur Lane PlayerPrefs `fps_limit` from 30 to 60. Only the game app was force-stopped/restarted; ReDroid remained at its existing physical 1280x720 @ 30.000002 Hz mode. The exact PlayerPrefs file was backed up before mutation.
+
+Result:
+- Game retained fps_limit=60 after restart.
+- No fatal launch/crash signature observed.
+- SurfaceFlinger BLAST-layer sample after settling: 127 presented timestamps spanning 4.200 s (SurfaceFlinger rolling buffer), effective 30.000 FPS.
+- All 126 measured frame intervals were 33.33 ms.
+- Prior clean same-runtime fps_limit=30 baseline was 14.052 FPS, with 109 intervals at ~66.7 ms and 17 at 100 ms.
+
+Interpretation:
+This is a major improvement. With the physical ReDroid display still fixed at 30 Hz, Azur Lane's 30-FPS game cap was effectively missing presentation slots and mostly landing every second vsync. Requesting 60 FPS from the game supplies frames frequently enough for SurfaceFlinger to present every 30-Hz slot. This also matches ALAS upstream's recommended 60-FPS in-game setting.
+
+Next validation:
+Confirm the post-restart scene is comparable to the baseline, measure Android/game and host CPU cost, repeat the presentation sample for stability, then retain 60 only if the gain persists without unacceptable CPU or stability cost.
