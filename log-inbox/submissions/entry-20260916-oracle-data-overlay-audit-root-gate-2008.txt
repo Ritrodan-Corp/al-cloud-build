@@ -1,0 +1,13 @@
+Timestamp: 2026-09-16 20:08 PDT
+Workstream: Oracle ReDroid persistence migration preflight
+Step: Read-only OverlayFS audit before any Android/container restart or data movement.
+Findings:
+- Live ReDroid container root is an OverlayFS mount at /var/lib/docker/rootfs/overlayfs/074ce3d508e66dedaf9f8b5ef2ae882cbe0e86d0c8fbb17aa1233fc7da62ca83.
+- Overlay options show lowerdirs snapshots/7/fs and snapshots/4/fs, upperdir snapshots/8/fs, workdir snapshots/8/work.
+- Android init process is host PID 2751 and confirms boot args include guest GPU, 1280x720, fps=30.
+- The connected RDC shell user cannot traverse the containerd snapshot backing tree or /proc/2751/root/data; both return permission denied.
+- RDC command policy does not expose an approved sudo/elevated command action, so no privileged mutation or backing-store inspection was attempted through an unauthorized route.
+Decision:
+- Do not stop/recreate ReDroid or manipulate Docker/containerd private storage until the exact /data representation has been verified through an authorized privileged path.
+- Preserve the live container and its writable snapshot as rollback source.
+No runtime state was changed by this step.
