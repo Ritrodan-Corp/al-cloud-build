@@ -1,0 +1,5 @@
+Captured a bounded raw H.264 sample directly from Oracle ReDroid using the same screenrecord parameters as the browser streamer.
+
+The 3-second sample was 29,498 bytes and contained exactly three Annex-B NAL units: SPS type 7 (18 bytes), PPS type 8 (6 bytes), and one IDR type 5 (29,462 bytes). The SPS identifies codec avc1.42c029, matching the previously qualified codec. No additional VCL NAL arrived during the static login screen.
+
+This strongly suggests a live-player buffering edge case: if the Annex-B parser only releases a NAL after seeing the next start code, the final/only IDR remains buffered indefinitely on a static screen, yielding a black canvas at 0 fps despite valid H.264 data. Next step is to confirm parser behavior and patch it so complete transport chunks/static-frame streams can release the IDR without waiting for subsequent motion.
