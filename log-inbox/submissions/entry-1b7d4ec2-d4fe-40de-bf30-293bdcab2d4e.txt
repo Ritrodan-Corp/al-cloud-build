@@ -1,0 +1,9 @@
+2026-09-16 PDT — Issue #37 backfill: Oracle 39-bit kernel and Azur Lane qualification
+Workstream: Oracle migration / low-VA compatibility
+Source: https://github.com/Ritrodan-Corp/al-cloud-build/issues/37
+
+Action/result: Backfilled the durable custom-kernel qualification from issue #37. A native ARM64 custom kernel `6.8.12-alcloud39` was built from the Oracle/Ubuntu baseline with 4 KiB pages and `CONFIG_ARM64_VA_BITS=39`; critical OCI/ReDroid features remained enabled. The kernel, modules, initramfs, and GRUB entry were installed with the signed stock Oracle kernel preserved as fallback. A one-shot GRUB boot path was used rather than changing the permanent default. The VM successfully booted `6.8.12-alcloud39`; Tailscale SSH remained available and RDC was recovered after a refresh-token reauthorization issue.
+
+Binder was initialized on the 39-bit kernel through binderfs. The first recreated ReDroid guest stalled because binderfs device nodes were mode 0600; correcting binder/hwbinder/vndbinder to 0666 from inside the privileged container allowed Android 14 to reach `sys.boot_completed=1` with loopback-only ADB. The exact verified Azur Lane 9.3.7 APK then installed successfully. Cold launch returned Status=ok/MainActivity and the process remained stable instead of entering the ~2-second abort/PID-churn behavior seen on the 48-bit stock kernel. Post-launch scans showed Unity 2022.3.62f3 initializing with no Azur Lane SIGABRT, destroyed-mutex FORTIFY, Pastel/LLVM crash, or fatal signal 6 signature.
+
+Interpretation/next: Oracle now has a proven 39-bit/4-KiB host kernel capable of booting ReDroid and keeping the unmodified official Azur Lane client alive. The remaining black-screen state at that checkpoint was traced separately to incomplete package payload, not recurrence of the low-VA compatibility failure.
