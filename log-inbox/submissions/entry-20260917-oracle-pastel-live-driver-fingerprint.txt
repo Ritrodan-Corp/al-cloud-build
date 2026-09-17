@@ -1,0 +1,14 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Action: Pulled and fingerprinted the live ReDroid SwiftShader/Pastel Vulkan driver before starting a stock-equivalent rebuild.
+
+Live path: /vendor/lib64/hw/vulkan.pastel.so
+Host copy: /home/ubuntu/alcloud-pastel/vulkan.pastel.so
+Size: 20,207,760 bytes (~20 MiB)
+Architecture: ELF64 AArch64 shared object
+SHA-256: 67c210363a565a8a9376c4e6ddaa349f79e2aa08828c9a2151f18aa932398f90
+GNU build ID: a84688481a52cf740d0af7938960f25e
+
+Direct dynamic dependencies include Android graphics mapper 3/4, libnativewindow, libhardware, libhidlbase, libcutils, libsync, liblog, libutils, libc++, libc, libm, and libdl.
+
+Purpose: use this binary as the exact control fingerprint for the minimal Android 14 Pastel build pipeline. A rebuilt stock-equivalent driver must first match ABI/dependency/runtime behavior before performance variants are tested.
