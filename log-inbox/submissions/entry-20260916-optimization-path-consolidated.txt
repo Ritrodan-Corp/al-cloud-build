@@ -1,0 +1,18 @@
+Optimization path consolidated
+
+The production performance plan now keeps the Android/ReDroid display fixed at 1280x720 for ALAS compatibility and treats the Oracle A1 VM as fixed at 4 OCPUs unless the user explicitly reopens resizing or cost changes.
+
+Current measured baseline: Azur Lane presents about 16.1 FPS with browser streaming inactive and about 14.8 FPS with streaming active. The ReDroid display is configured for 30 Hz. Profiling shows the workload is dominated by SwiftShader/Pastel software Vulkan rasterization: four Marl worker threads consume most CPU time, while Unity game logic is comparatively light. No Android game-mode throttle, restrictive worker CPU affinity, or host cpufreq governor was found as an obvious fix.
+
+Optimization order:
+1. Preserve 1280x720 and the current persistent game data. Prepare rollback before any ReDroid restart or renderer experiment.
+2. Test ReDroid at 1280x720 with a 60 Hz display cadence while initially keeping Azur Lane's own fps_limit at 30. Rationale: current frame presentation is mostly 66.7 ms with some 33.3 ms intervals, suggesting missed 30 Hz deadlines. A 60 Hz compositor may provide intermediate presentation opportunities without initially increasing the game's render target.
+3. Re-run identical SurfaceFlinger frame-presentation, frame-pacing, game CPU, and total-host CPU measurements. Keep the change only if it materially improves real presented FPS and stability.
+4. Test safe optional visual-work reductions that preserve geometry, such as disabling nonessential effects, while keeping ALAS-relevant rendering intact.
+5. Reuse the earlier planned minimal Android-14-r45 SwiftShader/Pastel build path rather than creating a second graphics build pipeline. First build an unmodified stock-equivalent vulkan.pastel.so as the control and prove it reproduces current behavior.
+6. Produce controlled performance candidates one variable at a time. Candidate classes include stronger static compiler optimization where relevant and, more importantly, Reactor/JIT optimization because profiling shows most cycles are in JIT-generated SwiftShader code. A newer SwiftShader candidate can follow only after same-version tuning is characterized.
+7. Benchmark every renderer candidate at the same 4-OCPU, 1280x720 scene and compare actual SurfaceFlinger FPS, frame-time distribution, CPU load, renderer stability, and Azur Lane compatibility. Retain only evidence-producing improvements.
+8. Keep browser streaming secondary during renderer work. Continue using lighter stream settings until the VM itself renders acceptably, then optimize/raise the browser stream separately and repeat stream-on versus stream-off measurements.
+9. Revisit Azur Lane's in-game fps_limit only after the renderer improves. The live setting is currently 30 FPS while ALAS upstream recommends 60 FPS; raising the game cap prematurely could increase software-rendering work without increasing presented FPS.
+
+The earlier proposed llvm_shutdown_obj removal should not be revived as a performance patch. That historical patch targeted a compatibility/lifetime hypothesis that was later superseded by the low-VA LuaJIT diagnosis and 39-bit-kernel fix. The useful reusable asset is the minimal Pastel/Soong build path itself.
