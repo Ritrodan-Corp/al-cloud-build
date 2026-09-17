@@ -1,0 +1,7 @@
+Oracle private remote browser fallback deployed.
+
+Action: Added a user-owned TCP proxy bound specifically to the Oracle Tailscale IPv4 address 100.110.129.66:8766 and forwarding to the loopback-only browser streamer at 127.0.0.1:8766. Added a restart-on-exit supervisor and an @reboot crontab entry, preserving the existing updater and streamer startup entries.
+
+Result/evidence: HTTP `/api/status` and `/screen.png` succeed through 100.110.129.66:8766. `ss` confirms listeners only on 127.0.0.1:8766 for the backend and 100.110.129.66:8766 for the tailnet proxy, with no wildcard/public listener. Tailscale status shows the user's Windows peer `ritrotopm` (100.106.74.46) on the same tailnet, so the desktop browser can reach this fallback without a public VM port. Tailscale Serve attempted cleanly but is disabled at the tailnet policy level and supplied a one-time enablement URL.
+
+Interpretation/next: Immediate desktop access is available at http://100.110.129.66:8766/ (or MagicDNS equivalent) while on Tailscale; browsers will use the existing 2-second PNG fallback because remote plain HTTP is not a secure WebCodecs context. Enable Tailscale Serve once to upgrade the same backend to private HTTPS/live H.264 and make the preferred desktop/mobile browser path.
