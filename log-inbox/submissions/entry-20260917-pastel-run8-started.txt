@@ -1,0 +1,5 @@
+2026-09-17 Pastel control run 8 started
+
+GitHub Actions run 35188716077 started from commit 1e166b9bad96dfc04ad43c8e97881866d1f60773.
+
+This is the first control attempt using the upstream-derived r45 prebuilts/build-tools manifest closure instead of a hand-maintained Soong dependency list. The build-control job is in progress inside the stock Android 14 r45 Pastel control step. Live job logs were not yet available from the GitHub API while the job was running.
