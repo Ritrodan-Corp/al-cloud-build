@@ -1,0 +1,12 @@
+Timestamp: 2026-09-16 20:11 PDT
+Workstream: Oracle ReDroid persistence migration
+Step: Identify supported lifecycle mechanism and privilege boundary.
+Findings:
+- No ReDroid/Android systemd service is installed on Oracle. Running services include Docker and alcloud-rdc only.
+- /home/ubuntu/alcloud-start-redroid-smoke.sh is the current lifecycle script. It executes docker rm -f followed by docker run and recreates ReDroid with binder mounts, loopback ADB, guest GPU, 1280x720, and fps=30. It has no /data mount.
+- ubuntu is not a member of the docker group. docker group has no listed members; /var/run/docker.sock is root:docker mode 0660. Current RDC shell groups are ubuntu, adm, cdrom, sudo, dip, lxd.
+- Therefore the current RDC shell cannot legitimately control Docker through the socket, and there is no installed root-owned ReDroid service to delegate lifecycle operations through.
+Decision:
+- Do not attempt privilege escalation or manipulate Docker/containerd storage from the unprivileged RDC shell.
+- Keep the existing live container untouched until an authorized privileged operation path is available.
+No Android/container state was changed by this step.
