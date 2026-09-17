@@ -1,0 +1,18 @@
+AL Cloud progress log
+Timestamp: 2026-09-17 approximately 22:08 UTC
+Step: Verify live status after run 11/13 root-cause work.
+
+Current state:
+- Run 14 ID 35280244399 is in progress.
+- Setup and repository checkout succeeded.
+- Build stock Android 14 r45 Pastel control is currently in progress.
+- Artifact upload is pending.
+
+Root-cause chain already resolved before run 14:
+- Run 11 service-media-s system API tracking error came from packages/modules/common defaults not being included/applied in the partial PDK source set.
+- Source selection was corrected to pdk,path:packages/modules/common,-darwin.
+- Run 13 then passed that error and failed only because mixed Bazel cquery analyzed unrelated system/timezone targets outside the partial source checkout.
+- Builder now sets BUILD_BROKEN_DISABLE_BAZEL=true, verified against r45 Soong source, while keeping ALLOW_MISSING_DEPENDENCIES for unrelated partial-tree modules.
+- Sole requested target remains m -j2 vulkan.pastel.
+
+No new code change is being made while run 14 is executing.
