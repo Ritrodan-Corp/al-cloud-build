@@ -1,0 +1,5 @@
+Verified the patched browser JavaScript through the actual private HTTPS endpoint.
+
+GET `https://alcloud-a1-01.tailc79d73.ts.net/assets/app.js` returned HTTP 200 with `Cache-Control: no-store` and contains the deployed idle-NAL-flush markers (`NAL_IDLE_FLUSH_MS = 120` and `scheduleNalIdleFlush`). Therefore a normal page reload will fetch the fixed module rather than reuse the pre-fix JavaScript from cache.
+
+Next step: refresh/reconnect the browser and confirm the static Azur Lane login frame renders; if a single decoded keyframe remains buffered by WebCodecs, add an idle decoder flush as a secondary fix.
