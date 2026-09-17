@@ -34,14 +34,16 @@ chmod 0755 "$REPO_BIN"
 
 cd "$ROOT"
 
-# Use Android 14 r45's own platform PDK selection. The PDK group supplies the
-# complete build-system bootstrap closure and the platform sources needed for
-# module development, while avoiding a full Android checkout. Darwin host
-# projects are excluded because the Actions runner is Linux.
+# Use Android 14 r45's platform PDK selection plus packages/modules/common.
+# r45 puts several PDK-consumed Mainline defaults in packages/modules/common
+# even though that project itself is tagged pdk-fs rather than plain pdk.
+# Selecting its implicit path group restores those authoritative defaults
+# without pulling the entire pdk-fs source set. Darwin host projects remain
+# excluded because the Actions runner is Linux.
 "$REPO_BIN" init \
   -u https://android.googlesource.com/platform/manifest \
   -b "$TAG" \
-  -g 'pdk,-darwin' \
+  -g 'pdk,path:packages/modules/common,-darwin' \
   -p linux \
   --depth=1 \
   --no-tags \
@@ -59,7 +61,8 @@ cd "$ROOT"
 printf 'synced_project_count=%s\n' "$(wc -l < "$ART/synced-projects.txt")"
 
 # Verify the intended release, build-system bootstrap closure, target product,
-# and Linux host toolchain before invoking Soong.
+# Mainline defaults needed by PDK source projects, and Linux host toolchain
+# before invoking Soong.
 test -f build/envsetup.sh
 test -f build/make/target/product/module_arm64only.mk
 test -f build/make/target/board/module_arm64only/BoardConfig.mk
@@ -73,11 +76,21 @@ test -d external/swiftshader
 test -d frameworks/native
 test -d hardware/interfaces
 test -f hardware/libhardware/Android.bp
+test -f packages/modules/common/sdk/ModuleDefaults.bp
 test -d prebuilts/bazel/common
 test -d prebuilts/bazel/linux-x86_64
 test -d prebuilts/clang/host/linux-x86
 test -d prebuilts/go/linux-x86
 test -d prebuilts/jdk/jdk17
+
+grep -Fq 'name: "framework-module-common-defaults"' \
+  packages/modules/common/sdk/ModuleDefaults.bp
+grep -Fq 'name: "framework-system-server-module-defaults"' \
+  packages/modules/common/sdk/ModuleDefaults.bp
+grep -Fq 'name: "framework-sources-module-defaults"' \
+  packages/modules/common/sdk/ModuleDefaults.bp
+grep -Fq 'name: "non-updatable-framework-module-defaults"' \
+  packages/modules/common/sdk/ModuleDefaults.bp
 
 test ! -e prebuilts/bazel/darwin-x86_64
 test ! -e prebuilts/clang/host/darwin-x86
@@ -91,10 +104,19 @@ grep -F 'ClangDefaultVersion      = "clang-r487747c"' \
   build/soong/cc/config/global.go
 grep -q 'name: "vulkan.pastel"' external/swiftshader/src/Android.bp
 
-# A plain PDK source checkout is intentionally not a globally closed Android.bp
-# graph. Android 14 r45 supports this through ALLOW_MISSING_DEPENDENCIES. Guard
-# against accidentally relying on behavior that is absent from the pinned
-# release: soong_build must read the setting and bp2build must propagate it.
+# Run 11 exposed why packages/modules/common is required in addition to plain
+# pdk: packages/modules/Media inherits framework-system-server-module-defaults.
+# Without that defaults module, partial-graph mode caused service-media-s to
+# fall back to legacy system/test API-scope generation and request nonexistent
+# service-media-s.api.system.latest tracking modules. Verify the source module
+# still uses the authoritative default before building.
+grep -Fq 'defaults: ["framework-system-server-module-defaults"]' \
+  packages/modules/Media/apex/service/Android.bp
+
+# The selected source checkout remains intentionally not globally closed.
+# Android 14 r45 supports this through ALLOW_MISSING_DEPENDENCIES. Guard against
+# accidentally relying on behavior absent from the pinned release: soong_build
+# must read the setting and bp2build must propagate it.
 grep -Fq 'configuration.Getenv("ALLOW_MISSING_DEPENDENCIES") == "true"' \
   build/soong/cmd/soong_build/main.go
 grep -Fq 'ctx.SetAllowMissingDependencies(ctx.Config().AllowMissingDependencies())' \
@@ -104,13 +126,11 @@ log_disk
 export OUT_DIR="$OUT_DIR_BUILD"
 unset TARGET_BUILD_APPS || true
 
-# Run 10 proved that the PDK checkout has the full Soong/Blueprint bootstrap
-# closure, but several unrelated Android tests/framework modules refer to
-# providers in pdk-fs/pdk-cw-fs projects. Permit those global graph holes using
-# AOSP's partial-source mechanism. Missing dependencies are retained on the
-# affected Android modules as error build rules, so this cannot make the
-# requested vulkan.pastel target succeed if its own transitive closure is
-# incomplete.
+# Keep AOSP's partial-source mechanism for unrelated tests/framework modules
+# whose providers live in other pdk-fs/pdk-cw-fs projects. The authoritative
+# shared Mainline defaults are present explicitly, so those omissions can no
+# longer silently change java_sdk_library API-scope semantics. Missing target
+# dependencies remain error build rules and will stop vulkan.pastel itself.
 export ALLOW_MISSING_DEPENDENCIES=true
 export SOONG_ALLOW_MISSING_DEPENDENCIES=true
 
@@ -155,8 +175,8 @@ Android tag: ${TAG}
 SwiftShader commit: ${SWIFTSHADER_COMMIT}
 Soong target: vulkan.pastel
 Product: module_arm64only-eng
-Variant: unmodified stock-control source
-Source closure: Android 14 r45 platform manifest group pdk,-darwin on Linux
+Variant: unmodified stock-control SwiftShader source
+Source closure: Android 14 r45 platform manifest groups pdk,path:packages/modules/common,-darwin on Linux
 Global partial graph mode: ALLOW_MISSING_DEPENDENCIES=true
 Target validation: vulkan.pastel and its reachable dependency graph must build successfully
 Live target path: /vendor/lib64/hw/vulkan.pastel.so
