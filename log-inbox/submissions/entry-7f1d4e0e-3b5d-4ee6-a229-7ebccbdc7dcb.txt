@@ -1,0 +1,2 @@
+ALAS 1280x720 constraint correction
+User clarified that ALAS requires a 1280x720 Android coordinate space and this is a hard production requirement for the project. Resolution reduction is therefore removed as a production optimization path. Future performance work must preserve ReDroid at 1280x720 and focus on CPU/rendering/streaming architecture instead. The earlier suggestion to benchmark lower native Android resolutions remains potentially useful only as a diagnostic experiment, not as a deployable solution.
