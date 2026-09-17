@@ -1,0 +1,3 @@
+Verified current Oracle ReDroid display and browser stream settings.
+
+Live ADB `wm size` reports physical display 1280x720. Android `dumpsys display` reports the active built-in display mode at 1280x720 with renderFrameRate / refreshRate approximately 30.000002 fps and no changeable refresh-rate mode. The browser streamer status reports input 1280x720 and encoded video 854x480 at 2,000,000 bps H.264 Annex-B. This was a read-only verification; no display or stream settings were changed.
