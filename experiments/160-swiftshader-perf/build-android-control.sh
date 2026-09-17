@@ -114,14 +114,17 @@ export ALLOW_MISSING_DEPENDENCIES=true
 export OUT_DIR="$OUT_DIR_BUILD"
 export TARGET_BUILD_APPS=
 
-# AOSP's module_arm64only product exists specifically for narrow 64-bit module
-# builds. This matches ReDroid's 64-only image and the live lib64 Pastel HAL.
+# AOSP envsetup/lunch functions are not compatible with bash nounset because
+# they intentionally probe optional variables such as TOP. Keep errexit and
+# pipefail, but disable nounset only while using the AOSP shell environment.
+set +u
 source build/envsetup.sh
 lunch module_arm64only-eng
 
 # Build only the stock Android module. This must succeed unchanged before any
 # Reactor optimization candidate is considered valid.
 m -j4 vulkan.pastel 2>&1 | tee "$ART/build.log"
+set -u
 
 LIB=$(find "$OUT_DIR_BUILD" -type f \
   -path '*/vendor/lib64/hw/vulkan.pastel.so' -print -quit)
