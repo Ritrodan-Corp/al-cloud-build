@@ -1,0 +1,7 @@
+Oracle browser-interface environment preflight.
+
+Action: Inspected the Oracle host for the browser controller's required local dependencies and service assumptions.
+
+Result/evidence: git 2.43.0, Python 3.12.3, ADB 1.0.41, and Tailscale 1.102.4 are installed. `tailscale serve status` succeeds and reports no current Serve configuration. The Oracle ReDroid runtime is not represented by a dedicated redroid/azl systemd service; the only matching persistent service is alcloud-rdc.service, while the active Android session runs in Docker with loopback ADB.
+
+Interpretation/next: Deploy the qualified browser-streaming application under the ubuntu account without a GCP-specific ReDroid service dependency. Qualify loopback first, then attempt a private Tailscale Serve HTTPS endpoint so WebCodecs remains available remotely.
