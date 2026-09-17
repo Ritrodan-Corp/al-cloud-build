@@ -1,0 +1,13 @@
+2026-09-17 Pastel control build strategy reset after run 7
+
+Run 7 failed during Soong graph evaluation because build/make/tools/compliance depends on SPDX modules provided by external/spdx-tools. This confirms the hand-maintained trimmed dependency list remains structurally incomplete even after bootstrap dependencies were repaired.
+
+Research correction:
+- Android 14 r45 platform manifest contains external/spdx-tools, external/go-cmp, external/golang-protobuf, external/starlark-go, and the other projects encountered in prior failures.
+- The r45 prebuilts/build-tools repository contains a manifest.xml representing the source closure Google uses to build Android host build tools; current/nearby build-tools manifests include the same support projects we have been rediscovering one at a time, including spdx-tools, go-cmp, and starlark-go.
+- AOSP's build output on the GitHub runner reports 15.6 GB RAM and warns that about 16 GB is the minimum; future control builds should lower -j to improve reliability once compilation begins.
+
+Decision:
+Stop manually curating the Soong/bootstrap dependency list. For the next control build, derive the build-system project set automatically from the r45 prebuilts/build-tools/manifest.xml and union it with the explicit Pastel/Android graphics projects. Do not aggressively sparse-prune host toolchains until a stock control build succeeds. This additional checkout exists only on the ephemeral GitHub runner and does not affect Oracle VM runtime/storage bloat.
+
+No run 8 should start until the build script has been rewritten and reviewed around this source-of-truth strategy.
