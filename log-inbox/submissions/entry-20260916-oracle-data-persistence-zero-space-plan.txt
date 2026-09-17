@@ -1,0 +1,11 @@
+Timestamp: 2026-09-16
+Workstream: Oracle ReDroid persistence / performance experimentation prerequisite
+
+Finding:
+Read-only inspection confirmed the live ReDroid container is backed by an overlay mount whose upperdir and workdir are on the host root filesystem /dev/sda1. The host user home is on the same filesystem. Therefore a same-filesystem migration of the existing Android /data tree from the container writable snapshot into a normal host directory is technically possible without allocating a second ~30 GB copy or resizing the OCI boot volume.
+
+Implication:
+The planned persistence fix can likely be completed at no additional storage cost by stopping ReDroid, moving the existing /data subtree out of the Docker/containerd writable layer into a host path, recreating ReDroid with that path bind-mounted as /data, and validating boot/game/session state. A same-filesystem mv should be metadata relocation with negligible extra disk usage.
+
+Safety:
+No container restart, data move, storage resize, or Android mutation was performed during this step. The migration is more delicate than copy-then-verify and must use an explicit rollback path plus metadata/ownership validation before deleting or recreating any container state.
