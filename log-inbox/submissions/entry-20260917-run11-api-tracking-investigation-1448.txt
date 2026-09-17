@@ -1,0 +1,28 @@
+AL Cloud progress log
+Timestamp: 2026-09-17 14:48 PDT
+Step: Investigate run 11 service-media-s API tracking failure.
+
+Verified from full Actions log:
+- Run 11 ID 35256292683 completed failure.
+- PDK sync succeeded: 967 projects, 77G checkout.
+- Exact SwiftShader commit verified: 32ad39a320606948f09692cb91b71e1cd95d0e51.
+- Clang default verified: clang-r487747c.
+- module_arm64only-eng lunch succeeded.
+- ALLOW_MISSING_DEPENDENCIES=true and SOONG_ALLOW_MISSING_DEPENDENCIES=true were active.
+- Soong bootstrap completed through 404/404, including soong_build.
+- bp2build conversion and Bazel symlink forest completed.
+- Failure occurred while generating final Soong build.ninja.
+
+Exact blocker:
+packages/modules/Media/apex/service/Android.bp module service-media-s reports missing historical API tracking modules:
+  service-media-s.api.system.latest
+  service-media-s-removed.api.system.latest
+  service-media-s-incompatibilities.api.system.latest
+
+Upstream research:
+- prebuilts/sdk contains historical service-media-s API files in public and system-server scopes (e.g. API 30/32/33).
+- Soong prebuilt_apis generates *.api.<scope>.latest modules from finalized API text files found by scope.
+- framework-system-server-module-defaults is intended to enable system_server scope for mainline system-server libraries.
+- Soong legacy java_sdk_library logic may additionally generate system/test scopes based on standard-lib detection; this is now the main path being traced because official historical prebuilts do not appear to provide a service-media-s system-scope file.
+
+No run 12 started. No build script change made yet.
