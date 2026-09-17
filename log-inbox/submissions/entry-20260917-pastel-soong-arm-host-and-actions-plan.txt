@@ -1,0 +1,20 @@
+Workstream: Oracle SwiftShader/Pastel performance optimization
+
+Action: Tested the minimal Android 14 r45 Soong tree on the Oracle ARM64 host and evaluated a no-extra-cost x86 build alternative.
+
+Result:
+- `lunch aosp_arm64-eng` fails before compilation because AOSP r45 host prebuilts are Linux x86-64; `prebuilts/go/linux-x86/bin/go` returns Exec format error on the AArch64 Oracle VM.
+- The Oracle VM has no native Clang/Go/CMake/Ninja toolchain that would make an official stock Soong build equivalent.
+- No authorized x86 RDC device is currently online.
+- Repository `Ritrodan-Corp/al-cloud-build` is public.
+- Standard GitHub-hosted Actions runners are suitable for an x86-64 stock-control build without adding Oracle compute cost. Use only a standard runner, not a larger billed runner.
+- Standard runner disk is constrained, so the build workflow must prune unused prebuilts and `.repo` metadata before compiling.
+
+Disk/pruning findings from the minimal tree:
+- Tree ~14 GiB; `.repo` ~2.8 GiB; prebuilts ~9.6 GiB.
+- r45 default compiler is `clang-r487747c` (~2.3 GiB).
+- Other large Clang prebuilts include r475365b (~2.2 GiB) and r450784e (~1.8 GiB).
+- JDK17 linux-x86 is ~311 MiB; non-Linux JDK payloads total ~1.2 GiB.
+- build-tools includes removable Darwin and ARM host payloads.
+
+Next: create a standard `ubuntu-latest` experimental workflow that syncs the same 23-project r45 dependency set, prunes non-required host prebuilts and `.repo`, then bootstraps Soong and attempts only `vulkan.pastel`. Add source projects only for concrete missing-dependency failures.
