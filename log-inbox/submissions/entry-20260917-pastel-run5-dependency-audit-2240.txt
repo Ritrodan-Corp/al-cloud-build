@@ -1,0 +1,19 @@
+Pastel run 5 dependency audit completed before starting another Actions run.
+
+Evidence checked:
+- Android 14 r45 manifest confirms the relevant build projects and exact release tag.
+- Android 14 Soong go.mod requires Blueprint, google.golang.org/protobuf, and prebuilts/bazel/common/proto/analysis_v2.
+- AOSP build-tools manifest groups build/make, build/bazel, build/bazel_common_rules, build/blueprint, build/soong, external/bazel-skylib, external/golang-protobuf, packages/modules/common, prebuilts/bazel/common, and the Linux Bazel/toolchain prebuilts as the build-system baseline.
+- SwiftShader Android.bp for vulkan.pastel directly links android.hardware.graphics.mapper@3.0/@4.0, libnativewindow, libhardware, libhidlbase, libcutils, libsync, liblog, libutils, and libarect. frameworks/native supplies Vulkan headers/libnativewindow/libarect; hardware/interfaces supplies mapper interfaces; hardware/libhardware supplies libhardware/libhardware_headers.
+
+Run 4 failure was at Soong bootstrap because prebuilts/bazel/common/proto/analysis_v2 was absent. This is consistent with the audited dependency set and is not a SwiftShader compilation failure.
+
+Run 5 plan:
+- Stop one-missing-path-at-a-time iteration.
+- Add the audited build-system baseline pieces that are absent: build/bazel, build/bazel_common_rules, external/bazel-skylib, packages/modules/common, prebuilts/bazel/common, prebuilts/bazel/linux-x86_64.
+- Add hardware/libhardware for the direct Pastel HAL dependency.
+- Keep the existing already-proven Android graphics/HIDL/system dependencies and existing pruned Linux host toolchain strategy.
+- Do not sync full AOSP.
+- Build only module_arm64only-eng -> vulkan.pastel.
+
+No run 5 had been started at the time of this audit checkpoint.
