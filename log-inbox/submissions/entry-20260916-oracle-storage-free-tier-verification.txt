@@ -1,0 +1,10 @@
+Step: Verify whether persistent /data migration storage can remain free on the Oracle PAYG tenancy.
+
+Findings:
+- Oracle documentation states that eligible tenancies receive 200 GB total free Block Volume storage across boot and block volumes combined.
+- Live Oracle host alcloud-a1-01 exposes only one attached 100 GB boot disk via lsblk; there are no additional attached block devices.
+- The host does not have the OCI CLI installed and does not expose tenancy-level storage inventory through its local credentials, so unattached volumes elsewhere in the tenancy cannot be verified from inside the VM.
+- Therefore expanding the boot volume from 100 GB to roughly 150 GB would fit within the documented 200 GB free block-storage allowance if there are no other tenancy volumes consuming that allowance, but this is not yet account-level verified.
+
+Decision:
+Do not resize or create storage until tenancy-wide block-volume usage is verified. Treat the proposed expansion as free-eligible, not yet definitively free.
