@@ -1,0 +1,7 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Staged a guarded one-shot 60-Hz ReDroid experiment script at infra/oracle/experiment-redroid-60hz.sh, commit aaacba8f3d8687438376740b88a2184244e538b8. The script requires the current working runtime to be 1280x720@30 with the verified persistent /data bind mount, confirms Azur Lane package/data before mutation, stops and renames the 30-Hz container as a rollback target, boots a temporary 1280x720@60 container against the same persistent /data, verifies Android boot/package/bind mount and a real 60-Hz display mode, and automatically restores the 30-Hz runtime on any failure. The permanent launcher remains at 30 Hz during the experiment.
+
+The VM checkout had unrelated local browser-streaming modifications, so no reset/forced pull was performed. Instead, origin/vm-control was fetched and the exact committed script was extracted to /home/ubuntu/alcloud-experiment-redroid-60hz.sh. Local bash -n validation passed; SHA-256 is abd0e9844ae9761c39eb9415581212a3d6ce26bf37cc474e36e710ea08568f70.
+
+RDC connector policy still rejects privileged Docker commands even though sudo -n true currently succeeds. Therefore execution requires one sudo invocation from the user's SSH terminal. After EXPERIMENT_READY, all game launch, screenshots, SurfaceFlinger benchmarking, and comparison can be performed through the normal management channel.
