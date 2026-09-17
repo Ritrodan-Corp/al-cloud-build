@@ -1,0 +1,12 @@
+Workstream: Oracle SwiftShader/Pastel performance optimization
+
+Action: Started shallow sync of the first minimal Android 14 r45 Soong dependency set for building vulkan.pastel.
+
+Sync path: /home/ubuntu/alcloud-pastel/aosp-mini
+Background PID: 129275
+Project list file: /home/ubuntu/alcloud-pastel/initial-projects.txt
+Initial project count: 23
+
+Initial set includes build/make, build/blueprint, build/soong; prebuilt build-tools, clang, Go, and JDK17; external/swiftshader, libc++, libc++abi, zlib, googletest; bionic; frameworks/native; hardware/interfaces; and system core/libbase/libhidl/logging/hidl/fmq/aidl/xsdc projects.
+
+Strategy: do not sync full AOSP. After this set completes, bootstrap Soong and request only vulkan.pastel. Add projects only when the build reports a concrete missing dependency.
