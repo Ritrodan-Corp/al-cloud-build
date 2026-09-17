@@ -1,0 +1,20 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Action: Inventoried live Azur Lane rendering-related PlayerPrefs before reversible A/B tests.
+
+Observed values:
+- Screenmanager Resolution Width = 1280
+- Screenmanager Resolution Height = 720
+- fps_limit = 30
+- AUTOFIGHT_DOWN_FRAME = 0
+- AUTOFIGHT_BATTERY_SAVEMODE = 0
+- Group_Download_Prefs_L2D = 2
+- LIVE2D_STATUS_SAVE = 0
+- battleHideBg = 1
+- show_touch_effect = 1
+- display_ship_get_effect = 1
+- dorm3d_graphics_settings_new = 1
+- dorm3d_graphics_settings_changeed = 1
+
+Decision:
+Use app-local, reversible setting tests before any ReDroid restart. First test fps_limit=60 because ALAS upstream recommends 60 FPS, while keeping Android/ReDroid physical geometry at 1280x720 and all other settings unchanged.
