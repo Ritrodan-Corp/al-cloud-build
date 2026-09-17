@@ -1,0 +1,11 @@
+2026-09-17 20:54 UTC
+Pastel control run 12 live checkpoint.
+
+Run ID: 35272037189
+Job ID: 105373518912
+Status: in_progress
+Completed successfully: Set up job, actions/checkout@v4
+Current step: Build stock Android 14 r45 Pastel control
+Pending: artifact upload
+
+Run 12 is using the corrected Android 14 r45 source closure pdk,path:packages/modules/common,-darwin and remains the active validation of the run-11 root-cause fix.
