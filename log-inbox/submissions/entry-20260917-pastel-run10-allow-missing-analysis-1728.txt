@@ -1,0 +1,9 @@
+Pastel run 10 allow-missing analysis
+
+Run 10's six unresolved modules are ordinary Android modules encountered after the PDK checkout successfully built soong_build and entered bp2build graph loading. Android 14 r45 cmd/soong_build/main.go reads ALLOW_MISSING_DEPENDENCIES from the tracked Soong environment, calls SetAllowMissingDependencies, and runBp2Build explicitly propagates that setting into the bp2build context.
+
+This does not contradict run 7. Run 7's unresolved SPDX modules were dependencies of build/make/tools/compliance compliance_sbom, which is a blueprint_go_binary participating in build-system bootstrap. Android's normal module missing-dependency handling does not make missing bootstrap Go-package dependencies acceptable. Run 10 now has the complete bootstrap closure and fails later in the ordinary Android module graph.
+
+Soong's Android module build path converts missing dependencies into error build rules. Therefore allowing the incomplete global PDK graph to load does not silently validate vulkan.pastel: if vulkan.pastel or a transitive dependency actually needs an absent module, building the requested target will fail when that error rule is reached.
+
+Planned correction: retain the r45 pdk,-darwin Linux checkout; export ALLOW_MISSING_DEPENDENCIES=true and SOONG_ALLOW_MISSING_DEPENDENCIES=true explicitly before lunch and immediately before m; print/assert the setting; keep the workflow manual-only; do not start run 11 without a separate decision.
