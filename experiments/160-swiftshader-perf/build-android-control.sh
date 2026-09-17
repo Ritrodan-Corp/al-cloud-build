@@ -105,9 +105,11 @@ PASTEL_PROJECTS=(
   prebuilts/build-tools
 )
 
-# Only request paths that exist in the r45 platform manifest, and fail before
-# the expensive sync if either upstream closure contains an unavailable path.
-mapfile -t AVAILABLE_PROJECTS < <("$REPO_BIN" list -p | sort -u)
+# Ask the r45 manifest for every declared project, not merely projects already
+# checked out or enabled by the default repo groups. At this point only
+# prebuilts/build-tools has been synced, so plain `repo list -p` would produce
+# a false-negative for valid paths such as art.
+mapfile -t AVAILABLE_PROJECTS < <("$REPO_BIN" list --all --groups all -p | sort -u)
 declare -A AVAILABLE=()
 for path in "${AVAILABLE_PROJECTS[@]}"; do
   AVAILABLE["$path"]=1
