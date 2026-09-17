@@ -1,0 +1,10 @@
+Pastel control build run 5 started automatically from audited dependency-set commit 527e46a23cfad853570def5808df3d8f0500950c.
+
+GitHub Actions run: 35186874191
+Workflow: SwiftShader Android 14 Pastel control
+State at checkpoint: in_progress
+Completed steps: Set up job; actions/checkout@v4
+Current step: Build stock Android 14 r45 Pastel control
+Pending: artifact upload
+
+This is the first run after replacing one-missing-dependency-at-a-time iteration with the upstream-audited build-system baseline plus direct Pastel HAL dependencies.
