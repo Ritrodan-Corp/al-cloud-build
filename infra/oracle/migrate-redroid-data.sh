@@ -124,6 +124,12 @@ echo "[$(date -u +%FT%TZ)] quiescing Android"
 docker exec "$C" sh -c 'am force-stop com.YoStarEN.AzurLane >/dev/null 2>&1 || true; sync'
 docker stop -t 30 "$C" >/dev/null
 
+INSPECT_BACKUP="/home/ubuntu/alcloud-redroid-prepersist-inspect-${STAMP}.json"
+docker inspect "$C" > "$INSPECT_BACKUP"
+chown ubuntu:ubuntu "$INSPECT_BACKUP"
+DATA_INODE_BEFORE=$(stat -c %i "$UPPER/data")
+DATA_BYTES_BEFORE=$(du -sb "$UPPER/data" | awk '{print $1}')
+
 mkdir -p "$PARENT"
 chmod 0755 "$PARENT"
 [ ! -e "$TARGET" ]
@@ -131,6 +137,11 @@ mv "$UPPER/data" "$TARGET"
 MOVED=1
 sync
 [ -d "$TARGET" ] && [ ! -e "$UPPER/data" ]
+DATA_INODE_AFTER=$(stat -c %i "$TARGET")
+DATA_BYTES_AFTER=$(du -sb "$TARGET" | awk '{print $1}')
+[ "$DATA_INODE_AFTER" = "$DATA_INODE_BEFORE" ] || { echo "ERROR: data inode changed across same-filesystem move"; false; }
+[ "$DATA_BYTES_AFTER" = "$DATA_BYTES_BEFORE" ] || { echo "ERROR: data byte count changed across quiesced move"; false; }
+echo "move_identity_ok inode=$DATA_INODE_AFTER bytes=$DATA_BYTES_AFTER"
 
 echo "[$(date -u +%FT%TZ)] data moved in-place to $TARGET"
 echo "target_size=$(du -sb "$TARGET" | awk '{print $1}')"
@@ -167,7 +178,7 @@ docker inspect "$C" --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.
 docker exec "$C" pm path com.YoStarEN.AzurLane | grep -F 'package:'
 PKG=$(docker exec "$C" dumpsys package com.YoStarEN.AzurLane | grep -m1 -E 'versionName=|versionCode=' || true)
 echo "package_check=$PKG"
-GAME_KIB=$(docker exec "$C" sh -c 'du -sk /data/media/0/Android/data/com.YoStarEN.AzurLane 2>/dev/null | awk "{print \\$1}"' || true)
+GAME_KIB=$(docker exec "$C" du -sk /data/media/0/Android/data/com.YoStarEN.AzurLane 2>/dev/null | awk '{print $1}' || true)
 echo "game_data_kib=$GAME_KIB"
 [ -n "$GAME_KIB" ] && [ "$GAME_KIB" -gt 25000000 ] || { echo "ERROR: Azur Lane game data size below expected floor"; false; }
 
