@@ -1,0 +1,7 @@
+Pastel control run 10 started
+
+The reviewed Android 14 r45 PDK-based control build was triggered intentionally as GitHub Actions run 35250199323. The workflow trigger was temporarily enabled only for a push touching the Pastel workflow file, then immediately restored to workflow_dispatch-only.
+
+Current run 10 state at checkpoint: build-control in progress. Set up job: success. actions/checkout@v4: success. Build stock Android 14 r45 Pastel control: in progress. Artifact upload: pending.
+
+Run 10 head commit: 8d01d46e378366f837c9ff3670e711f2945dccf8. The workflow is already back to manual-only on vm-control after the trigger commit.
