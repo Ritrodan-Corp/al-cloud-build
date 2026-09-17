@@ -1,0 +1,14 @@
+Workstream: Oracle ReDroid performance optimization preflight
+
+Action: Inspected the live alcloud-redroid-smoke container before any 60 Hz or restart experiment.
+
+Findings:
+- Container image: redroid/redroid:14.0.0_64only-latest.
+- Boot args include androidboot.redroid_width=1280, androidboot.redroid_height=720, androidboot.redroid_fps=30, guest GPU mode, and memfd.
+- Docker inspect shows only BinderFS device bind mounts. There is NO persistent /data bind mount or Docker volume.
+- Android /data currently occupies about 30 GB inside the container writable layer.
+- Azur Lane external Android data is about 28 GB.
+- Android is healthy at 1280x720 with a 30.000002 Hz display mode.
+
+Decision:
+Do not remove or recreate the current ReDroid container. The current helper script begins with docker rm -f and would destroy the only copy of the current Android/game state. Before any boot-time display-FPS experiment, convert or otherwise protect /data using a no-copy/safe persistence method and verify rollback.
