@@ -1,0 +1,13 @@
+Timestamp: 2026-09-17T05:50Z
+Branch: vm-control
+Subject: SwiftShader Pastel control run 5 failure and bootstrap audit
+
+Run 5 (GitHub Actions 35186874191) failed during Soong microfactory bootstrap before compiling vulkan.pastel. Exact failure: rbcrun/rbcrun could not parse external/starlark-go/starlark because external/starlark-go was absent.
+
+Upstream verification performed before run 6:
+- AOSP Soong microfactory bootstrap maps go.starlark.net to ${TOP}/external/starlark-go, alongside android/soong, prebuilts/bazel/common/proto, rbcrun, and google.golang.org/protobuf.
+- AOSP Android 14 manifests include external/starlark-go.
+- AOSP build-tools manifests include external/starlark-go and prebuilts/remoteexecution-client as part of the build-tool dependency set.
+- Current build script already includes build/make, build/bazel, build/bazel_common_rules, build/blueprint, build/soong, external/bazel-skylib, external/golang-protobuf, packages/modules/common, prebuilts/bazel/common, prebuilts/bazel/linux-x86_64, SwiftShader/graphics/system dependencies, and hardware/libhardware.
+
+Conclusion: run 5 failure is another incomplete bootstrap source-tree issue, not a SwiftShader compile failure. Run 6 must not be launched by adding only the observed path blindly; update the script to include the full verified microfactory source dependency (external/starlark-go), retain the audited Bazel/Soong baseline, add preflight checks, and consider prebuilts/remoteexecution-client from the AOSP build-tools baseline before triggering another run.
