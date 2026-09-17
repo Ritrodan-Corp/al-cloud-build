@@ -1,0 +1,28 @@
+name: SwiftShader Android control build
+
+on:
+  push:
+    branches: [vm-control]
+    paths:
+      - 'experiments/160-swiftshader-perf/**'
+      - '.github/workflows/swiftshader-perf-control.yml'
+  workflow_dispatch:
+
+jobs:
+  build-control:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake git unzip curl file
+      - name: Build Android ARM64 control ICD
+        run: bash experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Upload control artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftshader-r21-android-arm64-control
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
