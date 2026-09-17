@@ -17,9 +17,10 @@ log_disk() {
   du -sh "$ROOT" 2>/dev/null || true
 }
 
-# The runner is ephemeral. Prefer a complete, reproducible build-tool closure
-# over prematurely minimizing checkout size. Reclaim unrelated runner payloads
-# first, but do not prune AOSP host toolchains after they are synced.
+# GitHub's hosted runner is disposable. Reclaim large unrelated preinstalled
+# payloads before the AOSP checkout, but do not prune anything from the r45 PDK
+# source/toolchain after repo sync. The first successful control build should
+# prioritize reproducibility over minimum checkout size.
 sudo rm -rf \
   /usr/share/dotnet \
   /usr/local/lib/android \
@@ -33,130 +34,83 @@ curl -LfsS https://storage.googleapis.com/git-repo-downloads/repo -o "$REPO_BIN"
 chmod 0755 "$REPO_BIN"
 
 cd "$ROOT"
+
+# Android 14 r45's own platform manifest is the source of truth. The pdk group
+# contains the platform build system and development dependencies needed for
+# module builds, including Soong/Blueprint, SwiftShader, graphics/HIDL sources,
+# SPDX/go-cmp/starlark support, and the host toolchain. Explicitly exclude
+# Darwin-host projects and select the Linux host platform.
 "$REPO_BIN" init \
   -u https://android.googlesource.com/platform/manifest \
   -b "$TAG" \
+  -g 'pdk,-darwin' \
+  -p linux \
   --depth=1 \
+  --no-tags \
   --no-clone-bundle
 
-# Bootstrap the source-of-truth build-tool dependency list from the r45
-# prebuilts/build-tools repository itself. Its manifest.xml is the closure
-# Google uses to produce Android host build tools, and includes support
-# projects such as spdx-tools, go-cmp and starlark-go that a hand-maintained
-# minimal list repeatedly missed.
-"$REPO_BIN" sync -c -j4 --no-tags --no-clone-bundle prebuilts/build-tools
+# Sync the complete r45 PDK selection instead of manually predicting Soong's
+# dependency closure. Keep network parallelism moderate for runner stability.
+"$REPO_BIN" sync \
+  -c \
+  -j4 \
+  --no-tags \
+  --no-clone-bundle
 
-test -s prebuilts/build-tools/manifest.xml
-sha256sum prebuilts/build-tools/manifest.xml | tee "$ART/build-tools-manifest-sha256.txt"
+# Preserve the exact resolved source closure used for the control build.
+"$REPO_BIN" manifest -r -o "$ART/pdk-manifest.xml"
+"$REPO_BIN" list -p | sort -u > "$ART/synced-projects.txt"
+printf 'synced_project_count=%s\n' "$(wc -l < "$ART/synced-projects.txt")"
 
-mapfile -t BUILD_TOOL_PROJECTS < <(
-  python3 - <<'PY'
-import xml.etree.ElementTree as ET
-root = ET.parse('prebuilts/build-tools/manifest.xml').getroot()
-paths = set()
-for project in root.findall('project'):
-    path = project.attrib.get('path')
-    if not path:
-        continue
-    # The Actions host is Linux; Darwin host prebuilts are not useful here.
-    if '/darwin' in path or path.startswith('prebuilts/go/darwin'):
-        continue
-    paths.add(path)
-for path in sorted(paths):
-    print(path)
-PY
-)
+# Verify the checkout is the intended Android release and Linux-only PDK
+# environment before invoking Soong.
+test -f build/envsetup.sh
+test -f build/make/target/product/module_arm64only.mk
+test -f build/make/target/board/module_arm64only/BoardConfig.mk
+test -d build/blueprint
+test -d build/soong
+test -d external/go-cmp
+test -d external/golang-protobuf/proto
+test -d external/spdx-tools
+test -d external/starlark-go/starlark
+test -d external/swiftshader
+test -d frameworks/native
+test -d hardware/interfaces
+test -f hardware/libhardware/Android.bp
+test -d prebuilts/bazel/common
+test -d prebuilts/bazel/linux-x86_64
+test -d prebuilts/clang/host/linux-x86
+test -d prebuilts/go/linux-x86
+test -d prebuilts/jdk/jdk17
 
-# Projects needed specifically to build Android 14's ARM64 SwiftShader/Pastel
-# HAL. Some are already in the build-tools manifest; the final union is
-# deduplicated below. JDK17/Bazel are explicit because they are release build
-# requirements even if the historical build-tools manifest contains older host
-# variants.
-PASTEL_PROJECTS=(
-  build/make
-  build/bazel
-  build/bazel_common_rules
-  build/blueprint
-  build/soong
-  external/bazel-skylib
-  external/swiftshader
-  external/libcxx
-  external/libcxxabi
-  external/zlib
-  external/googletest
-  bionic
-  frameworks/native
-  hardware/interfaces
-  hardware/libhardware
-  system/core
-  system/libbase
-  system/libhidl
-  system/logging
-  system/tools/hidl
-  system/libfmq
-  system/tools/aidl
-  system/tools/xsdc
-  packages/modules/common
-  prebuilts/bazel/common
-  prebuilts/bazel/linux-x86_64
-  prebuilts/clang/host/linux-x86
-  prebuilts/go/linux-x86
-  prebuilts/jdk/jdk17
-  prebuilts/build-tools
-)
+# Darwin host prebuilts should have been filtered by the manifest group.
+test ! -e prebuilts/bazel/darwin-x86_64
+test ! -e prebuilts/clang/host/darwin-x86
+test ! -e prebuilts/go/darwin-x86
 
-# Ask the r45 manifest for every declared project, not merely projects already
-# checked out or enabled by the default repo groups. At this point only
-# prebuilts/build-tools has been synced, so plain `repo list -p` would produce
-# a false-negative for valid paths such as art.
-mapfile -t AVAILABLE_PROJECTS < <("$REPO_BIN" list --all --groups all -p | sort -u)
-declare -A AVAILABLE=()
-for path in "${AVAILABLE_PROJECTS[@]}"; do
-  AVAILABLE["$path"]=1
-done
+# Pin the exact SwiftShader source identity previously identified for r45.
+ACTUAL_SWIFTSHADER_COMMIT="$(git -C external/swiftshader rev-parse HEAD)"
+printf '%s\n' "$ACTUAL_SWIFTSHADER_COMMIT" | tee "$ART/source-commit.txt"
+test "$ACTUAL_SWIFTSHADER_COMMIT" = "$SWIFTSHADER_COMMIT"
 
-ALL_PROJECTS=()
-declare -A SEEN=()
-for path in "${BUILD_TOOL_PROJECTS[@]}" "${PASTEL_PROJECTS[@]}"; do
-  if [[ -z "${AVAILABLE[$path]:-}" ]]; then
-    echo "required r45 project not present in platform manifest: $path" >&2
-    exit 1
-  fi
-  if [[ -z "${SEEN[$path]:-}" ]]; then
-    ALL_PROJECTS+=("$path")
-    SEEN["$path"]=1
-  fi
-done
-
-printf 'build_tools_manifest_projects=%s\n' "${#BUILD_TOOL_PROJECTS[@]}"
-printf 'total_synced_projects=%s\n' "${#ALL_PROJECTS[@]}"
-printf '%s\n' "${ALL_PROJECTS[@]}" > "$ART/synced-projects.txt"
-
-"$REPO_BIN" sync -c -j4 --no-tags --no-clone-bundle "${ALL_PROJECTS[@]}"
-
-# Verify exact source identity and core platform inputs before invoking Soong.
-test "$(git -C external/swiftshader rev-parse HEAD)" = "$SWIFTSHADER_COMMIT"
-printf '%s\n' "$SWIFTSHADER_COMMIT" > "$ART/source-commit.txt"
 grep -F 'ClangDefaultVersion      = "clang-r487747c"' \
   build/soong/cc/config/global.go
-test -d external/spdx-tools
-test -d external/golang-protobuf/proto
-test -d external/starlark-go/starlark
-test -d frameworks/native
-test -f hardware/libhardware/Android.bp
+
+grep -q 'name: "vulkan.pastel"' external/swiftshader/src/Android.bp
 log_disk
 
-export ALLOW_MISSING_DEPENDENCIES=true
 export OUT_DIR="$OUT_DIR_BUILD"
-export TARGET_BUILD_APPS=
+unset ALLOW_MISSING_DEPENDENCIES || true
+unset TARGET_BUILD_APPS || true
 
-# AOSP envsetup/lunch functions intentionally probe optional unset variables.
+# AOSP envsetup/lunch functions intentionally probe optional unset variables,
+# so nounset must be disabled while using the Android build environment.
 set +u
 source build/envsetup.sh
 lunch module_arm64only-eng
 
-# The hosted runner reports 15.6 GB RAM while AOSP warns that ~16 GB is the
-# minimum. Favor reliability over compile speed for the first stock control.
+# The standard hosted runner is close to AOSP's minimum recommended memory.
+# Keep compile parallelism conservative for the first stock control build.
 m -j2 vulkan.pastel 2>&1 | tee "$ART/build.log"
 set -u
 
@@ -181,7 +135,8 @@ SwiftShader commit: ${SWIFTSHADER_COMMIT}
 Soong target: vulkan.pastel
 Product: module_arm64only-eng
 Variant: unmodified stock-control source
-Build-tool closure: r45 prebuilts/build-tools/manifest.xml + Pastel-specific union
+Source closure: Android 14 r45 platform manifest group pdk,-darwin on Linux
+Missing dependencies allowed: no
 Live target path: /vendor/lib64/hw/vulkan.pastel.so
 Live SHA-256 reference: 67c210363a565a8a9376c4e6ddaa349f79e2aa08828c9a2151f18aa932398f90
 Live build ID reference: a84688481a52cf740d0af7938960f25e
