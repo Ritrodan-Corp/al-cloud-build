@@ -1,0 +1,12 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Action: Waited an additional 45 seconds after the fps_limit=60 app restart and captured a direct framebuffer screenshot.
+
+Result:
+- fps_limit remains 60.
+- Azur Lane process and BLAST layer remain present.
+- Screenshot is still a dark/loading-transition frame, not the logged-in home screen.
+- No conclusion about home-screen FPS can be drawn yet.
+
+Decision:
+Do not interact blindly or compare against the home-screen baseline while startup/transition state persists. Continue waiting for a stable UI, then benchmark.
