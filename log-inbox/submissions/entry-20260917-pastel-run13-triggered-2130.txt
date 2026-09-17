@@ -1,0 +1,8 @@
+2026-09-17 21:30 UTC
+Pastel control run 13 trigger checkpoint.
+
+Corrected script commit: 2f05fb36056bb83fd9322a724110baffb36ec719
+Trigger commit: bcc90f662af4671c917554ed563dcd46f7bca457
+Manual-only restore commit: f18a74c5285b3c11da332b7dfce4dbced74fdbcb
+
+Purpose: rerun the Android 14 r45 PDK + packages/modules/common control after fixing the over-specific Media Android.bp preflight that caused run 12 to exit before Soong. The workflow was immediately restored to workflow_dispatch-only after the trigger commit.
