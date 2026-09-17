@@ -1,0 +1,21 @@
+AL Cloud progress update
+Timestamp context: 2026-09-17 UTC
+
+Step: diagnose run 6 Soong graph failure and audit the dependency against upstream AOSP before another build.
+
+Observed GitHub Actions run 35187383404:
+- Soong microfactory/bootstrap completed successfully.
+- lunch/product configuration reached Soong Android.bp graph evaluation for module_arm64only-eng.
+- Failure: external/golang-protobuf/Android.gen.bp module golang-protobuf-testing-protopack depends on undefined module go-cmp.
+- This is later than prior bootstrap failures and is not a SwiftShader compile failure.
+
+Upstream verification:
+- Android 14 r45 platform manifest explicitly includes external/go-cmp immediately adjacent to external/golang-protobuf.
+- golang-protobuf generated Soong definitions rewrite github.com/google/go-cmp/cmp to Android module go-cmp.
+- external/go-cmp defines go-cmp and its dependent go-cmp-* modules within the same project; no separate third-party module family is required for that dependency.
+- Therefore external/go-cmp is the correct missing AOSP project, not an arbitrary patch.
+
+Decision:
+- Add external/go-cmp to the minimal source set.
+- Add a preflight check that the go-cmp module definition is present before Soong graph evaluation.
+- Do not broaden to a full AOSP checkout.
