@@ -1,0 +1,17 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Action: Benchmarked Azur Lane on the same logged-in home-screen scene after switching ReDroid physical display from 30 Hz to 60 Hz. Browser H.264 stream was inactive. Persistent /data and game state were unchanged across the A/B.
+
+30 Hz immediately-preceding matched measurement:
+- Effective presentation rate: 16.106 FPS.
+
+60 Hz matched measurement:
+- SurfaceFlinger refresh period: 16,666,666 ns (60.000004 Hz physical mode).
+- 127 presentation timestamps spanning 7.769 s.
+- Effective presentation rate: 16.219 FPS.
+- Frame interval mean 61.655 ms, median 61.331 ms, min 60.066 ms, max 67.383 ms.
+- All 126 measured intervals were <=75 ms; none were <=40 ms.
+- Host Azur Lane process CPU averaged ~368% across the sample.
+- Total system CPU busy averaged 98.1% (97.8-98.5%).
+
+Conclusion: Raising ReDroid physical cadence from 30 Hz to 60 Hz does not materially improve the actual logged-in home-screen frame rate. The earlier vsync-quantization hypothesis is not supported by this matched A/B. The bottleneck remains SwiftShader render time / CPU saturation. Decision: restore known-good 30 Hz runtime and prioritize custom Pastel/SwiftShader optimization.
