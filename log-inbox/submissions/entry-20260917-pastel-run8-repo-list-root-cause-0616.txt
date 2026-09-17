@@ -1,0 +1,13 @@
+Pastel control run 8 root cause verification
+
+Run 8 failed before dependency sync/build with:
+  required r45 project not present in platform manifest: art
+
+Verified against upstream AOSP and git-repo documentation:
+- Android 14 platform manifest includes path=art, name=platform/art.
+- r45 prebuilts/build-tools/manifest.xml also includes path=art, name=platform/art.
+- git-repo `repo list` defaults to showing only projects that currently exist in the checkout; `--all` is required to include manifest projects regardless of checkout state.
+
+Therefore the failure was a validator bug in experiments/160-swiftshader-perf/build-android-control.sh. At the validation point only prebuilts/build-tools had been synced, and the script used `repo list -p`, so it falsely treated unsynced manifest projects such as art as absent.
+
+Planned correction: use `repo list --all -p` for platform-manifest availability validation, then recheck the remaining manifest parser before another control run.
