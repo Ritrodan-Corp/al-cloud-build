@@ -1,0 +1,7 @@
+Oracle secure browser controller final health verification.
+
+Action: Performed a final read-only verification through the private HTTPS endpoint after retiring the plain-HTTP fallback.
+
+Result/evidence: HTTPS /api/status reports adb=true, no active stream, no last_error, zero rejected clients, and 269694 bytes previously sent by the H.264 stream probe. Azur Lane process com.YoStarEN.AzurLane remains alive with PID 8876. tailscale serve status continues to publish the tailnet-only MagicDNS HTTPS endpoint and proxy / to 127.0.0.1:8766.
+
+Interpretation/next: Secure browser control is ready for user interaction. Reopen using the HTTPS MagicDNS URL; the browser should qualify as a secure context and use live H.264/WebCodecs instead of the PNG fallback.
