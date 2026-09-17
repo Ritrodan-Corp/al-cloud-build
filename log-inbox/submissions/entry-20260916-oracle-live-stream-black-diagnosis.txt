@@ -1,0 +1,5 @@
+Oracle browser-streaming diagnosis after user reported a black HTTPS player showing Live H.264 at 0.0 fps.
+
+Checked the live controller on alcloud-a1-01. /api/status reported adb=true, input 1280x720, video 854x480 at 2 Mbps H.264, and no server-side last_error. The streamer process was running. Server log showed repeated ConnectionResetError traces from loopback HTTP connections but no Android capture failure. A direct ADB screencap succeeded as a valid 1280x720 PNG and showed the Azur Lane login UI, proving the Android framebuffer and game rendering are healthy.
+
+Current assessment: the black screen is isolated to the live H.264 browser/player path, not ReDroid, Azur Lane, or basic framebuffer capture. Next step is to inspect Oracle screenrecord Annex-B NAL output and browser player framing/decoder assumptions.
