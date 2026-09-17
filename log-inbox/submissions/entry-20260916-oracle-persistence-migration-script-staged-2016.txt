@@ -1,0 +1,12 @@
+Timestamp: 2026-09-16 20:16 PDT
+Workstream: Oracle ReDroid persistence migration
+Step: Stage and locally audit guarded zero-copy migration tooling.
+Changes/evidence:
+- Added infra/oracle/migrate-redroid-data.sh on vm-control at commit dd89f71d519f9b1095ee5f4073573c83e9cfc5ba.
+- Pulled vm-control onto /home/ubuntu/al-cloud-build-port and verified bash -n passes. Local SHA-256: 52542972fa60ebc289e18460b7c1be9ea68b94b6f8ddcff21ade899b98c84071.
+- Script defaults to preflight-only unless --apply is supplied. It requires root, resolves the current OverlayFS upper/lower dirs, rejects lower-layer /data contributions unless upper /data is opaque, rejects character-device/whiteout entries, rejects a pre-existing target, and requires source/target parent on the same filesystem before mutation.
+- Apply path force-stops Azur Lane, syncs and stops ReDroid, moves upperdir/data in-place to /var/lib/alcloud-redroid/data, preserves the old container under a timestamped name, starts a new container with a /data bind mount, waits for Android boot, checks the Azur Lane package and >25,000,000 KiB game-data floor, then updates the launcher to require the persistent bind mount.
+- ERR trap removes a failed new container, restores the old container name, moves /data back into its original upperdir when needed, and restarts the original container.
+- Current RDC command surface cannot execute sudo/elevated commands, so actual apply still requires one authorized privileged invocation outside the connector. No Android/container mutation occurred during staging.
+Concurrent-state reconciliation:
+- Newer vm-control logs show a separate reversible Azur Lane PlayerPrefs fps_limit=60 test, but ReDroid remains booted at 1280x720 physical 30 Hz and persistence state is unchanged. Migration preserves that PlayerPrefs state.
