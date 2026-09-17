@@ -106,11 +106,12 @@ grep -q 'name: "vulkan.pastel"' external/swiftshader/src/Android.bp
 
 # Run 11 exposed why packages/modules/common is required in addition to plain
 # pdk: packages/modules/Media inherits framework-system-server-module-defaults.
-# Without that defaults module, partial-graph mode caused service-media-s to
-# fall back to legacy system/test API-scope generation and request nonexistent
-# service-media-s.api.system.latest tracking modules. Verify the source module
-# still uses the authoritative default before building.
-grep -Fq 'defaults: ["framework-system-server-module-defaults"]' \
+# Android.bp is free to format the defaults list across multiple lines, so only
+# assert that the pinned Media file contains both the target module and the
+# authoritative defaults module rather than matching one exact formatting form.
+grep -Fq 'name: "service-media-s"' \
+  packages/modules/Media/apex/service/Android.bp
+grep -Fq '"framework-system-server-module-defaults"' \
   packages/modules/Media/apex/service/Android.bp
 
 # The selected source checkout remains intentionally not globally closed.
