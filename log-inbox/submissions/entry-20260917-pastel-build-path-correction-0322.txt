@@ -1,0 +1,9 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Build-side reconciliation corrected an important assumption. The surviving exp154 branches are the later Mesa 25 / LLVM 19 ORCJIT diagnostic path and build libgallium_dri.so; they are not a completed Android SwiftShader vulkan.pastel.so builder.
+
+Earlier project work did identify the exact Android 14 r45 SwiftShader source, the vulkan.pastel Soong module, and the need for the smallest AOSP/Soong environment capable of building only that ARM64 module, but that minimal Pastel build pipeline was not completed before work pivoted to Mesa diagnostics.
+
+Decision: keep the planned Pastel optimization path, but treat a stock-equivalent r45 vulkan.pastel.so control build as unfinished engineering work. Do not reuse an exp154 Mesa artifact as if it were SwiftShader/Pastel.
+
+Next: build a minimal r45 Pastel control first, qualify it against the stock runtime, then add performance variants one change at a time.
