@@ -1,0 +1,17 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Action: Captured a fresh SurfaceFlinger presentation sample on the live Azur Lane runtime before changing any game settings.
+
+Conditions:
+- ReDroid physical display remains 1280x720 @ 30.000002 Hz.
+- Browser H.264 encoder inactive (`/api/status` active=false).
+- Azur Lane foreground SurfaceView/BLAST layer sampled for presentation timestamps.
+
+Result:
+- 127 unique presented-frame timestamps over 8.967 seconds.
+- Effective presentation rate: 14.052 FPS.
+- Frame intervals: minimum 66.67 ms, average 71.16 ms, maximum 100 ms.
+- Distribution: 109 intervals near 66.7 ms and 17 intervals near 100 ms.
+
+Interpretation:
+The current scene is already missing the 33.3 ms 30-Hz deadline with streaming inactive. This is a clean same-session baseline for reversible visual-setting A/B tests.
