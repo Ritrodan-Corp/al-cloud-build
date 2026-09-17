@@ -1,0 +1,9 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Correction to the immediately preceding fps_limit=60 result:
+- A direct framebuffer screenshot taken after the 30.000 FPS SurfaceFlinger sample shows Azur Lane was still in its animated post-restart loading/splash sequence.
+- Therefore the 30.000 FPS result is valid for that animation but is NOT yet comparable to the prior ~14.052 FPS logged-in/home-screen baseline.
+- Host CPU during the splash was still heavily loaded (about 341.7% for the game process in one host-top sample; host about 95.7% busy), but scene complexity differs.
+
+Decision:
+Do not accept the fps_limit=60 improvement as a home-screen optimization yet. Leave fps_limit=60 in place temporarily, wait for the logged-in home screen, then repeat the same SurfaceFlinger measurement on that comparable scene. Restore 30 if the home-screen A/B does not show a useful gain.
