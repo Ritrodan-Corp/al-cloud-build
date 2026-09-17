@@ -1,0 +1,14 @@
+Workstream: Oracle ReDroid persistence and 1280x720 optimization
+
+Step: Verify second guarded /data persistence migration attempt.
+
+Result:
+- Migration script completed with MIGRATION_PASS at 2026-09-17T03:18:49Z.
+- Quiesced same-filesystem move preserved the /data directory identity: inode 5243058 and 31,566,872,154 bytes across the move.
+- New ReDroid runtime booted with bind /var/lib/alcloud-redroid/data -> /data.
+- Azur Lane package survived: com.YoStarEN.AzurLane versionCode 93007 / versionName 9.3.7.
+- Persistent Azur Lane external data measured 29,142,280 KiB (~27.8 GiB).
+- Android reports sys.boot_completed=1 and the normal launcher now contains the persistent /data bind while remaining at 1280x720 and androidboot.redroid_fps=30.
+- Pre-migration rollback container reference preserved as alcloud-redroid-smoke-prepersist-20260917T031808Z.
+
+Interpretation: Android/game state is no longer dependent on the disposable container writable layer. Boot-time ReDroid experiments and custom renderer deployment can now recreate the runtime without destroying the migrated /data, subject to the normal rollback/validation guardrails.
