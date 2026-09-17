@@ -1,0 +1,3 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+Step: Establish post-migration baseline before compositor A/B.
+Result: Persistent ReDroid runtime is healthy with Android boot_completed=1. Normal launcher bind-mounts /var/lib/alcloud-redroid/data to /data and still boots androidboot.redroid_fps=30. Azur Lane is not currently running after the migration, so the next action is to launch it and obtain a comparable 30 Hz control measurement with the current in-game fps_limit=60 before recreating ReDroid at 60 Hz. No boot-time FPS change was made in this step.
