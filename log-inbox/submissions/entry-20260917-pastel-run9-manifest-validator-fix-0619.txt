@@ -1,0 +1,17 @@
+Pastel control manifest-validator correction
+
+Updated experiments/160-swiftshader-perf/build-android-control.sh after run 8 false-negative.
+
+Root cause:
+- The script used `repo list -p` after syncing only prebuilts/build-tools.
+- git-repo lists only currently checked-out projects by default.
+- Therefore valid r45 manifest paths such as `art` were incorrectly reported as absent.
+
+Correction:
+- Use `repo list --all --groups all -p` so platform-manifest availability validation covers all declared projects regardless of checkout state or default group filtering.
+- Kept the upstream prebuilts/build-tools/manifest.xml driven source-closure approach.
+- Kept module target `module_arm64only-eng -> vulkan.pastel` and conservative `-j2` compile setting.
+
+Commit that changed the build script: f94a3cd3c8209dad00874128aa6fc85339ee4cf3
+
+The script change triggers the next control workflow automatically.
