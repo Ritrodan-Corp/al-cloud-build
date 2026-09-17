@@ -134,6 +134,7 @@ unset TARGET_BUILD_APPS || true
 # dependencies remain error build rules and will stop vulkan.pastel itself.
 export ALLOW_MISSING_DEPENDENCIES=true
 export SOONG_ALLOW_MISSING_DEPENDENCIES=true
+export BUILD_BROKEN_DISABLE_BAZEL=true
 
 # AOSP envsetup/lunch functions intentionally probe optional unset variables,
 # so nounset must be disabled while using the Android build environment.
@@ -179,6 +180,7 @@ Product: module_arm64only-eng
 Variant: unmodified stock-control SwiftShader source
 Source closure: Android 14 r45 platform manifest groups pdk,path:packages/modules/common,-darwin on Linux
 Global partial graph mode: ALLOW_MISSING_DEPENDENCIES=true
+Mixed Bazel analysis: disabled with BUILD_BROKEN_DISABLE_BAZEL=true
 Target validation: vulkan.pastel and its reachable dependency graph must build successfully
 Live target path: /vendor/lib64/hw/vulkan.pastel.so
 Live SHA-256 reference: 67c210363a565a8a9376c4e6ddaa349f79e2aa08828c9a2151f18aa932398f90
