@@ -1,0 +1,23 @@
+2026-09-17 18:19 UTC
+
+Pastel control run 11 (GitHub Actions run 35256292683, job 105320657281) completed with failure after materially advancing past run 10.
+
+Verified from the full job log:
+- Android 14 r45 PDK sync completed successfully.
+- 967 projects were synced; checkout size was about 77 GB.
+- SwiftShader resolved to the pinned commit 32ad39a320606948f09692cb91b71e1cd95d0e51.
+- ALLOW_MISSING_DEPENDENCIES=true and SOONG_ALLOW_MISSING_DEPENDENCIES=true were present after lunch.
+- Soong completed its 404-step bootstrap, including soong_build, bp2build conversion, and Bazel symlink forest creation.
+- The ordinary missing-module graph errors seen in run 10 did not recur.
+
+New failure class:
+During final Android.bp analysis / build.ninja generation, packages/modules/Media/apex/service/Android.bp module service-media-s failed API compatibility tracking because these generated filegroups were absent:
+  service-media-s.api.system.latest
+  service-media-s-removed.api.system.latest
+  service-media-s-incompatibilities.api.system.latest
+
+This is independent of ALLOW_MISSING_DEPENDENCIES. Soong's java_sdk_library compatibility check requires latest released API tracking data unless the source module explicitly opts into unsafe_ignore_missing_latest_api. We will not patch upstream Media with that unsafe bypass while attempting a stock-equivalent control build.
+
+Immediate investigation target: determine why the r45 PDK checkout is not producing those latest API filegroups from the platform's prebuilt API data, and correct the source/build configuration rather than suppressing compatibility checks.
+
+No run 12 has been started. The Pastel workflow remains workflow_dispatch-only.
