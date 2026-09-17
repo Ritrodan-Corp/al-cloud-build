@@ -1,0 +1,7 @@
+Pastel PDK build-source validation
+
+Verified the Android 14 r45 platform manifest before rewriting the control builder. The r45 manifest explicitly places build/make, build/bazel, build/bazel_common_rules, build/blueprint, build/soong, external/go-cmp, external/golang-protobuf, external/spdx-tools, external/starlark-go, external/swiftshader, frameworks/native, prebuilts/bazel/common, prebuilts/bazel/linux-x86_64, prebuilts/clang/host/linux-x86, prebuilts/go/linux-x86 and prebuilts/jdk/jdk17 in the pdk group, with Linux host prebuilts tagged appropriately.
+
+Repo documentation confirms `repo init -g pdk -p linux` is the supported mechanism for restricting the checkout to the pdk group and Linux host platform. This replaces the invalid attempt to translate prebuilts/build-tools/manifest.xml into the platform manifest.
+
+No new Pastel Actions run was started by this validation step. The workflow remains workflow_dispatch-only.
