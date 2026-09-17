@@ -1,0 +1,9 @@
+2026-09-16 PDT — Issue #37 backfill: Oracle stock-kernel ReDroid qualification
+Workstream: Oracle migration / ReDroid compatibility
+Source: https://github.com/Ritrodan-Corp/al-cloud-build/issues/37
+
+Action/result: Backfilled the durable stock-kernel compatibility findings from issue #37. Oracle kernel `6.17.0-1018-oracle` passed the 4 KiB page-size gate and exposes Binder/BinderFS, DMA-BUF heaps, IPv6, cgroups, namespaces, overlayfs, virtio/network/storage features needed for ReDroid. A disposable official `redroid/redroid:14.0.0_64only-latest` container launched successfully with memfd, guest/software rendering, 1280x720, loopback-only ADB, and reached `sys.boot_completed=1`; ReDroid created binder/hwbinder/vndbinder successfully. This closes BinderFS itself as a host blocker.
+
+Critical discriminator: the stock Oracle kernel is built with `CONFIG_ARM64_VA_BITS=48`, not the qualified 39-bit layout from Experiment 157. Live Android process mappings reached the high `0xffff...` user-VA range, so the stock kernel does not reproduce the low-VA environment required to avoid the old LuaJIT lightuserdata failure. A verified Azur Lane 9.3.7 APK extracted from the qualified GCP guest was transferred bit-for-bit to Oracle (SHA-256 `37b24bc2e299248377483fa67041c53cb9357534d9e5e6e24f248fc70da56734`) and installed into disposable Oracle state. Under the 48-bit stock kernel, the runtime reproduced the failure family rather than qualifying the game path.
+
+Interpretation/next: 4 KiB alone is insufficient. Persistent ReDroid/game state must remain unmigrated until Oracle boots a 39-bit/4-KiB kernel and the official client is revalidated there.
