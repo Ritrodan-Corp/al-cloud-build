@@ -1,0 +1,7 @@
+2026-09-17 SwiftShader/Pastel run 5 plan correction
+
+Review after run 4 found that the current build script's policy of adding dependencies only after Soong reports each missing path would continue blind one-error-at-a-time iteration.
+
+Upstream AOSP research shows the build-tools manifest carries a curated build-system set including build/make, build/bazel, build/bazel_common_rules, build/blueprint, build/soong, external/bazel-skylib, external/golang-protobuf, packages/modules/common, prebuilts/bazel/common, and host Bazel/toolchain prebuilts.
+
+Decision: do not start run 5 using the old evidence-driven one-missing-project-at-a-time policy. Use the upstream AOSP build-tools dependency set as the bootstrap baseline, then layer only the known vulkan.pastel-specific source dependencies on top. Keep the build target limited to module_arm64only-eng and vulkan.pastel so the resulting build remains narrow rather than syncing/building all Android.
