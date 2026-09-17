@@ -38,24 +38,31 @@ cd "$ROOT"
   --depth=1 \
   --no-clone-bundle
 
-# Source projects needed by Soong itself and by the Android SwiftShader Pastel
-# module. Large host-prebuilt projects are fetched separately below so that
-# only the required host payloads are checked out. This list is intentionally
-# evidence-driven: add a project only when Soong proves that the trimmed tree
-# needs it.
+# Audited minimal source set for an Android 14 r45 Soong module build of
+# vulkan.pastel. The build-system subset follows AOSP's own build-tools
+# baseline rather than discovering bootstrap dependencies one failure at a
+# time. The remaining projects are the direct/transitive Android graphics,
+# HIDL, libc++ and system dependencies needed by SwiftShader's Android HAL.
 SOURCE_PROJECTS=(
   build/make
+  build/bazel
+  build/bazel_common_rules
   build/blueprint
   build/soong
+  external/bazel-skylib
+  external/golang-protobuf
+  packages/modules/common
+  prebuilts/bazel/common
+  prebuilts/bazel/linux-x86_64
   external/swiftshader
   external/libcxx
   external/libcxxabi
   external/zlib
   external/googletest
-  external/golang-protobuf
   bionic
   frameworks/native
   hardware/interfaces
+  hardware/libhardware
   system/core
   system/libbase
   system/libhidl
@@ -105,9 +112,13 @@ rm -rf \
   prebuilts/build-tools/darwin-x86 \
   prebuilts/build-tools/linux_musl-arm64
 
-# Verify the selected compiler before discarding repo metadata.
+# Verify the selected compiler and the two bootstrap dependencies that caused
+# the previous failed runs before discarding repo metadata.
 grep -F 'ClangDefaultVersion      = "clang-r487747c"' \
   build/soong/cc/config/global.go
+test -d external/golang-protobuf/proto
+test -d prebuilts/bazel/common/proto/analysis_v2
+test -f hardware/libhardware/Android.bp
 
 # No further repo operations are needed. Reclaim shallow Git object storage.
 rm -rf .repo
