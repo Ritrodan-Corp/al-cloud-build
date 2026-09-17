@@ -1,0 +1,11 @@
+2026-09-17 15:02 PDT
+Pastel run 14 readiness review passed.
+Verified committed builder on vm-control:
+- r45 source guards for IsBazelMixedBuildForceDisabled and BUILD_BROKEN_DISABLE_BAZEL are present;
+- BUILD_BROKEN_DISABLE_BAZEL=true is exported before lunch and reasserted after lunch;
+- the flag is asserted and printed;
+- ALLOW_MISSING_DEPENDENCIES and SOONG_ALLOW_MISSING_DEPENDENCIES remain active for the partial checkout;
+- source selection remains pdk,path:packages/modules/common,-darwin;
+- sole requested build target remains m -j2 vulkan.pastel;
+- workflow remained workflow_dispatch-only at review time.
+All pre-run checks passed. Next action: controlled one-commit push trigger for run 14, followed immediately by restoration to manual-only.
