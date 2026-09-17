@@ -39,9 +39,10 @@ cd "$ROOT"
   --no-clone-bundle
 
 # Audited minimal source set for an Android 14 r45 Soong module build of
-# vulkan.pastel. The build-system subset follows AOSP's own build-tools
-# baseline rather than discovering bootstrap dependencies one failure at a
-# time. The remaining projects are the direct/transitive Android graphics,
+# vulkan.pastel. The Soong microfactory bootstrap explicitly maps these Go
+# package roots: build/soong, build/make/tools/rbcrun,
+# prebuilts/bazel/common/proto, external/golang-protobuf, and
+# external/starlark-go. The remaining projects are the Android graphics,
 # HIDL, libc++ and system dependencies needed by SwiftShader's Android HAL.
 SOURCE_PROJECTS=(
   build/make
@@ -51,6 +52,7 @@ SOURCE_PROJECTS=(
   build/soong
   external/bazel-skylib
   external/golang-protobuf
+  external/starlark-go
   packages/modules/common
   prebuilts/bazel/common
   prebuilts/bazel/linux-x86_64
@@ -112,12 +114,17 @@ rm -rf \
   prebuilts/build-tools/darwin-x86 \
   prebuilts/build-tools/linux_musl-arm64
 
-# Verify the selected compiler and the two bootstrap dependencies that caused
-# the previous failed runs before discarding repo metadata.
+# Verify the selected compiler and the complete Soong microfactory package
+# closure before discarding repo metadata. These are the package roots named
+# by build/soong/scripts/microfactory.bash for soong_ui/rbcrun bootstrap.
 grep -F 'ClangDefaultVersion      = "clang-r487747c"' \
   build/soong/cc/config/global.go
-test -d external/golang-protobuf/proto
+test -d build/soong
+test -d build/blueprint/microfactory
+test -d build/make/tools/rbcrun
 test -d prebuilts/bazel/common/proto/analysis_v2
+test -d external/golang-protobuf/proto
+test -d external/starlark-go/starlark
 test -f hardware/libhardware/Android.bp
 
 # No further repo operations are needed. Reclaim shallow Git object storage.
