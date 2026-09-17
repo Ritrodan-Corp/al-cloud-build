@@ -1,0 +1,9 @@
+Workstream: Oracle ReDroid persistent /data migration
+
+Action: Ran the guarded same-filesystem migration script with --apply through the user's privileged SSH session. The root preflight passed: writable /data was ~31.56 GB, lower layer 7 had no /data, lower layer 4 had an empty /data, no unsafe lower-layer contribution was present, and source/target were on the same filesystem. The script quiesced Android, stopped the original container, moved /data in-place to /var/lib/alcloud-redroid/data, started a new ReDroid container with a bind mount at /data, and verified the Azur Lane APK path and versionCode 93007.
+
+Result: The first attempt then failed only in the game-data-size validation command because nested shell/awk quoting produced an awk syntax error. The script's ERR trap executed the designed rollback: it removed the new container, restored the original container name, moved /data back to the original writable layer, and restarted the original container. Post-rollback verification shows Android boot_completed=1, Azur Lane 9.3.7 / versionCode 93007 installed, and physical display 1280x720.
+
+Correction: Updated infra/oracle/migrate-redroid-data.sh on vm-control to parse docker exec du output with host-side awk instead of nested awk. Added a full pre-migration docker inspect recovery artifact and stopped-state inode plus exact-byte-count invariants across the same-filesystem move. Corrected script passes bash -n. Source commit: d6875b1ae0a9e3c98755b39835d86c0c86a1daec.
+
+Next action: Re-run the same privileged migration command from the user's SSH session, then independently verify bind mount, Android boot, Azur Lane package/data, session state, and launcher before any 60 Hz or Pastel experiment.
