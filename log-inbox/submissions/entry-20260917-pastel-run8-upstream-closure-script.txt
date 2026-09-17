@@ -1,0 +1,18 @@
+2026-09-17 Pastel control build run-8 script redesign
+
+Replaced the hand-maintained trimmed Soong dependency list in experiments/160-swiftshader-perf/build-android-control.sh with an upstream-derived closure strategy.
+
+New build flow:
+1. Initialize android-14.0.0_r45 platform manifest shallowly.
+2. Sync only prebuilts/build-tools first.
+3. Parse prebuilts/build-tools/manifest.xml to obtain Google's build-tool source project closure automatically, excluding Darwin host-only paths on the Linux runner.
+4. Union that project set with explicit Pastel/Android graphics projects plus Android 14 JDK17/Bazel/Linux host toolchain projects.
+5. Validate every requested path exists in the r45 platform manifest before the expensive sync.
+6. Shallow-sync the deduplicated union without aggressive post-sync toolchain pruning.
+7. Verify exact SwiftShader commit and key source/tool inputs, including external/spdx-tools.
+8. Build only module_arm64only-eng -> vulkan.pastel.
+9. Reduce build parallelism from -j4 to -j2 because the standard runner reports 15.6 GB RAM and AOSP warns ~16 GB is the minimum.
+
+Rationale: the first seven runs demonstrated that manual dependency minimization before a successful control build caused repeated Soong/bootstrap graph failures. The new source list is derived from AOSP's own build-tool manifest so host-build support dependencies are not rediscovered one failure at a time. Extra checkout size exists only on the ephemeral GitHub Actions runner and does not add production Oracle VM bloat.
+
+Script commit: 1e166b9bad96dfc04ad43c8e97881866d1f60773
