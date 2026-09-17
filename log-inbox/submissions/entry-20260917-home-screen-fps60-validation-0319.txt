@@ -1,0 +1,11 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Post-migration live-state validation confirmed Android booted at physical 1280x720 @ 30.000002 Hz, Azur Lane process active, persistent /data launcher in place, and browser H.264 stream inactive.
+
+A fresh direct framebuffer capture confirmed the exact logged-in Azur Lane home/main screen used for prior baseline comparisons. SurfaceFlinger BLAST-layer latency was cleared and resampled on that scene. Result: 127 presented timestamps over 7.823 s, effective 16.106 FPS; mean interval 62.087 ms, median 61.400 ms, min 59.784 ms, max 72.769 ms. This is close to the prior ~16.1 FPS no-stream home-screen baseline.
+
+Historical reconciliation confirms the earlier apparent 30.000 FPS result after setting Azur Lane fps_limit=60 was captured during an animated startup/splash sequence and had already been marked non-comparable. The comparable logged-in home-screen result does not show a similar improvement. The earlier fps_limit=60 setting was left in place pending this home-screen validation; no later log records restoring it to 30.
+
+RDC management session currently reports sudo -n true succeeds, but the connector policy rejects privileged Docker commands themselves. Therefore the 60-Hz boot-time ReDroid experiment still requires one privileged script invocation from the user's SSH terminal unless another approved privileged control path is added.
+
+Next: stage a single guarded 60-Hz ReDroid experiment script using the now-persistent /data, with exact rollback to 30-Hz runtime, then continue the minimal Pastel/SwiftShader build path in parallel.
