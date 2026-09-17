@@ -1,0 +1,20 @@
+Timestamp: 2026-09-17T05:54Z
+Branch: vm-control
+Subject: Pastel control run 6 prepared from audited Soong microfactory closure
+
+Updated experiments/160-swiftshader-perf/build-android-control.sh after run 5 failure.
+
+Change:
+- Added external/starlark-go to SOURCE_PROJECTS.
+- Added explicit preflight for external/starlark-go/starlark.
+- Expanded bootstrap preflight to cover the package roots named by AOSP build/soong/scripts/microfactory.bash: build/soong, build/blueprint/microfactory, build/make/tools/rbcrun, prebuilts/bazel/common/proto/analysis_v2, external/golang-protobuf/proto, and external/starlark-go/starlark.
+- Retained the previously audited Bazel/Soong baseline and Pastel Android graphics dependencies.
+- Did not add unrelated build-tools projects merely because they exist in the broader build-tools manifest, to avoid unnecessary source-tree expansion and extra Android.bp parsing.
+
+Evidence used:
+- AOSP Soong microfactory explicitly maps go.starlark.net to external/starlark-go and the other listed package roots.
+- Android 14 manifests include external/starlark-go.
+- Android 14 build-tools manifests also include external/starlark-go.
+
+Script update commit: feac7cf69966ba946149290565424d502eada3f8
+The workflow is push-triggered, so this commit may automatically start run 6.
