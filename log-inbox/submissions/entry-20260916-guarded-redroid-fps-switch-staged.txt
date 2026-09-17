@@ -1,0 +1,4 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+Step: Stage guarded ReDroid physical/compositor FPS A/B switch.
+Action: Added infra/oracle/switch-redroid-fps.sh on vm-control. Script requires root, accepts only 30 or 60 FPS, verifies the persistent /data bind mount and current container state, records a full docker inspect, quiesces Azur Lane, stops and renames the current container for rollback, starts a new container against the same /var/lib/alcloud-redroid/data at the target FPS, waits for Android boot, verifies /data mount, Azur Lane package and >25,000,000 KiB game-data floor, probes display state, updates the normal launcher only after successful validation, and automatically restores the previous container on failure.
+No runtime/container change was made by this staging step.
