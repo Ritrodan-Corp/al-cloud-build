@@ -1,0 +1,7 @@
+Timestamp: 2026-09-16
+Workstream: Oracle ReDroid persistence and graphics optimization
+Step: Consolidated execution order after persistence-risk discovery.
+Finding: The planned /data persistence migration is a prerequisite to reboot-level ReDroid experiments. The existing Oracle ReDroid container must be preserved as rollback until the new bind-mounted /data runtime boots, Azur Lane launches, session/account state is intact, and the full game data remains present. One final read-only OverlayFS audit is required before moving data so lower-layer dependencies are understood.
+Graphics build path: The previously planned minimal Android 14 r45 SwiftShader/Pastel build pipeline remains applicable. Build work can proceed in parallel because it does not require touching the live Android state, but deployment of any custom vulkan.pastel.so candidate should wait until persistent /data is proven. First build a stock-equivalent control, then test performance-only candidates one variable at a time.
+Sequence: (1) final OverlayFS audit, (2) migrate /data to persistent host storage with rollback preserved, (3) validate baseline at 1280x720/30 Hz, (4) test 1280x720/60 Hz compositor with game still capped at 30 FPS, (5) deploy stock-equivalent Pastel control, (6) benchmark optimized Pastel/Reactor candidates, (7) revisit game 60-FPS setting and streaming quality only after renderer headroom improves.
+No Android state was changed by this planning step.
