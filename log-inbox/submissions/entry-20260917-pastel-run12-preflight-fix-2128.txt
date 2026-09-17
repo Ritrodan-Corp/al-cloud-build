@@ -1,0 +1,11 @@
+2026-09-17 21:28 UTC
+Pastel control run 12 failure root cause and correction.
+
+Run 12 ID: 35272037189
+Job ID: 105373518912
+
+Run 12 did not reach Soong. The Android 14 r45 PDK+packages/modules/common sync completed successfully with 968 projects, and the script then exited during the new Media defaults preflight.
+
+Root cause: the preflight matched the exact one-line text `defaults: ["framework-system-server-module-defaults"]`, but Android.bp permits and uses multiline formatting for defaults lists. The source itself contains service-media-s and framework-system-server-module-defaults; the validator was over-specific.
+
+Correction committed as 2f05fb36056bb83fd9322a724110baffb36ec719: verify the presence of the service-media-s module name and the framework-system-server-module-defaults reference independently, without assuming formatting. No production source was modified.
