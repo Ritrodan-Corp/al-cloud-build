@@ -1,0 +1,16 @@
+AL Cloud progress log
+Timestamp: 2026-09-17 14:52 PDT
+Step: Narrow run 11 service-media-s API tracking root cause.
+
+Findings:
+- This is not a missing historical service-media-s API-data problem. Upstream prebuilts/sdk contains service-media-s historical API files in the public and system-server scopes, matching the intended service-media-s API surfaces.
+- Upstream packages/modules/common framework-system-server-module-defaults explicitly enables the public scope through framework-module-common-defaults and explicitly enables system_server. It does not enable the ordinary system scope.
+- Soong's java_sdk_library legacy behavior generates system/test scopes when no API scopes are explicitly enabled.
+- Run 11 nevertheless asked for service-media-s.api.system.latest, service-media-s-removed.api.system.latest, and service-media-s-incompatibilities.api.system.latest.
+- Therefore the central contradiction is now isolated: the service-media-s module is behaving as though its intended framework-system-server-module-defaults scope settings were not applied during graph construction, even though the source file exists in the checkout.
+- ALLOW_MISSING_DEPENDENCIES can allow missing defaults/dependencies to remain latent, so file existence alone is not proof the defaults module was loaded/applied.
+
+Next diagnostic:
+Trace how packages/modules/common/sdk/ModuleDefaults.bp is imported into Soong in r45 and verify whether the current PDK + path:packages/modules/common checkout includes the Android.bp/import mechanism that makes those defaults visible. If not, correct the checkout/import rather than fabricating service-media-s system API files.
+
+No run 12 started. No source or build script modification made at this step.
