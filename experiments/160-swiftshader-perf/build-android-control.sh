@@ -122,6 +122,13 @@ grep -Fq 'configuration.Getenv("ALLOW_MISSING_DEPENDENCIES") == "true"' \
   build/soong/cmd/soong_build/main.go
 grep -Fq 'ctx.SetAllowMissingDependencies(ctx.Config().AllowMissingDependencies())' \
   build/soong/cmd/soong_build/main.go
+
+# Run 13's remaining failure came from mixed Bazel analysis of an unrelated
+# Timezone test, not from vulkan.pastel's reachable dependency graph. r45 Soong
+# exposes BUILD_BROKEN_DISABLE_BAZEL as the force-disable switch for that mixed
+# analysis path. Verify the pinned source has that mechanism before using it.
+grep -Fq 'IsBazelMixedBuildForceDisabled' build/soong/ui/build/config.go
+grep -Fq 'BUILD_BROKEN_DISABLE_BAZEL' build/soong/ui/build/config.go
 log_disk
 
 export OUT_DIR="$OUT_DIR_BUILD"
@@ -146,10 +153,13 @@ lunch module_arm64only-eng
 # what the subsequent Soong invocation receives.
 export ALLOW_MISSING_DEPENDENCIES=true
 export SOONG_ALLOW_MISSING_DEPENDENCIES=true
+export BUILD_BROKEN_DISABLE_BAZEL=true
 [ "$ALLOW_MISSING_DEPENDENCIES" = true ]
 [ "$SOONG_ALLOW_MISSING_DEPENDENCIES" = true ]
+[ "$BUILD_BROKEN_DISABLE_BAZEL" = true ]
 printf 'ALLOW_MISSING_DEPENDENCIES=%s\n' "$ALLOW_MISSING_DEPENDENCIES"
 printf 'SOONG_ALLOW_MISSING_DEPENDENCIES=%s\n' "$SOONG_ALLOW_MISSING_DEPENDENCIES"
+printf 'BUILD_BROKEN_DISABLE_BAZEL=%s\n' "$BUILD_BROKEN_DISABLE_BAZEL"
 
 # Keep compile parallelism conservative on the standard 15.6 GB hosted runner.
 # Building only this target remains the validation: any missing dependency in
