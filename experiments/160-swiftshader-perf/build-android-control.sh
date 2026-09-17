@@ -42,8 +42,10 @@ cd "$ROOT"
 # vulkan.pastel. The Soong microfactory bootstrap explicitly maps these Go
 # package roots: build/soong, build/make/tools/rbcrun,
 # prebuilts/bazel/common/proto, external/golang-protobuf, and
-# external/starlark-go. The remaining projects are the Android graphics,
-# HIDL, libc++ and system dependencies needed by SwiftShader's Android HAL.
+# external/starlark-go. Android 14's golang-protobuf Soong graph also directly
+# references the go-cmp module supplied by external/go-cmp. The remaining
+# projects are the Android graphics, HIDL, libc++ and system dependencies needed
+# by SwiftShader's Android HAL.
 SOURCE_PROJECTS=(
   build/make
   build/bazel
@@ -51,6 +53,7 @@ SOURCE_PROJECTS=(
   build/blueprint
   build/soong
   external/bazel-skylib
+  external/go-cmp
   external/golang-protobuf
   external/starlark-go
   packages/modules/common
@@ -114,9 +117,8 @@ rm -rf \
   prebuilts/build-tools/darwin-x86 \
   prebuilts/build-tools/linux_musl-arm64
 
-# Verify the selected compiler and the complete Soong microfactory package
-# closure before discarding repo metadata. These are the package roots named
-# by build/soong/scripts/microfactory.bash for soong_ui/rbcrun bootstrap.
+# Verify the selected compiler and the complete known Soong bootstrap/module
+# closure before discarding repo metadata.
 grep -F 'ClangDefaultVersion      = "clang-r487747c"' \
   build/soong/cc/config/global.go
 test -d build/soong
@@ -125,6 +127,7 @@ test -d build/make/tools/rbcrun
 test -d prebuilts/bazel/common/proto/analysis_v2
 test -d external/golang-protobuf/proto
 test -d external/starlark-go/starlark
+grep -Rqs 'name:[[:space:]]*"go-cmp"' external/go-cmp/Android*.bp
 test -f hardware/libhardware/Android.bp
 
 # No further repo operations are needed. Reclaim shallow Git object storage.
