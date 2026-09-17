@@ -1,0 +1,11 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+
+Action: Continued observing the fps_limit=60 app restart until the client reached a stable interactive UI.
+
+Result:
+- After roughly 105 seconds, direct framebuffer capture shows the normal Azur Lane login screen with saved account state and the LOG IN control.
+- The app did not automatically enter the logged-in home screen after force-stop/restart.
+- Recent logcat contained transient AliNetworkDiagnosis `No route to host` messages and a Unity disconnect event during startup, but the client remained alive and reached the login UI.
+
+Decision:
+Proceed through the normal saved-account LOG IN control, wait for the home screen, then run the comparable fps_limit=60 SurfaceFlinger benchmark. Do not compare login/splash FPS against the prior home-screen baseline.
