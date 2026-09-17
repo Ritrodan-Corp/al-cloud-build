@@ -1,0 +1,15 @@
+2026-09-17 20:48 UTC
+Applied the run-11 root-cause correction to experiments/160-swiftshader-perf/build-android-control.sh.
+
+Commit: 4acb3206f4ffef1c7e2127f76d187c0f7617be02
+
+Changes:
+- repo init groups changed from pdk,-darwin to pdk,path:packages/modules/common,-darwin.
+- This adds exactly the r45 packages/modules/common project without pulling the whole pdk-fs group.
+- Added preflight for packages/modules/common/sdk/ModuleDefaults.bp.
+- Added preflight checks for framework-module-common-defaults, framework-system-server-module-defaults, framework-sources-module-defaults, and non-updatable-framework-module-defaults.
+- Added a guard proving packages/modules/Media/apex/service/Android.bp still inherits framework-system-server-module-defaults.
+- Retained ALLOW_MISSING_DEPENDENCIES for unrelated partial PDK graph holes.
+- SwiftShader source remains pinned and unmodified; only the source closure/build environment changed.
+
+Workflow remains manual-only at this checkpoint. Run 12 not yet started.
