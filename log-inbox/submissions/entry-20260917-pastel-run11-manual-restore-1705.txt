@@ -1,0 +1,5 @@
+AL Cloud progress log
+Timestamp: 2026-09-17T17:05Z
+Step: Restored SwiftShader Pastel control workflow to manual-only immediately after triggering run 11.
+Details: .github/workflows/swiftshader-perf-control.yml now contains only workflow_dispatch. Restore commit: ed2f884f5202952c5dfee64fdd609e9e87e7b95a. This prevents subsequent normal commits, including progress-log commits, from starting additional Pastel runs.
+Next: Verify run 11 and inspect its job state.
