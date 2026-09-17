@@ -1,0 +1,7 @@
+Pastel run 11 readiness review
+
+Reviewed the committed vm-control build script after the run 10 partial-graph correction. Confirmed the script still uses Android 14 r45 pdk,-darwin on Linux, verifies the complete bootstrap inputs including external/spdx-tools, verifies exact SwiftShader commit and Clang version, checks the pinned r45 soong_build source for ALLOW_MISSING_DEPENDENCIES support and bp2build propagation, exports both ALLOW_MISSING_DEPENDENCIES=true and SOONG_ALLOW_MISSING_DEPENDENCIES=true before lunch, reasserts and prints them immediately before the build, and requests only m -j2 vulkan.pastel.
+
+Confirmed .github/workflows/swiftshader-perf-control.yml remains workflow_dispatch-only. No run 11 has been started.
+
+Technical basis: run 7 failed on missing build-system blueprint_go_binary dependencies, which allow-missing cannot safely bypass. Run 10's PDK checkout resolved that bootstrap closure and failed later on ordinary unrelated Android modules. In Android 14 r45, the latter class is explicitly supported by Soong's allow-missing mode; missing dependencies remain error rules for any module that is actually built, so successful vulkan.pastel completion still validates its reachable dependency closure.
