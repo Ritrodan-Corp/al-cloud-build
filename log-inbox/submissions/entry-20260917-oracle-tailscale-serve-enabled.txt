@@ -1,0 +1,7 @@
+Oracle browser controller private HTTPS enabled.
+
+Action: After the tailnet Serve capability was enabled, configured Tailscale Serve on alcloud-a1-01 to expose the existing loopback browser controller at the node's private MagicDNS HTTPS origin and proxy / to http://127.0.0.1:8766.
+
+Result/evidence: tailscale serve status reports https://alcloud-a1-01.tailc79d73.ts.net (tailnet only) with / proxying to http://127.0.0.1:8766. The backend remains bound to loopback; no public listener was added.
+
+Interpretation/next: Verify the HTTPS page and H.264 stream path through the Serve endpoint, then retire the temporary plain-HTTP tailnet proxy once the secure path is qualified.
