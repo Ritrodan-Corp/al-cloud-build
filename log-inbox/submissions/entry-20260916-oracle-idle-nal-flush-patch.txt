@@ -1,0 +1,7 @@
+Patched the Oracle browser client to handle static-screen H.264 output.
+
+Root cause confirmed in deployed `web/player.js`: AnnexBParser.feed() retains the final NAL until a subsequent start code arrives, while parser.flush() was only called when the HTTP stream ended. Oracle ReDroid screenrecord can emit SPS + PPS + a single IDR and then remain silent on a static screen, so the IDR was never submitted to WebCodecs.
+
+Patched both the source checkout and deployed `web/app.js` to schedule a 120 ms idle flush of the parser after received stream data, cancel/reset that timer as new chunks arrive, and clear it during stop/end paths. Continuous streams still use the existing parser feed path; static frames now release the pending IDR after transport inactivity.
+
+Validation passed: `node --check`, all 3 browser-player unit tests, all 4 Python server tests, and `git diff --check`. Next step is to verify the live HTTPS-served app includes the patch and that a fresh browser connection renders frames.
