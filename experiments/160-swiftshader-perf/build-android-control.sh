@@ -40,7 +40,9 @@ cd "$ROOT"
 
 # Source projects needed by Soong itself and by the Android SwiftShader Pastel
 # module. Large host-prebuilt projects are fetched separately below so that
-# only the required host payloads are checked out.
+# only the required host payloads are checked out. This list is intentionally
+# evidence-driven: add a project only when Soong proves that the trimmed tree
+# needs it.
 SOURCE_PROJECTS=(
   build/make
   build/blueprint
@@ -50,6 +52,7 @@ SOURCE_PROJECTS=(
   external/libcxxabi
   external/zlib
   external/googletest
+  external/golang-protobuf
   bionic
   frameworks/native
   hardware/interfaces
