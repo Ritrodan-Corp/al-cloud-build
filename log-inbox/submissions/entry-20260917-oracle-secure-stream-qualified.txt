@@ -1,0 +1,7 @@
+Oracle private HTTPS browser stream qualified and insecure fallback retired.
+
+Action: Probed the Tailscale Serve endpoint over HTTPS, requested /api/status, and read a bounded sample from /stream.h264. Then removed the temporary Tailscale-IP plain-HTTP proxy's reboot entry and stopped its supervisor and child process.
+
+Result/evidence: HTTPS /api/status returned adb=true with 1280x720 input and 854x480 H.264 video configuration. The HTTPS /stream.h264 probe delivered 262144 bytes before the bounded client closed. After cleanup, ss shows only 127.0.0.1:8766 for the controller, while tailscale serve status continues to publish https://alcloud-a1-01.tailc79d73.ts.net tailnet-only and proxy it to loopback. The crontab retains the browser-streaming reboot supervisor but no longer starts the plain-HTTP proxy.
+
+Interpretation/next: The Oracle browser controller now has a single private HTTPS user path suitable for WebCodecs live streaming. User should reopen the controller at the MagicDNS HTTPS URL and proceed with the Yostar agreement/login qualification.
