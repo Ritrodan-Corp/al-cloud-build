@@ -1,0 +1,7 @@
+Workstream: Oracle 4-OCPU / 1280x720 rendering optimization
+Step: Obtain comparable logged-in home-scene control with Azur Lane fps_limit=60 and ReDroid physical display still 30 Hz.
+Scene: Logged-in home/menu after clearing announcement and guild-operation notice.
+SurfaceFlinger layer: SurfaceView[com.YoStarEN.AzurLane/com.manjuu.azurlane.MainActivity](BLAST)#108.
+Measurement: cleared SurfaceFlinger latency, sampled 10 seconds, kernel-counter CPU accounting.
+Result: physical refresh 30.000000 Hz; 127 presented frames spanning 7.810284 s; effective 16.133 FPS. Frame interval mean 61.986 ms, median 61.778 ms, min 60.649 ms, max 66.235 ms; all 126 intervals <=75 ms and none <=40 ms. Game CPU 388.0%; host system busy 98.2%.
+Interpretation: the previously observed 30 FPS with in-game fps_limit=60 occurred on a non-comparable splash/loading scene. On the actual logged-in home scene, raising the game cap to 60 does not materially improve presentation versus the prior ~16.1 FPS baseline and the host remains saturated. Next action: A/B ReDroid boot-time androidboot.redroid_fps from 30 to 60 while preserving 1280x720, 4 OCPUs, persistent /data, and game settings.
