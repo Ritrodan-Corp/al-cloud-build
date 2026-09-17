@@ -1,0 +1,9 @@
+Pastel control builder rewritten around Android 14 r45 PDK group
+
+Replaced experiments/160-swiftshader-perf/build-android-control.sh on branch vm-control. The old prebuilts/build-tools manifest translation and hand-maintained dependency union were removed.
+
+The new builder initializes the android-14.0.0_r45 platform manifest with groups `pdk,-darwin` and Linux host selection, shallow-syncs the complete selected PDK set, records the resolved repo manifest and synced project list, validates the module_arm64only product and key build/toolchain/SwiftShader inputs, rejects Darwin host prebuilts, pins SwiftShader commit 32ad39a320606948f09692cb91b71e1cd95d0e51, and builds only `vulkan.pastel` with `module_arm64only-eng` at -j2.
+
+The script now explicitly unsets ALLOW_MISSING_DEPENDENCIES so a control build cannot silently pass with unresolved Android modules. No Actions run was started; the workflow remains manual-only pending review.
+
+Script rewrite commit: 9d0c13ebb87d744b1bf04ca2c7a0ac85e4b081d9
