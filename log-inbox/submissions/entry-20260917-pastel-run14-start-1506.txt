@@ -1,0 +1,8 @@
+2026-09-17 15:06 PDT
+Pastel control run 14 started.
+Run ID: 35280244399
+Run number: 14
+Trigger commit: e331177c18eceaaaaf8910c5ac2bd6bd9e3e5c7f
+Manual-only restore commit: a209908f32b3f1a8a64789ecc26dab9ab24133ed
+Status at checkpoint: in_progress.
+Purpose: validate Android 14 r45 partial PDK + packages/modules/common control with mixed Bazel analysis force-disabled via BUILD_BROKEN_DISABLE_BAZEL=true, leaving Soong as the target-analysis/build path for vulkan.pastel.
