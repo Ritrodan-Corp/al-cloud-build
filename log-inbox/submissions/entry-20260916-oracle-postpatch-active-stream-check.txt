@@ -1,0 +1,5 @@
+Checked Oracle streamer after deploying the static-frame parser fix.
+
+The controller currently reports an active H.264 client, adb=true, last_error=null, and approximately 9.8 MB sent on the current stream. The Android `screenrecord` process is actively running with the expected 854x480 / 2 Mbps parameters. This indicates the existing browser tab still has an open pre-fix stream session; JavaScript already loaded in that tab will not change until the page reloads even though the HTTPS server now serves the fixed module.
+
+Next action: user reloads the HTTPS page so the browser executes the patched app.js; then confirm visible frame rendering and fps behavior.
