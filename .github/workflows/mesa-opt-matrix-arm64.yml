@@ -1,0 +1,72 @@
+name: Mesa Optimization Matrix ARM64
+
+on:
+  push:
+    branches:
+      - mesa-opt-matrix-20260917
+    paths:
+      - '.github/workflows/mesa-opt-matrix-arm64.yml'
+      - 'gate1/mesa/build-opt-matrix.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: mesa-${{ matrix.variant }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        variant:
+          - ndebug
+          - n1
+          - llvm-release
+          - thinlto
+    env:
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - name: Checkout optimization branch
+        uses: actions/checkout@v4
+
+      - name: Install host build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bison \
+            ccache \
+            cmake \
+            flex \
+            meson \
+            ninja-build \
+            pkgconf \
+            python3-mako \
+            python3-ply \
+            unzip \
+            xz-utils \
+            zstd
+          meson --version
+          cmake --version
+          ninja --version
+
+      - name: Build and audit Mesa optimization candidate
+        shell: bash
+        run: |
+          chmod +x gate1/mesa/build-opt-matrix.sh
+          gate1/mesa/build-opt-matrix.sh
+
+      - name: Upload candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesa-25.0.0-android-arm64-llvmpipe-${{ matrix.variant }}
+          path: |
+            ${{ runner.temp }}/mesa-25.0.0-android-arm64-llvmpipe-${{ matrix.variant }}.tar.xz
+            ${{ runner.temp }}/mesa-bundle-${{ matrix.variant }}.sha256
+            ${{ runner.temp }}/mesa-arm64-deploy-${{ matrix.variant }}/audit
+          retention-days: 7
+          if-no-files-found: error
