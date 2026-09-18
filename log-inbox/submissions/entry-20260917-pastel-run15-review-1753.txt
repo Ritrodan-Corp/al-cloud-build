@@ -1,0 +1,26 @@
+2026-09-17 17:53 PDT — review of latest SwiftShader/Pastel control-build attempt
+
+Reviewed vm-control head, current build script/workflow, runs 10-15 progression, and run 14 latest-attempt logs.
+
+Current active run:
+- GitHub Actions run 35292033014, job 105436736450, run number 15.
+- Status at review checkpoint: in progress.
+- Setup and checkout succeeded; build step active; artifact upload pending.
+- Workflow is restored to workflow_dispatch-only, so later logging commits do not spawn duplicate builds.
+
+Major strategy changes since the early control-build attempt:
+- Abandoned the hand-curated ~23-project source closure after repeated bootstrap/source-graph omissions.
+- Switched to the authoritative Android 14 r45 platform PDK source group, Linux-only, shallow sync.
+- Current source closure is pdk,path:packages/modules/common,-darwin, 968 projects in run 14.
+- Exact SwiftShader commit 32ad39a320606948f09692cb91b71e1cd95d0e51 and Clang r487747c remain pinned and preflight-verified.
+- Uses AOSP partial-source support with ALLOW_MISSING_DEPENDENCIES / SOONG_ALLOW_MISSING_DEPENDENCIES for unrelated global graph holes.
+- Added packages/modules/common because run 11 proved PDK consumers require authoritative Mainline defaults from that project.
+- Disabled mixed Bazel analysis using r45's BUILD_BROKEN_DISABLE_BAZEL mechanism after run 13 reached build.ninja analysis but failed on an unrelated timezone-test Bazel query.
+- Run 14 retry completed source sync, Soong bootstrap, and Android.bp analysis, generated soong/build.ninja, then failed only when legacy Kati traversed an unrelated TV robotest Android.mk missing robolectric-shadows.
+- Run 15 changes the target invocation to m --skip-make -j2 vulkan.pastel after preflight-verifying r45 supports --skip-make. This preserves Soong/Ninja target analysis while avoiding unrelated Make/Kati traversal.
+
+Assessment:
+- The current approach is materially stronger and more upstream-aligned than the initial trimmed-tree builder.
+- Run 14 established that the selected source closure and Soong graph can reach build.ninja generation; its final failure was outside vulkan.pastel's Soong dependency path.
+- Run 15 is therefore the first attempt positioned to test the actual vulkan.pastel reachable Soong/Ninja graph without unrelated Kati or mixed-Bazel failures.
+- No success is claimed yet because run 15 remains in progress and live job logs are unavailable until completion.
