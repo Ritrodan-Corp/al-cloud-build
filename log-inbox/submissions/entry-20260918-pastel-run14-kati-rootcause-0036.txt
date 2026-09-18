@@ -1,0 +1,9 @@
+2026-09-18 UTC — SwiftShader/Pastel run 14 Kati root cause
+
+Run 14 completed r45 PDK sync, Soong bootstrap, and Android.bp analysis. It then entered legacy Make/Kati traversal and failed in an unrelated TV robotest because packages/apps/TV/common/tests/robotests/Android.mk includes external/robolectric-shadows/run_robotests.mk, which is outside the selected source closure.
+
+This is not a vulkan.pastel dependency failure. vulkan.pastel is defined in external/swiftshader/src/Android.bp and can be built through Soong without Kati.
+
+AOSP Soong supports --skip-make specifically to avoid running the Make/Kati side while still building requested Soong targets. The control build already uses a standalone OUT_DIR, which is the supported mode for this path.
+
+Planned correction: change the target invocation from "m -j2 vulkan.pastel" to "m --skip-make -j2 vulkan.pastel", and add a pinned-source preflight verifying r45's ui/build/config.go recognizes --skip-make before relying on it. Keep BUILD_BROKEN_DISABLE_BAZEL=true and the existing partial-graph protections.
