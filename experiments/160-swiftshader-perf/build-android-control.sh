@@ -7,6 +7,7 @@ readonly ROOT="${RUNNER_TEMP:?}/aosp-r45-pastel"
 readonly OUT_DIR_BUILD="${RUNNER_TEMP:?}/aosp-r45-pastel-out"
 readonly ART="${GITHUB_WORKSPACE:?}/experiments/160-swiftshader-perf/out-control"
 readonly REPO_BIN="${RUNNER_TEMP:?}/repo"
+readonly PASTEL_VARIANT="${PASTEL_VARIANT:-stock}"
 
 rm -rf "$ROOT" "$OUT_DIR_BUILD" "$ART"
 mkdir -p "$ROOT" "$ART"
@@ -104,6 +105,32 @@ grep -F 'ClangDefaultVersion      = "clang-r487747c"' \
   build/soong/cc/config/global.go
 grep -q 'name: "vulkan.pastel"' external/swiftshader/src/Android.bp
 
+case "$PASTEL_VARIANT" in
+  stock)
+    VARIANT_DESC='unmodified stock-control SwiftShader source'
+    ;;
+  jit-neoverse-n1)
+    python3 - <<'PY'
+from pathlib import Path
+
+path = Path("external/swiftshader/src/Reactor/LLVMJIT.cpp")
+text = path.read_text()
+needle = "llvm::sys::getHostCPUName()"
+assert text.count(needle) == 2, "unexpected r45 JIT host-CPU call count"
+text = text.replace(needle, '"neoverse-n1"')
+path.write_text(text)
+PY
+    grep -Fq 'jitTargetMachineBuilder.setCPU("neoverse-n1")'       external/swiftshader/src/Reactor/LLVMJIT.cpp
+    VARIANT_DESC='Reactor JIT CPU forced to LLVM 10 neoverse-n1 processor model'
+    git -C external/swiftshader diff -- src/Reactor/LLVMJIT.cpp | tee "$ART/swiftshader-variant.patch"
+    ;;
+  *)
+    echo "Unsupported PASTEL_VARIANT: $PASTEL_VARIANT" >&2
+    exit 2
+    ;;
+esac
+printf 'pastel_variant=%s\n' "$PASTEL_VARIANT" | tee "$ART/variant.txt"
+
 # Run 11 exposed why packages/modules/common is required in addition to plain
 # pdk: packages/modules/Media inherits framework-system-server-module-defaults.
 # Android.bp is free to format the defaults list across multiple lines, so only
@@ -184,7 +211,6 @@ export ALLOW_MISSING_DEPENDENCIES=true
 export SOONG_ALLOW_MISSING_DEPENDENCIES=true
 export BUILD_BROKEN_DISABLE_BAZEL=true
 export NINJA_ARGS='-w dupbuild=warn'
-export NINJA_ARGS='-w dupbuild=warn'
 
 # AOSP envsetup/lunch functions intentionally probe optional unset variables,
 # so nounset must be disabled while using the Android build environment.
@@ -236,7 +262,7 @@ Android tag: ${TAG}
 SwiftShader commit: ${SWIFTSHADER_COMMIT}
 Soong target: vulkan.pastel
 Product: module_arm64only-eng
-Variant: unmodified stock-control SwiftShader source
+Variant: ${PASTEL_VARIANT} - ${VARIANT_DESC}
 Source closure: Android 14 r45 platform manifest groups pdk,path:packages/modules/common,-darwin on Linux
 Global partial graph mode: ALLOW_MISSING_DEPENDENCIES=true
 Mixed Bazel analysis: disabled with BUILD_BROKEN_DISABLE_BAZEL=true
