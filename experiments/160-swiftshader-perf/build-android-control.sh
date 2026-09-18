@@ -430,13 +430,16 @@ if [ "${PASTEL_DIAGNOSTICS:-0}" = 1 ]; then
       {
         printf '\n== pastel resource telemetry %s ==\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
         grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree):' /proc/meminfo || true
-        for metric in memory.current memory.peak memory.max memory.swap.current memory.swap.max memory.events; do
-          if [ -r "/sys/fs/cgroup/${metric}" ]; then
+        CGROUP_REL="$(awk -F: '$1 == "0" { print $3 }' /proc/self/cgroup)"
+        CGROUP_BASE="/sys/fs/cgroup${CGROUP_REL}"
+        for metric in memory.current memory.peak memory.high memory.max memory.swap.current memory.swap.peak memory.swap.max memory.events memory.pressure cpu.pressure; do
+          if [ -r "${CGROUP_BASE}/${metric}" ]; then
             printf '%s: ' "${metric}"
-            tr '\n' ' ' < "/sys/fs/cgroup/${metric}" || true
+            tr '\n' ' ' < "${CGROUP_BASE}/${metric}" || true
             printf '\n'
           fi
         done
+        grep -E '^(oom_kill|allocstall|pgmajfault|pswpin|pswpout) ' /proc/vmstat || true
         printf '%s\n' '-- top RSS processes --'
         ps -eo pid,ppid,rss,%mem,%cpu,stat,comm,args --sort=-rss | head -n 12 || true
       } | tee -a "$ART/resource-monitor.log"
