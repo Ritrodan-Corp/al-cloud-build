@@ -193,9 +193,10 @@ printf 'BUILD_BROKEN_DISABLE_BAZEL=%s\n' "$BUILD_BROKEN_DISABLE_BAZEL"
 # --soong-only preserves the product-config pass which seeds soong.variables,
 # then skips Kati generation and Kati Ninja so unrelated Android.mk modules are
 # not traversed. Normal Soong analysis and Ninja execution still validate this
-# Android.bp target; any missing dependency in vulkan.pastel's reachable graph
+# Android.bp target. --skip-soong-tests omits only Soong's own bootstrap test
+# actions; any missing dependency in vulkan.pastel's reachable graph still
 # becomes an error rule and stops the build.
-m --soong-only -j2 vulkan.pastel 2>&1 | tee "$ART/build.log"
+m --soong-only --skip-soong-tests -j2 vulkan.pastel 2>&1 | tee "$ART/build.log"
 set -u
 
 LIB=$(find "$OUT_DIR_BUILD" -type f \
