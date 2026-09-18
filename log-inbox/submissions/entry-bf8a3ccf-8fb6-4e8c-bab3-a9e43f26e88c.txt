@@ -1,0 +1,5 @@
+2026-09-17 PDT — Init-level LP4 login and NewMainUI PASS
+Workstream: direct Mesa llvmpipe Oracle performance optimization
+Action: Used the previously qualified opening-movie skip and saved-account login controls under the verified init-level LP_NUM_THREADS=4 configuration.
+Result/evidence: Guest PID 1647 remained stable. Unity logged saved-account login type 1, received cmd 10021, logged `user logined`, and loaded `NewMainUI(Clone)` at 04:39:39.919. No LuaJIT lightuserdata panic, destroyed-mutex, SIGABRT, SIGSEGV, ANR, or fatal-exception markers were observed.
+Interpretation/next: Let home settle, dismiss any post-login bulletin if present, then run the same no-stream 1280x720 SurfaceFlinger/CPU benchmark used for the default Mesa and ANGLE/Pastel comparisons.
