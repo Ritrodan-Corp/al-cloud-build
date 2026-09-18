@@ -157,6 +157,19 @@ PY
 grep -Fq 'BUILD_ID=UD2A.240505.001.W1' build/make/core/build_id.mk
 grep -Fq '$(call add_json_str,  BuildId,                           $(BUILD_ID))' \
   build/make/core/soong_config.mk
+
+# The selected partial PDK tree can emit unrelated duplicate final-Ninja rules
+# for absent Java/product modules such as core-icu4j. r45 hardcodes
+# dupbuild=err first, then appends NINJA_ARGS. Verify that pinned-source order
+# before using a target-scoped warning override.
+python3 - <<'PY'
+from pathlib import Path
+
+text = Path("build/soong/ui/build/ninja.go").read_text()
+hard = text.index('"-w", "dupbuild=err"')
+extra = text.index('cmd.Environment.Get("NINJA_ARGS")')
+assert hard < extra
+PY
 log_disk
 
 export OUT_DIR="$OUT_DIR_BUILD"
@@ -170,6 +183,8 @@ unset TARGET_BUILD_APPS || true
 export ALLOW_MISSING_DEPENDENCIES=true
 export SOONG_ALLOW_MISSING_DEPENDENCIES=true
 export BUILD_BROKEN_DISABLE_BAZEL=true
+export NINJA_ARGS='-w dupbuild=warn'
+export NINJA_ARGS='-w dupbuild=warn'
 
 # AOSP envsetup/lunch functions intentionally probe optional unset variables,
 # so nounset must be disabled while using the Android build environment.
@@ -185,9 +200,11 @@ export BUILD_BROKEN_DISABLE_BAZEL=true
 [ "$ALLOW_MISSING_DEPENDENCIES" = true ]
 [ "$SOONG_ALLOW_MISSING_DEPENDENCIES" = true ]
 [ "$BUILD_BROKEN_DISABLE_BAZEL" = true ]
+[ "$NINJA_ARGS" = '-w dupbuild=warn' ]
 printf 'ALLOW_MISSING_DEPENDENCIES=%s\n' "$ALLOW_MISSING_DEPENDENCIES"
 printf 'SOONG_ALLOW_MISSING_DEPENDENCIES=%s\n' "$SOONG_ALLOW_MISSING_DEPENDENCIES"
 printf 'BUILD_BROKEN_DISABLE_BAZEL=%s\n' "$BUILD_BROKEN_DISABLE_BAZEL"
+printf 'NINJA_ARGS=%s\n' "$NINJA_ARGS"
 
 # Keep compile parallelism conservative on the standard 15.6 GB hosted runner.
 # --soong-only preserves the product-config pass which seeds soong.variables,
