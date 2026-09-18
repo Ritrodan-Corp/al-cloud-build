@@ -1,0 +1,100 @@
+AzurPilot comparison / AL Cloud fork-selection review checkpoint, covering the repository-wide enumeration and all subsystem decisions made through the campaign/farming-core batch.
+
+Context and comparison basis:
+- AL Cloud is maintaining a selective ALAS fork rather than choosing ALAS or AzurPilot wholesale.
+- Comparison artifacts already committed on branch vm-control:
+  - docs/azurpilot-vs-alas-path-delta-2026-09-17.tsv
+  - docs/azurpilot-vs-alas-functional-delta-inventory-2026-09-17.md
+  - docs/azurpilot-vs-alas-subsystem-analysis-2026-09-17.md
+- Three-way comparison basis in those artifacts:
+  - common upstream last merged into AzurPilot: 46fe341db463aa82a3ee4dbdd3899042561dd7ec
+  - ALAS master at enumeration: 74e8231ae8f67fb52a22f2e594e39d68a43e255c
+  - AzurPilot dev pinned in the manifest: 44073045e56dec717a52b52c22f8f9cfe2c106b4
+- Path classification: AZURPILOT_ONLY 3,205; UPSTREAM_ONLY_SINCE_MERGE 10; BOTH_DIVERGED 33; total changed 3,248.
+- Functional inventory contains 94 subsystem sections. Current review method is to explain one subsystem batch concretely, decide Keep/Skip/Modify, then carry those decisions forward.
+
+Architecture decisions already settled:
+- Commission: adopt AzurPilot's planner as the canonical commission chooser rather than keeping the ALAS greedy chooser. LLM/supervisory policy may set value preferences; deterministic commission scheduling executes them.
+- Task priority configurator: skip. Maintain scheduler priority in the fork; expose a narrow structured reprioritization control later only if needed.
+- App-level NTP: skip. Trust synchronized Oracle host time; use monotonic clocks for elapsed durations/timeouts.
+- Long-idle shutdown/warm-up: keep capability conditionally. Initially keep ReDroid alive and measure runtime stability/resource use; allow stopping Azur Lane during long idle. Deeper ReDroid shutdown can be enabled later if measurements justify it. Browser/manual access is a wake condition.
+- Lifecycle ownership: ALAS must not privately own VM/game lifecycle. Build a shared AL Cloud lifecycle service for start/stop/restart ReDroid, start/stop Azur Lane, and lifecycle state.
+- Watchdog/recovery: adopt AzurPilot's persistent unattended-recovery philosophy but gate destructive/interactive recovery on control ownership. HUMAN or AGENT_MANUAL ownership supersedes automation recovery. Sensitive failures should become blocked/error states awaiting user/agent rather than blindly restarting forever.
+- Remote SSH emulator manager: skip as the primary mechanism; direct shared lifecycle control is cleaner for the Oracle/ReDroid topology.
+- Device/runtime hardening: selectively reuse generic ADB/health/recovery ideas; do not import Windows/MuMu-specific machinery as architecture.
+- Screenshot normalization: adopt and extend. Physical ReDroid framebuffer may be lower 16:9 resolution; normalize screenshots into canonical 1280x720 vision space and retune recognition thresholds where required.
+- Coordinate mapping: build a universal canonical-1280x720 to physical-ReDroid input transform.
+- Input/control: build one shared control surface used by ALAS automation, future agent manual tools, and browser streaming controller, with explicit single-owner arbitration.
+- OCR/image recognition: required. Use the improved AzurPilot OCR architecture where useful and qualify it for CPU-only Oracle ARM64/Linux operation.
+- PlayerPrefs/game settings: keep the safer transactional approach, but desired settings remain AL Cloud-configurable.
+- Server status: keep/simplify; use the official game gateway directly if reliable.
+- OnePush: skip. A future AL Cloud notification mechanism may be added, but notification failure must never block automation.
+- Backups: keep/generalize for durable AL Cloud config/state/statistics.
+- Debug video recorder: skip as a separate AzurPilot subsystem.
+- Resource/account-state cache: keep/expand into timestamped observations with freshness/source metadata.
+- Local reward/income statistics and daily summaries: keep as structured local data/dashboard history; no LLM-generated prose summary is required. Add export so the user can inspect income/resource history externally. External telemetry/upload is off by default.
+- Packaging/runtime modernization: keep a modern locked environment and useful CI; do not inherit public distribution/CDN/mirroring or runtime self-updating.
+- Logging: keep rotation/retention plus structured machine-readable error events.
+- AzurPilot memory profiler: use during fork qualification/longevity testing, not necessarily as permanent infrastructure.
+- AzurPilot embedded LLM crash analyzer: skip; future supervisory agent can analyze structured failures.
+- 4399-specific floating-button handler: skip.
+- AzurPilot AI-maintainer documentation tree: do not copy as a separate subsystem; AL Cloud canon is authoritative.
+- CI: retain useful import-smoke, generated-artifact consistency and relevant tests.
+- Public release/CDN/mirroring: skip.
+
+Gameplay decisions, first batch:
+- Research T projects: adopt AzurPilot's T-type Research/Commission coordination. T-project prerequisite commission counts should persist and Commission should wake Research when fulfilled.
+- S8 E-first Research presets: optional selectable policy, not architecture.
+- Tactical: adopt skill auto-switch so a maxed skill automatically hands the slot to another eligible skill on the same ship.
+- Dorm: use current upstream ALAS. Cherry-pick individual AP fixes only if testing proves they are needed.
+- Meowfficer overflow policy: adopt AP's separation. Normal box purchasing remains Meowfficer policy; excess-coin disposal is a broader resource policy.
+- Guild: adopt AP's safer supply/mission/exchange state handling; no strategy change.
+- Shops: adopt explicit per-shop enable controls, numeric General Shop coin-consumption threshold, and the Shop-to-Meowfficer overflow fallback. Item filters remain configurable AL Cloud policy.
+- Rewards: keep ALAS behavior; weekly mission collection should default true.
+
+Gameplay decisions, second batch:
+- Exercise: adopt AzurPilot's configurable delayed-execution window before the next server update.
+- Exercise equipment helper: do not import as a feature; current AP wiring is incomplete/commented.
+- Gacha: stay with current ALAS; cherry-pick AP reliability fixes only when testing demonstrates a need.
+- Daily: stay with current ALAS.
+- Hard: stay with current ALAS unless fleet-preparation validation becomes an actual problem during testing. Do not import the unwired auto-equipment scaffolding.
+- SOS: remove the obsolete SOS task/config/UI from AL Cloud because the EN client no longer has SOS maps.
+- War Archives: adopt AP broadly: persistent daily quota/Data-Key budget, autonomous clear progression, story prerequisite handling, target modes, and automatic event progression.
+- Generic Campaign: adopt the configurable upper coin-limit stop/delay. Skip AP's defeat-policy modes, oil hard-floor guard, fleet-preparation bypass, generic continuous-clear extension, and currently unwired generic recommended-fleet setting.
+
+Gameplay decisions, campaign/farming core:
+- Enhanced AP GemsFarming: do not broadly adopt the expanded ship-selection, emotion-first selection, level-range, equipment-code, high/low-level policy surface. The user's strategic concern is that this style of gem farming is inefficient for simultaneous EXP grinding. Keep the base ALAS capability if needed.
+- GemsFarming/Commission integration: keep the useful AP idea that Commission can delay GemsFarming-style urgent-commission generation when enough high-value commissions are already pending. Integrate this with the adopted AP commission planner as a deterministic reserve/delay policy without requiring the rest of AP's GemsFarming expansion.
+- Ambush11: omit entirely. 1-1 farming is less efficient than Clearing Mode World 12 for the user's goals, and ambush battles do not generate gem commissions.
+- ThreeOilLowCost: omit for the same strategic reason; although cheap to carry technically, it is another profile of the farming approach the user does not intend to use.
+- D3 three-Siren/three-battle withdrawal farming: skip for now; no remembered recent use case justifies carrying the event-specific strategy.
+- Advanced submarine YAML rules: skip; upstream ALAS simple submarine modes are sufficient.
+- Morale/combat accounting: adopt AP's improved system: continuous elapsed-time recovery accounting, Onsen bonus support where applicable, shipwreck deductions, and emergency correction when the real game reports low morale despite the model. Public/shared morale is useful where multiple tasks genuinely use the same physical fleet; implement it as shared AL Cloud/account fleet state rather than necessarily preserving AP's exact per-config representation.
+- Combat UI/theme/assets: upstream-first. Follow current ALAS recognition/assets and selectively take AP fixes demonstrated useful on the EN client.
+- Map detection/navigation: upstream-first. Keep the ALAS map engine and cherry-pick AP patches required by features we actually adopt or proven by EN/ReDroid testing. Do not wholesale import the high-churn AP map layer.
+
+Important corrections discovered during review:
+- Current upstream ALAS already contains Dorm food-buying machinery; this is not an AP-only upgrade.
+- Current upstream ALAS already has Merit Shop "buy unobtained ship" support; not an AP-only upgrade.
+- AP Exercise/Hard equipment helpers exist but are not active complete features in the pinned tree; calls are commented/unwired.
+- ThreeOilLowCost is not a separate farming algorithm; it invokes the same enhanced GemsFarming engine under another task/config namespace.
+- AP generic Campaign UseRecommendFleet appears generated/configured but no generic runtime consumer was established during review.
+- AP map changes are a broad accumulation of fixes/features, not a coherent replacement map-detection engine.
+
+Control/agent architecture carried forward:
+- Desired input ownership states include AUTOMATION, TAKEOVER_REQUESTED, HUMAN, RECONCILING, and AGENT_MANUAL as needed. One input owner; HUMAN wins.
+- Human takeover suspends automation input/recovery. Release requires reconciliation from fresh game state before returning to AUTOMATION.
+- Agent interface should expose narrow semantic operations/status/policy/lease controls, not raw shell/Python/arbitrary config/file access.
+- Existing browser streamer and future agent manual controls should use the same coordinate transform and input lease.
+- Routine ALAS scheduling remains continuous; the LLM should supervise policy/exceptions/reconciliation rather than manually trigger ordinary routine tasks.
+
+Next review point:
+- Continue the 94-section functional inventory after section 49.
+- Next normal-gameplay batch should cover sections 50-65: raid/event/coalition changes, Operation Handover, Maritime Escort, FleetInfo/fleet scanning, retirement/enhancement, equipment core and AutoEquip, Storage/BoxDisassemble, Awaken, Secretary, Shipyard, Private Quarters, Freebies, Minigame, and remaining game-settings changes.
+- After ordinary gameplay is finished, review OpSi sections 66-75, then Island sections 76-80, then WebUI/integration/development tooling and final cross-bucket dependency review.
+- Continue to display the running AL Cloud decision table at the very bottom of each substantive review response so it is not hidden behind reasoning/tool activity.
+
+Evidence references:
+- docs/azurpilot-vs-alas-path-delta-2026-09-17.tsv
+- docs/azurpilot-vs-alas-functional-delta-inventory-2026-09-17.md
+- docs/azurpilot-vs-alas-subsystem-analysis-2026-09-17.md
