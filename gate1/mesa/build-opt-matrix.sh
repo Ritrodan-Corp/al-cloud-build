@@ -3,7 +3,7 @@ set -euxo pipefail
 
 : "${VARIANT:?VARIANT must be set}"
 case "$VARIANT" in
-  ndebug|n1|llvm-release|thinlto) ;;
+  ndebug|n1|llvm-release|thinlto|jito3) ;;
   *) echo "Unknown VARIANT=$VARIANT" >&2; exit 2 ;;
 esac
 
@@ -140,6 +140,27 @@ test "$archive_count" -gt 20
 rm -rf "$ROOT/$LLVM_SRC_DIR" "$ROOT/$LLVM_BUILD_DIR" "$ROOT/llvm-project-19.1.7.src.tar.xz"
 
 MESA="$ROOT/$MESA_SRC_DIR"
+
+if [ "$VARIANT" = jito3 ]; then
+  JIT_SRC="$MESA/src/gallium/auxiliary/gallivm/lp_bld_init.c"
+  test -f "$JIT_SRC"
+  before_count=$(grep -c 'optlevel = Default;' "$JIT_SRC")
+  test "$before_count" -eq 1
+  python3 - "$JIT_SRC" <<'PY'
+import sys
+p=sys.argv[1]
+s=open(p).read()
+old='         optlevel = Default;'
+new='         optlevel = Aggressive;'
+assert s.count(old) == 1, s.count(old)
+open(p,'w').write(s.replace(old,new,1))
+PY
+  test "$(grep -c 'optlevel = Aggressive;' "$JIT_SRC")" -eq 1
+  test "$(grep -c 'optlevel = Default;' "$JIT_SRC")" -eq 0
+  echo 'jito3_patch=lp_bld_init.c normal MCJIT codegen Default(O2)->Aggressive(O3)'
+  grep -n -A8 -B5 'optlevel = Aggressive' "$JIT_SRC"
+fi
+
 mkdir -p "$MESA/subprojects/llvm"
 mapfile -t LLVM_LIBS < <(find "$LLVM_INSTALL/lib" -maxdepth 1 -type f -name 'libLLVM*.a' -printf '%f\n' | sed 's/\.a$//' | sort)
 test "${#LLVM_LIBS[@]}" -gt 20
@@ -202,6 +223,9 @@ find "$OUT/payload" -type f -print0 | sort -z | xargs -0 sha256sum > "$OUT/audit
   printf 'Cross C extras:'; printf ' %q' "${C_EXTRA[@]}"; echo
   printf 'Cross CXX extras:'; printf ' %q' "${CXX_EXTRA[@]}"; echo
   echo 'Runtime control required: init-level LP_NUM_THREADS=4'
+  if [ "$VARIANT" = jito3 ]; then
+    echo 'JIT source delta: lp_bld_init.c normal MCJIT codegen Default(O2)->Aggressive(O3)'
+  fi
   du -sh "$OUT/payload"
 } | tee "$OUT/audit/manifest.txt"
 
