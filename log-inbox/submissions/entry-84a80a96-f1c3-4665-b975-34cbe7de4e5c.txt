@@ -1,0 +1,5 @@
+2026-09-17 PDT — ReDroid init-level LP_NUM_THREADS=4 patch prepared
+Workstream: direct Mesa llvmpipe Oracle performance optimization
+Action: Captured the current image's `/vendor/etc/init/redroid.common.rc` and created a one-line LP4 variant for bind-mount injection at container boot.
+Result/evidence: Stock rc SHA-256: `1dcfaa8f226f59879e806d35f95450e38ae94499905455bce2c5ec2343c8185e`. LP4 rc SHA-256: `a54e084b332c08b77174ec4792655ba8e0f8f812d07936ad42d1a7170b24a3dd`. Exact diff adds only `export LP_NUM_THREADS 4` inside `on early-boot`, immediately before the existing `exec -- /vendor/bin/gpu_config.sh`. ReDroid's own comment identifies this action as `before HAL / SurfaceFlinger`.
+Interpretation/next: Build the next guarded Mesa wrapper from the known-good default wrapper, bind-mount this rc variant, and add hard evidence gates requiring LP_NUM_THREADS=4 to appear in SurfaceFlinger and game-process environments before any performance measurement.
