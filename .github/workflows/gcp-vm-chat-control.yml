@@ -7,42 +7,13 @@ on:
       - vm-control
     paths:
       - control/command.json
-      - log-inbox/submissions/entry-*.txt
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  detect:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 2
-    outputs:
-      lifecycle: ${{ steps.detect.outputs.lifecycle }}
-      log_intake: ${{ steps.detect.outputs.log_intake }}
-    steps:
-      - id: detect
-        name: Detect changed control surfaces
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          paths="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}" --jq '.files[].filename')"
-          lifecycle=false
-          log_intake=false
-          while IFS= read -r path; do
-            [[ -n "$path" ]] || continue
-            [[ "$path" == 'control/command.json' ]] && lifecycle=true
-            [[ "$path" == log-inbox/submissions/entry-*.txt ]] && log_intake=true
-          done <<<"$paths"
-          echo "lifecycle=${lifecycle}" >> "$GITHUB_OUTPUT"
-          echo "log_intake=${log_intake}" >> "$GITHUB_OUTPUT"
-          printf 'lifecycle=%s log_intake=%s\nchanged paths:\n%s\n' "$lifecycle" "$log_intake" "$paths"
-
   lifecycle:
-    needs: detect
-    if: needs.detect.outputs.lifecycle == 'true'
     concurrency:
       group: gcp-azl-android-arm64-01-lifecycle
       cancel-in-progress: false
@@ -319,74 +290,3 @@ jobs:
               ;;
           esac
 
-  log_drain:
-    needs: detect
-    if: needs.detect.outputs.log_intake == 'true'
-    concurrency:
-      group: al-cloud-log-drain
-      cancel-in-progress: false
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - id: auth
-        name: Authenticate centralized log writer with Workload Identity Federation
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
-        with:
-          project_id: project-97e3d26a-3ba2-4579-b03
-          workload_identity_provider: projects/137432928351/locations/global/workloadIdentityPools/alcloud-github/providers/alcloud-chat-control
-          service_account: alcloud-vm-lifecycle@project-97e3d26a-3ba2-4579-b03.iam.gserviceaccount.com
-          token_format: access_token
-          access_token_scopes: https://www.googleapis.com/auth/documents
-          create_credentials_file: true
-          export_environment_variables: true
-
-      - name: Install append dependencies
-        run: python3 -m pip install --disable-pip-version-check google-auth requests
-
-      - name: Drain immutable report submissions in Git commit order
-        shell: bash
-        env:
-          RAW_LOG_DOC_ID: 1s9VbzdPnA7nm-ogDP4X9gt2bghQ4mcKTVNVk1AiAiWg
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          files=(log-inbox/submissions/entry-*.txt)
-          if (( ${#files[@]} == 0 )); then
-            echo 'No immutable production log submissions found.'
-            exit 0
-          fi
-
-          tmp="$(mktemp)"
-          trap 'rm -f "$tmp"' EXIT
-          for file in "${files[@]}"; do
-            add_commit="$(git log --diff-filter=A --format='%H' -- "$file" | tail -n 1)"
-            [[ -n "$add_commit" ]] || { echo "Cannot find creation commit for $file" >&2; exit 1; }
-            ordinal="$(git rev-list --count "$add_commit")"
-            printf '%012d\t%s\t%s\n' "$ordinal" "$add_commit" "$file" >> "$tmp"
-          done
-
-          sort -n -k1,1 -k3,3 "$tmp" | while IFS=$'\t' read -r ordinal add_commit file; do
-            body="$(cat "$file")"
-            [[ -n "${body//[[:space:]]/}" ]] || { echo "Empty report: $file" >&2; exit 1; }
-            created_at="$(git show -s --format='%cI' "$add_commit")"
-            submission_name="${file#log-inbox/submissions/}"
-            submission_name="${submission_name%.txt}"
-            step="$(printf '%s\n' "$body" | sed -n '/[^[:space:]]/ { s/^[[:space:]]*//; s/[[:space:]]*$//; p; q; }' | cut -c1-120)"
-            [[ -n "$step" ]] || step='Agent operational report'
-
-            echo "Draining $file (order=$ordinal)"
-            entry_id="$({ printf '%s' "$body"; } | python3 tools/al-log-append.py \
-              --document-id "$RAW_LOG_DOC_ID" \
-              --workstream 'Agent operational report' \
-              --step "$step" \
-              --action 'Submitted through the immutable GitHub log inbox.' \
-              --result-stdin \
-              --next 'Continue from this report; later substantive findings use a new immutable submission.' \
-              --timestamp "$created_at" \
-              --submission-id "github-file:${submission_name}")"
-            echo "$file -> $entry_id"
-          done
