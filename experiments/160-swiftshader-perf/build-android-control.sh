@@ -129,6 +129,12 @@ grep -Fq 'ctx.SetAllowMissingDependencies(ctx.Config().AllowMissingDependencies(
 # analysis path. Verify the pinned source has that mechanism before using it.
 grep -Fq 'IsBazelMixedBuildForceDisabled' build/soong/ui/build/config.go
 grep -Fq 'BUILD_BROKEN_DISABLE_BAZEL' build/soong/ui/build/config.go
+
+# vulkan.pastel is a Soong module. Do not invoke legacy Make/Kati for this
+# control build: the broad PDK checkout contains unrelated Android.mk tests
+# whose optional source closures are intentionally absent. r45's Soong driver
+# must explicitly support --skip-make before we rely on this narrow path.
+grep -Fq 'arg == "--skip-make"' build/soong/ui/build/config.go
 log_disk
 
 export OUT_DIR="$OUT_DIR_BUILD"
@@ -162,9 +168,11 @@ printf 'SOONG_ALLOW_MISSING_DEPENDENCIES=%s\n' "$SOONG_ALLOW_MISSING_DEPENDENCIE
 printf 'BUILD_BROKEN_DISABLE_BAZEL=%s\n' "$BUILD_BROKEN_DISABLE_BAZEL"
 
 # Keep compile parallelism conservative on the standard 15.6 GB hosted runner.
-# Building only this target remains the validation: any missing dependency in
-# vulkan.pastel's reachable graph becomes an error rule and stops the build.
-m -j2 vulkan.pastel 2>&1 | tee "$ART/build.log"
+# --skip-make prevents Kati from traversing unrelated Android.mk modules while
+# retaining normal Soong analysis and Ninja execution for this Android.bp
+# target. Any missing dependency in vulkan.pastel's reachable Soong graph still
+# becomes an error rule and stops the build.
+m --skip-make -j2 vulkan.pastel 2>&1 | tee "$ART/build.log"
 set -u
 
 LIB=$(find "$OUT_DIR_BUILD" -type f \
