@@ -1,0 +1,5 @@
+2026-09-17 PDT — Mesa LP4 early worker check
+Workstream: direct Mesa llvmpipe Oracle performance optimization
+Action: Inspected host-side game threads immediately after LP4 SESSION_READY.
+Result/evidence: Host game process PID 205634 had 186 threads. `UnityGfxDeviceW` and eight `TaskDistributor` threads were present, but no thread name matching llvmpipe/LLVM/raster workers was observed. Thread affinity remained mixed: 94 threads allowed CPUs 0-3 and 92 threads pinned to CPU 3; the thread-group leader itself remained pinned to CPU 3. Aggregate process CPU during this early startup phase was about 95%, i.e. roughly one core. Attempted direct Docker /proc environment inspection from RDC, but the unprivileged RDC shell cannot access /var/run/docker.sock, so that path could not verify propagation.
+Interpretation/next: Determine from inside Android whether LP_NUM_THREADS=4 reached the game and SurfaceFlinger process environments. If the variable is absent, change the injection point rather than benchmarking a no-op Docker environment override.
