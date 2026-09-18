@@ -1,0 +1,5 @@
+2026-09-17 PDT — Gate 1/2 Mesa artifact availability preflight
+Workstream: direct Mesa llvmpipe re-test preparation
+Action: Searched public web indexing, GitHub workflow-artifact metadata, repository branch state, and the canonical project references for the original Gate 1/2 Mesa bundle before any VM start.
+Result/evidence: GitHub Actions run 34679292175 still reports artifact mesa-25.0.0-android-arm64-llvmpipe, artifact ID 10293277457, size 117743092 bytes, digest sha256:82815600a5edb0c497c891d0841dd5e8d7e7e5ca6f4ed1cd1e233c8304fe5ed3, but the artifact is expired. Public web search found no indexed copy. Branch gate1-mesa remains present and the artifact metadata records head SHA 11ce624068e936d076b9d5817e78db4aff14021d, so source provenance remains recoverable. Both Oracle and GCP RDC devices were offline at this checkpoint, so preserved host-side copies had not yet been searched.
+Interpretation/next: Start the stopped GCP reference VM only long enough to search known Mesa/build/evidence locations for a preserved exact bundle or deployed payload. If none exists, rebuild from the pinned gate1-mesa source and re-audit before Oracle deployment.
