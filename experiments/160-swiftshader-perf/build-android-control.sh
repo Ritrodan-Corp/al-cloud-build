@@ -418,6 +418,35 @@ printf 'SOONG_ALLOW_MISSING_DEPENDENCIES=%s\n' "$SOONG_ALLOW_MISSING_DEPENDENCIE
 printf 'BUILD_BROKEN_DISABLE_BAZEL=%s\n' "$BUILD_BROKEN_DISABLE_BAZEL"
 printf 'NINJA_ARGS=%s\n' "$NINJA_ARGS"
 
+# Optional diagnostics for hosted-runner shutdown investigation. The final
+# soong_build Android.bp analysis is one Go process and is not bounded by
+# Ninja's -j value. Print low-frequency host/cgroup memory and top-RSS process
+# telemetry to both the Actions log and the artifact directory so an exit-143
+# runner loss can be distinguished from memory pressure.
+DIAG_PID=''
+if [ "${PASTEL_DIAGNOSTICS:-0}" = 1 ]; then
+  (
+    while :; do
+      {
+        printf '\n== pastel resource telemetry %s ==\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree):' /proc/meminfo || true
+        for metric in memory.current memory.peak memory.max memory.swap.current memory.swap.max memory.events; do
+          if [ -r "/sys/fs/cgroup/${metric}" ]; then
+            printf '%s: ' "${metric}"
+            tr '\n' ' ' < "/sys/fs/cgroup/${metric}" || true
+            printf '\n'
+          fi
+        done
+        printf '%s\n' '-- top RSS processes --'
+        ps -eo pid,ppid,rss,%mem,%cpu,stat,comm,args --sort=-rss | head -n 12 || true
+      } | tee -a "$ART/resource-monitor.log"
+      sleep 20
+    done
+  ) &
+  DIAG_PID=$!
+  trap 'if [ -n "$DIAG_PID" ]; then kill "$DIAG_PID" 2>/dev/null || true; wait "$DIAG_PID" 2>/dev/null || true; fi' EXIT
+fi
+
 # Keep compile parallelism conservative on the standard 15.6 GB hosted runner.
 # --soong-only preserves the product-config pass which seeds soong.variables,
 # then skips Kati generation and Kati Ninja so unrelated Android.mk modules are
