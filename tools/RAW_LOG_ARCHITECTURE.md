@@ -4,7 +4,7 @@ The canonical project Google Doc contains curated current state and durable tech
 
 ## Canonical raw-log surfaces
 
-- Historical chronology through `R000566`: legacy Google Drive document `AL Cloud Raw Log`. Treat it as read-only historical source material.
+- Historical chronology through `R000604`: legacy Google Drive document `AL Cloud Raw Log`. Treat it as read-only historical source material.
 - Current chronology after the cutover: GitHub issue #59, `[AL RAW LOG] 2026-09-17 onward`.
 - No new `RNNNNNN` identifiers are created after the cutover.
 - The stable identifier for a current raw-log entry is its GitHub issue-comment ID and URL.
@@ -92,6 +92,6 @@ The previous normal path is retired:
 
 The associated workflow/helper code may remain in the repository as historical or maintenance infrastructure until deliberately removed, but agents must not use it for normal logging.
 
-The legacy Drive raw log remains historical evidence through `R000566`; it is no longer the active operational chronology.
+The legacy Drive raw log remains historical evidence through `R000604`; it is no longer the active operational chronology.
 
 GitHub is now the source of truth for current raw operational chronology. Google Drive remains the source of truth for the curated AL Cloud running progress document.
