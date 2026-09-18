@@ -1,0 +1,5 @@
+2026-09-17 PDT — Init-level LP_NUM_THREADS=4 successfully activates four llvmpipe workers
+Workstream: direct Mesa llvmpipe Oracle performance optimization
+Action: Verified the init-level LP_NUM_THREADS=4 injection after SESSION_READY, then sampled host per-thread CPU deltas for eight seconds before any home-scene benchmark.
+Result/evidence: Wrapper hard gates passed: `surfaceflinger_lp_num_threads=4` and `game_lp_num_threads=4`. Host game process PID 213006 had 198 threads. Four explicit renderer workers appeared: llvmpipe-0 through llvmpipe-3, all allowed CPUs 0-3. Over 8.009 s they consumed 733, 732, 728, and 728 ticks respectively, about 91.5%, 91.4%, 90.9%, and 90.9% of one core each. UnityGfxDeviceW fell to about 3.1% CPU. Aggregate game-process CPU was about 375.1% and total system busy was 95.7%.
+Interpretation/next: This is the first valid four-core direct-Mesa configuration. The previous Docker-level LP_NUM_THREADS=4 attempt was a propagation no-op for Mesa-loaded Android processes. Continue through the already-qualified login path and take the same matched 1280x720 no-stream home SurfaceFlinger benchmark before changing any other variable.
