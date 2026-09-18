@@ -1,0 +1,30 @@
+name: SwiftShader Android 14 Pastel control run 17
+
+on:
+  push:
+    branches:
+      - vm-control
+    paths:
+      - .github/workflows/swiftshader-perf-control-run17.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build stock Android 14 r45 Pastel control with Soong self-tests skipped
+        run: bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Upload Pastel control artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-pastel-android14-r45-stock-control-run17
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 1
