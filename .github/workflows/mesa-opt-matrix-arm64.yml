@@ -1,9 +1,9 @@
-name: Mesa Optimization Matrix ARM64
+name: Mesa JIT O3 ARM64
 
 on:
   push:
     branches:
-      - mesa-opt-matrix-20260917
+      - mesa-jit-o3-20260918
     paths:
       - '.github/workflows/mesa-opt-matrix-arm64.yml'
       - 'gate1/mesa/build-opt-matrix.sh'
@@ -19,13 +19,10 @@ jobs:
     timeout-minutes: 180
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 1
       matrix:
         variant:
-          - ndebug
-          - n1
-          - llvm-release
-          - thinlto
+          - jito3
     env:
       VARIANT: ${{ matrix.variant }}
     steps:
