@@ -1,0 +1,5 @@
+2026-09-17 PDT — Canonical Mesa requalification state updated
+Workstream: project state / direct Mesa llvmpipe
+Action: Updated and verified the Running Progress Log after the Oracle Mesa requalification. Project State now records the clean Gate 1/2 Mesa control as the primary renderer-performance lane after its 90-second Oracle compatibility pass; Technical Reference records exact renderer identity, launch timing, PID/map evidence, low-VA ceilings, absence of historical fatal signatures, and successful ANGLE/Pastel restore; Experiment History now includes an Oracle direct-Mesa initial compatibility pass entry while explicitly leaving sustained gameplay and matched performance open.
+Result/evidence: Readback at document revision ANLCKQkys2mZPZSsO45f1QfgXdwGYuUndP0Fza2s1QlHLpzV2aKZzwnzuMz_5ksNmeB0tFrjlG7qLfc0k9wjQZzAkENIxewMWzikQJXpXneF confirms all three targeted surfaces. No objectives text was changed and the Pastel control-build history remains preserved as fallback context.
+Interpretation/next: Next renderer step should be a matched 1280x720 Mesa performance/gameplay session using the exact qualified control before any optimized rebuild.
