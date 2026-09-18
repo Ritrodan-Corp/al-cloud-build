@@ -1,0 +1,5 @@
+2026-09-17 PDT — Mesa LP4 override is ineffective at game render stage
+Workstream: direct Mesa llvmpipe Oracle performance optimization
+Action: Measured host per-thread CPU deltas for eight seconds under the LP_NUM_THREADS=4 A/B immediately after SESSION_READY.
+Result/evidence: Over 8.007 s, system CPU busy was 26.1%. `UnityGfxDeviceW` consumed 795 ticks, about 99.3% of one core. UnityMain consumed 9 ticks (~1.1%); other sampled threads were negligible. Total tick delta corresponds to about 102.4% process CPU. No four-core raster workload appeared. The process had more total threads than the prior default run, but the rendering work remained effectively single-threaded.
+Interpretation/next: Do not treat the Docker `-e LP_NUM_THREADS=4` run as a valid four-core performance test. Trace the ReDroid/Android process environment and Mesa initialization path, then inject LP_NUM_THREADS where the app/SF Mesa loader actually sees it. Preserve all other variables.
