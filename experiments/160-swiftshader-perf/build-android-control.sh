@@ -197,6 +197,119 @@ PY
     git -C external/swiftshader diff -- src/Android.bp \
       > "$ART/swiftshader-variant.patch"
     ;;
+  raster-pitch-precompute)
+    python3 - <<'PY'
+from pathlib import Path
+
+path = Path("external/swiftshader/src/Device/QuadRasterizer.cpp")
+text = path.read_text()
+
+old_decl = '''\tPointer<Byte> cBuffer[MAX_COLOR_BUFFERS];
+\tPointer<Byte> zBuffer;
+\tPointer<Byte> sBuffer;
+
+\tInt clusterCountLog2 = 31 - Ctlz(UInt(clusterCount), false);'''
+new_decl = '''\tPointer<Byte> cBuffer[MAX_COLOR_BUFFERS];
+\tPointer<Byte> zBuffer;
+\tPointer<Byte> sBuffer;
+\tInt cBufferStride[MAX_COLOR_BUFFERS];
+\tInt zBufferStride;
+\tInt sBufferStride;
+
+\tInt clusterCountLog2 = 31 - Ctlz(UInt(clusterCount), false);
+\tInt clusterPitchShift = 1 + clusterCountLog2;'''
+assert text.count(old_decl) == 1
+text = text.replace(old_decl, new_decl)
+
+old_color = '''\t\tif(state.colorWriteActive(index))
+\t\t{
+\t\t\tcBuffer[index] = *Pointer<Pointer<Byte>>(data + OFFSET(DrawData, colorBuffer[index])) + yMin * *Pointer<Int>(data + OFFSET(DrawData, colorPitchB[index]));
+\t\t}'''
+new_color = '''\t\tif(state.colorWriteActive(index))
+\t\t{
+\t\t\tInt pitch = *Pointer<Int>(data + OFFSET(DrawData, colorPitchB[index]));
+\t\t\tcBuffer[index] = *Pointer<Pointer<Byte>>(data + OFFSET(DrawData, colorBuffer[index])) + yMin * pitch;
+\t\t\tcBufferStride[index] = pitch << clusterPitchShift;
+\t\t}'''
+assert text.count(old_color) == 1
+text = text.replace(old_color, new_color)
+
+old_depth = '''\tif(state.depthTestActive || state.depthBoundsTestActive)
+\t{
+\t\tzBuffer = *Pointer<Pointer<Byte>>(data + OFFSET(DrawData, depthBuffer)) + yMin * *Pointer<Int>(data + OFFSET(DrawData, depthPitchB));
+\t}'''
+new_depth = '''\tif(state.depthTestActive || state.depthBoundsTestActive)
+\t{
+\t\tInt pitch = *Pointer<Int>(data + OFFSET(DrawData, depthPitchB));
+\t\tzBuffer = *Pointer<Pointer<Byte>>(data + OFFSET(DrawData, depthBuffer)) + yMin * pitch;
+\t\tzBufferStride = pitch << clusterPitchShift;
+\t}'''
+assert text.count(old_depth) == 1
+text = text.replace(old_depth, new_depth)
+
+old_stencil = '''\tif(state.stencilActive)
+\t{
+\t\tsBuffer = *Pointer<Pointer<Byte>>(data + OFFSET(DrawData, stencilBuffer)) + yMin * *Pointer<Int>(data + OFFSET(DrawData, stencilPitchB));
+\t}'''
+new_stencil = '''\tif(state.stencilActive)
+\t{
+\t\tInt pitch = *Pointer<Int>(data + OFFSET(DrawData, stencilPitchB));
+\t\tsBuffer = *Pointer<Pointer<Byte>>(data + OFFSET(DrawData, stencilBuffer)) + yMin * pitch;
+\t\tsBufferStride = pitch << clusterPitchShift;
+\t}'''
+assert text.count(old_stencil) == 1
+text = text.replace(old_stencil, new_stencil)
+
+old_updates = '''\t\tfor(int index = 0; index < MAX_COLOR_BUFFERS; index++)
+\t\t{
+\t\t\tif(state.colorWriteActive(index))
+\t\t\t{
+\t\t\t\tcBuffer[index] += *Pointer<Int>(data + OFFSET(DrawData, colorPitchB[index])) << (1 + clusterCountLog2);  // FIXME: Precompute
+\t\t\t}
+\t\t}
+
+\t\tif(state.depthTestActive || state.depthBoundsTestActive)
+\t\t{
+\t\t\tzBuffer += *Pointer<Int>(data + OFFSET(DrawData, depthPitchB)) << (1 + clusterCountLog2);  // FIXME: Precompute
+\t\t}
+
+\t\tif(state.stencilActive)
+\t\t{
+\t\t\tsBuffer += *Pointer<Int>(data + OFFSET(DrawData, stencilPitchB)) << (1 + clusterCountLog2);  // FIXME: Precompute
+\t\t}'''
+new_updates = '''\t\tfor(int index = 0; index < MAX_COLOR_BUFFERS; index++)
+\t\t{
+\t\t\tif(state.colorWriteActive(index))
+\t\t\t{
+\t\t\t\tcBuffer[index] += cBufferStride[index];
+\t\t\t}
+\t\t}
+
+\t\tif(state.depthTestActive || state.depthBoundsTestActive)
+\t\t{
+\t\t\tzBuffer += zBufferStride;
+\t\t}
+
+\t\tif(state.stencilActive)
+\t\t{
+\t\t\tsBuffer += sBufferStride;
+\t\t}'''
+assert text.count(old_updates) == 1
+text = text.replace(old_updates, new_updates)
+
+path.write_text(text)
+PY
+    test "$(grep -c 'FIXME: Precompute' external/swiftshader/src/Device/QuadRasterizer.cpp)" -eq 0
+    grep -Fq 'cBuffer[index] += cBufferStride[index];' \
+      external/swiftshader/src/Device/QuadRasterizer.cpp
+    grep -Fq 'zBuffer += zBufferStride;' \
+      external/swiftshader/src/Device/QuadRasterizer.cpp
+    grep -Fq 'sBuffer += sBufferStride;' \
+      external/swiftshader/src/Device/QuadRasterizer.cpp
+    VARIANT_DESC='precompute invariant color/depth/stencil cluster row strides in QuadRasterizer'
+    git -C external/swiftshader diff -- src/Device/QuadRasterizer.cpp \
+      > "$ART/swiftshader-variant.patch"
+    ;;
   *)
     echo "Unsupported PASTEL_VARIANT: $PASTEL_VARIANT" >&2
     exit 2
