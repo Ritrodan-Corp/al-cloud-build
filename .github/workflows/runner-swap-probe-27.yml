@@ -1,0 +1,31 @@
+name: GitHub hosted runner swap probe 27
+
+on:
+  push:
+    branches:
+      - vm-control
+    paths:
+      - .github/workflows/runner-swap-probe-27.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Test temporary swapfile
+        shell: bash
+        run: |
+          set -euxo pipefail
+          free -h
+          sudo fallocate -l 512M /tmp/alcloud-swap-probe
+          sudo chmod 600 /tmp/alcloud-swap-probe
+          sudo mkswap /tmp/alcloud-swap-probe
+          sudo swapon /tmp/alcloud-swap-probe
+          free -h
+          swapon --show
+          sudo swapoff /tmp/alcloud-swap-probe
+          sudo rm -f /tmp/alcloud-swap-probe
+          free -h
