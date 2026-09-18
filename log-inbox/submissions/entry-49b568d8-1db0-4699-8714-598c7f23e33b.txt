@@ -1,0 +1,5 @@
+2026-09-17 PDT — Ineffective Docker-level LP4 A/B closed and restored
+Workstream: direct Mesa llvmpipe Oracle performance optimization
+Action: Closed the LP_NUM_THREADS=4 Docker-environment A/B after proving rendering remained single-threaded, then verified automatic rollback.
+Result/evidence: Session log recorded `MESA_LP4_SESSION_PASS`, restore start at 04:34:15Z rc=0, `restored egl=angle vulkan=pastel`, persistent `/var/lib/alcloud-redroid/data -> /data`, and `RESTORE_PASS` at 04:34:45Z. At 04:34:59Z no LP4 wrapper process remained; Android reported boot_completed=1, egl=angle, vulkan=pastel, physical size 1280x720.
+Interpretation/next: Stage an init-level LP_NUM_THREADS=4 injection in `on early-boot`, before HAL/SurfaceFlinger and before zygote-started apps, then repeat only the worker/core-use discriminator first.
