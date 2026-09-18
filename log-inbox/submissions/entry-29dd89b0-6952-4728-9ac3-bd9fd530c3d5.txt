@@ -1,0 +1,5 @@
+2026-09-17 PDT — Mesa LP4 SESSION_READY
+Workstream: direct Mesa llvmpipe Oracle performance optimization
+Action: Waited for the LP_NUM_THREADS=4 A/B to finish Android/Mesa qualification and launch Azur Lane.
+Result/evidence: At 2026-09-18T04:31:45Z the wrapper reported `SESSION_READY pid=1617`. Android reported boot_completed=1 and ro.hardware.egl=mesa. SurfaceFlinger renderer identity was exactly `GLES: Mesa, llvmpipe (LLVM 19.1.7, 128 bits), OpenGL ES 3.2 Mesa 25.0.0`. Cold MainActivity launch reported TotalTime 458 ms / WaitTime 462 ms.
+Interpretation/next: Verify that LP_NUM_THREADS=4 actually creates llvmpipe raster workers and raises multicore CPU use before measuring FPS or treating the override as effective.
