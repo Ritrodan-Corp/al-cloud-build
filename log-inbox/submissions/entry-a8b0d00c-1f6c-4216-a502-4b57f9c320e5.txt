@@ -1,0 +1,5 @@
+2026-09-17 PDT — Oracle direct-Mesa re-test manual launch clarification
+Workstream: direct Mesa llvmpipe Oracle re-test
+Action: After the attempted manual launch, verified Oracle state through RDC and interpreted the user-provided terminal screenshot.
+Result/evidence: The command was entered at the local Windows PowerShell prompt after the SSH session had already been exited; Windows therefore rejected sudo as unavailable. On Oracle, no mesa-oracle-test log or evidence directory exists, confirming the guarded Mesa wrapper never started. Android still reports ro.hardware.egl=angle and ro.hardware.vulkan=pastel, so the normal baseline is intact and no renderer/container mutation occurred.
+Interpretation/next: Re-enter the existing Tailscale SSH session to alcloud-a1-01 and run the single guarded command inside the Ubuntu shell, or invoke it directly through ssh -t from PowerShell.
