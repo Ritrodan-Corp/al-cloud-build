@@ -1,0 +1,5 @@
+2026-09-17 PDT — Mesa performance/menu qualification methodology fixed
+Workstream: direct Mesa llvmpipe Oracle performance qualification
+Action: Re-read the Oracle performance evidence before staging a Mesa benchmark so the comparison uses the same established methodology rather than a new metric.
+Result/evidence: The matched no-stream logged-in home baseline is 16.106 FPS at physical 1280x720@30 from 127 SurfaceFlinger presentation timestamps spanning 7.823 s; mean interval 62.087 ms, median 61.400 ms, min 59.784 ms, max 72.769 ms. The 60-Hz discriminator used the same home scene and timestamp method plus host CPU sampling. Browser H.264 streaming was inactive. Current Oracle runtime remains booted at 1280x720 with egl=angle and vulkan=pastel.
+Interpretation/next: Stage a guarded Mesa session that preserves the exact Gate 1/2 control, keeps 1280x720@30 and persistent /data fixed, launches the official client, provides a bounded interaction window for saved-login/home/menu checks, captures the same SurfaceFlinger timestamp metric and CPU data on the logged-in home scene, then restores the original ANGLE/Pastel container. Combat is explicitly excluded.
