@@ -1,0 +1,32 @@
+name: SwiftShader Android 14 Pastel AOT N1 run 21
+
+on:
+  push:
+    branches:
+      - vm-control
+    paths:
+      - .github/workflows/swiftshader-perf-aot-n1-run21.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-aot-n1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: aot-neoverse-n1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Android 14 r45 Pastel with AOT Neoverse N1 targeting
+        run: bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Upload Pastel AOT N1 artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-pastel-android14-r45-aot-neoverse-n1-run21
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 1
