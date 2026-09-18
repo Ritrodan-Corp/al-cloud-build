@@ -1,0 +1,34 @@
+name: SwiftShader Android 14 Pastel JIT N1 swap run 28
+
+on:
+  push:
+    branches:
+      - vm-control
+    paths:
+      - .github/workflows/swiftshader-pastel-jit-n1-swap-run28.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-jit-n1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: jit-neoverse-n1
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Android 14 r45 Pastel with Neoverse N1 JIT target and extra swap
+        run: bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Upload Pastel JIT N1 artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-pastel-android14-r45-jit-neoverse-n1-swap-run28
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 1
