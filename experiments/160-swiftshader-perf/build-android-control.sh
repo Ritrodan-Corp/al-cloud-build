@@ -124,6 +124,31 @@ PY
     VARIANT_DESC='Reactor JIT CPU forced to LLVM 10 neoverse-n1 processor model'
     git -C external/swiftshader diff -- src/Reactor/LLVMJIT.cpp | tee "$ART/swiftshader-variant.patch"
     ;;
+  marl-worker-race)
+    MARL_PATCH="$ART/marl-worker-race.patch"
+    curl -LfsS \
+      https://github.com/google/marl/commit/535d49182e6c87e4d999ac25f61c729a66687be8.patch \
+      -o "$MARL_PATCH"
+    printf '%s  %s\n' \
+      '3a1463dcc62c581fae2787fd4ba21dfedf2f27f1babc0143b7e973e610ba1b64' \
+      "$MARL_PATCH" | sha256sum -c -
+    git -C external/swiftshader apply --check \
+      --directory=third_party/marl "$MARL_PATCH"
+    git -C external/swiftshader apply \
+      --directory=third_party/marl "$MARL_PATCH"
+    grep -Fq 'void spinForWorkAndLock() ACQUIRE(work.mutex);' \
+      external/swiftshader/third_party/marl/include/marl/scheduler.h
+    grep -Fq 'nextSpinningWorkerIdx % cfg.workerThread.count' \
+      external/swiftshader/third_party/marl/src/scheduler.cpp
+    grep -Fq 'void Scheduler::Worker::spinForWorkAndLock()' \
+      external/swiftshader/third_party/marl/src/scheduler.cpp
+    VARIANT_DESC='upstream Marl 535d49182 worker sleep-race fix'
+    git -C external/swiftshader diff -- \
+      third_party/marl/include/marl/scheduler.h \
+      third_party/marl/src/scheduler.cpp \
+      third_party/marl/src/scheduler_bench.cpp \
+      > "$ART/swiftshader-variant.patch"
+    ;;
   *)
     echo "Unsupported PASTEL_VARIANT: $PASTEL_VARIANT" >&2
     exit 2
