@@ -418,6 +418,32 @@ printf 'SOONG_ALLOW_MISSING_DEPENDENCIES=%s\n' "$SOONG_ALLOW_MISSING_DEPENDENCIE
 printf 'BUILD_BROKEN_DISABLE_BAZEL=%s\n' "$BUILD_BROKEN_DISABLE_BAZEL"
 printf 'NINJA_ARGS=%s\n' "$NINJA_ARGS"
 
+# The final r45 soong_build Android.bp analysis can consume ~14 GB RSS on the
+# standard 15.6 GB GitHub-hosted runner and nearly exhaust its default 3 GB
+# swap. Allow selected retries to add temporary swap without changing normal
+# builds. Keep enough root-disk headroom for the final target Ninja outputs.
+EXTRA_SWAP_GB="${PASTEL_EXTRA_SWAP_GB:-0}"
+if ! [[ "$EXTRA_SWAP_GB" =~ ^[0-9]+$ ]] || [ "$EXTRA_SWAP_GB" -gt 12 ]; then
+  echo "PASTEL_EXTRA_SWAP_GB must be an integer from 0 through 12" >&2
+  exit 2
+fi
+if [ "$EXTRA_SWAP_GB" -gt 0 ]; then
+  SWAPFILE="${RUNNER_TEMP}/alcloud-pastel-${EXTRA_SWAP_GB}g.swap"
+  AVAILABLE_KB="$(df -Pk / | awk 'NR == 2 { print $4 }')"
+  REQUIRED_KB="$(( (EXTRA_SWAP_GB + 10) * 1024 * 1024 ))"
+  if [ "$AVAILABLE_KB" -lt "$REQUIRED_KB" ]; then
+    echo "Refusing extra swap: need ${EXTRA_SWAP_GB} GiB plus 10 GiB disk headroom" >&2
+    exit 1
+  fi
+  sudo fallocate -l "${EXTRA_SWAP_GB}G" "$SWAPFILE"
+  sudo chmod 600 "$SWAPFILE"
+  sudo mkswap "$SWAPFILE"
+  sudo swapon "$SWAPFILE"
+  printf 'PASTEL_EXTRA_SWAP_GB=%s\n' "$EXTRA_SWAP_GB"
+  free -h
+  swapon --show
+fi
+
 # Optional diagnostics for hosted-runner shutdown investigation. The final
 # soong_build Android.bp analysis is one Go process and is not bounded by
 # Ninja's -j value. Print low-frequency host/cgroup memory and top-RSS process
@@ -484,6 +510,7 @@ Variant: ${PASTEL_VARIANT} - ${VARIANT_DESC}
 Source closure: Android 14 r45 platform manifest groups pdk,path:packages/modules/common,-darwin on Linux
 Global partial graph mode: ALLOW_MISSING_DEPENDENCIES=true
 Mixed Bazel analysis: disabled with BUILD_BROKEN_DISABLE_BAZEL=true
+Additional hosted-runner swap: ${EXTRA_SWAP_GB} GiB
 Target validation: vulkan.pastel and its reachable dependency graph must build successfully
 Live target path: /vendor/lib64/hw/vulkan.pastel.so
 Live SHA-256 reference: 67c210363a565a8a9376c4e6ddaa349f79e2aa08828c9a2151f18aa932398f90
