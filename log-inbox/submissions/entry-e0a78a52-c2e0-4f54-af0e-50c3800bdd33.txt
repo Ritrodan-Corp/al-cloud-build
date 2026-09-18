@@ -1,0 +1,5 @@
+2026-09-17 PDT — Init-level four-core Mesa warm home benchmark: 15.556 FPS
+Workstream: direct Mesa llvmpipe Oracle performance optimization
+Action: Left the verified four-core NewMainUI home scene warm, then repeated the matched no-stream SurfaceFlinger/CPU benchmark.
+Result/evidence: Warm repeat produced 127 unique presentation timestamps spanning 8.100 s: 15.556 FPS, mean interval 64.286 ms, median 66.667 ms, min 33.333 ms, max 100.000 ms. Host game-process CPU averaged 367.4% (360.9-370.9%) and total system busy averaged 93.4% (92.4-94.0%). This is consistent with the first init-level LP4 sample at 15.242 FPS and remains close to, but below, the 16.106 FPS ANGLE/Pastel baseline.
+Interpretation/next: Four-core llvmpipe performance is reproducibly around 15.2-15.6 FPS on the matched home scene, roughly 3-5% below ANGLE/Pastel depending on sample. Close the guarded session and restore baseline. Future Mesa tuning should preserve this init-level LP_NUM_THREADS=4 path as the four-core control.
