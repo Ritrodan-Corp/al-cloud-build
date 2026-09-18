@@ -1,0 +1,150 @@
+AzurPilot comparison review through gameplay batch 2 — consolidated state and handoff
+
+Scope and comparison baseline
+- AL Cloud is not choosing between whole ALAS and whole AzurPilot repositories. The maintained AL Cloud fork will selectively adopt/adapt/ignore AzurPilot deltas while continuing to track upstream ALAS.
+- Pinned comparison baseline used for the complete repository inventory:
+  - common upstream commit last merged into AP: 46fe341db463aa82a3ee4dbdd3899042561dd7ec
+  - ALAS master at enumeration: 74e8231ae8f67fb52a22f2e594e39d68a43e255c
+  - AP dev pinned in manifest: 44073045e56dec717a52b52c22f8f9cfe2c106b4
+- Three-way path classification across the pinned comparison: AZURPILOT_ONLY 3,205; UPSTREAM_ONLY_SINCE_MERGE 10; BOTH_DIVERGED 33; total changed paths 3,248.
+- Current branch artifacts:
+  - docs/azurpilot-vs-alas-path-delta-2026-09-17.tsv
+  - docs/azurpilot-vs-alas-functional-delta-inventory-2026-09-17.md
+  - docs/azurpilot-vs-alas-subsystem-analysis-2026-09-17.md
+- Generated configuration comparison found AP 777 settings vs ALAS 326, with 488 added keys, 37 removed keys, and 7 changed defaults.
+- The subsystem inventory is complete (94 functional sections). Review is now proceeding bucket-by-bucket, explaining behavior first and recording explicit AL Cloud treatment decisions.
+
+Project architecture decisions established during review
+- Commission: use the AzurPilot commission planner as the canonical commission chooser rather than coexist permanently with legacy ALAS selection. LLM/supervisory policy may set value preferences; deterministic planner performs scheduling/execution.
+- Do not adopt AP configurable textual task-priority adjustment. Maintain scheduler priority in the fork; expose a narrower structured runtime policy only if later required.
+- Do not add AP app-level NTP correction. Trust host clock synchronization and use monotonic clocks for elapsed durations/timeouts.
+- Long-idle lifecycle: keep the capability but make it AL Cloud infrastructure, not private ALAS ownership. Begin with ReDroid staying alive and optionally stop Azur Lane during long idle; deeper ReDroid shutdown depends on measured longevity/resource benefit. Browser/manual access must be a wake condition.
+- Introduce a shared AL Cloud lifecycle service used by ALAS, browser control, and supervisory agent: start/stop/restart ReDroid, start/stop Azur Lane, report state.
+- Watchdog/recovery: adopt AP's persistent unattended-recovery philosophy, but gate all destructive/interactive recovery by ownership. HUMAN or AGENT_MANUAL ownership supersedes automation. Recovery may observe/log during human control but must not tap, kill, or restart. Sensitive failures should preferably enter a blocked/error state awaiting user/agent rather than permanently killing the whole service.
+- Remote emulator management: do not use AP's SSH remote-emulator plumbing as the primary path. The co-located AL Cloud lifecycle service should manage ReDroid directly.
+- Device/runtime hardening: selectively take generic patterns (bounded app-health checks, screenshot-stall detection, recovery-concurrency protection, startup timeout overrides, connect-without-waking semantics) but do not rely on AP's large MuMu/Windows-specific device stack.
+- Screenshot resolution: adopt canonical screenshot normalization to ALAS's 1280x720 vision space, but complete the abstraction. AL Cloud may run ReDroid at a lower same-aspect framebuffer such as 960x540; screenshot normalization must be paired with canonical-to-native input coordinate mapping. Recognition thresholds should be qualified empirically rather than blindly inheriting AP's global 0.75 non-native cap.
+- Input/control: build one shared input surface for ALAS, browser/manual controller, and future agent. It must perform ownership arbitration and coordinate conversion before dispatch to the physical backend. Browser video coordinates first map to canonical 1280x720, then through the same adapter as ALAS/agent input.
+- OCR: keep the AP modernization (RapidOCR/ONNX/NCNN/modern models and benchmarking as appropriate). OCR/image recognition is a hard project requirement; CPU-only operation on the Oracle ARM64 host is assumed as a requirement to make work, with implementation benchmarking used for backend/model selection rather than as a go/no-go decision.
+- PlayerPrefs/game settings: adopt AP's careful transactional direct-edit mechanism, but desired values must be AL Cloud-configurable rather than blindly copying AP's recommended values.
+- Server status: prefer querying the official Azur Lane game gateway directly if qualification proves reliable. Avoid third-party status API/Baidu-style connectivity dependencies.
+- Notifications: no need to depend on OnePush. Preserve AP's reliability rule that notification delivery is bounded/non-blocking. Future notifications should route through AL Cloud's own control/supervisory surface.
+- Backups: keep and generalize them to durable AL Cloud configuration/account state/statistics. Use proper SQLite backup and retention.
+- Debug video: skip AP's separate Android screenrecord path. If retrospective video is later useful, prefer a rolling buffer in the existing streamer.
+- Resource/account state: adopt and expand AP's timestamped resource model. Observations must carry freshness/source (and optionally confidence), not silently treat stale values as live truth.
+- Reward/income statistics: keep a streamlined local structured history primarily for human dashboard/export. The agent may query the same data if useful, but the agent does not inherently need all AP statistics.
+- Add statistics export so resource/income/account history can be viewed outside the dashboard.
+- Keep structured daily/weekly/monthly aggregation, but do not use a separate LLM merely to turn the report into prose.
+- External telemetry/uploads: local-only by default; any external transmission must be explicit opt-in.
+- Packaging/runtime: adopt the modern locked pyproject/uv-style environment and modern dependency stack where appropriate, but choose the Python version based on clean ARM64 support rather than copying AP's version solely because it is newer. Production changes should be deliberate deployments; no requirement for AP-style runtime self-update/dependency mutation.
+- Logging: adopt timed rotation/retention and structured errors; expose important errors as machine-readable AL Cloud events rather than formatted prose only.
+- AP memory profiler: use temporarily during longevity/performance qualification because it can separate Python allocations from native-library process growth; it need not be permanent runtime telemetry.
+- AP embedded LLM crash analyzer: skip. It sends traceback/recent logs to an external OpenAI-compatible endpoint and adds latency without controlling recovery. A future supervisory agent can inspect structured error bundles instead.
+- 4399 floating-button handler: exclude as irrelevant to the EN client.
+- AP's separate AI-maintainer documentation tree: do not copy. Put necessary architecture/instructions into the AL Cloud canon.
+- CI: retain useful validation such as broad import smoke tests, generated-artifact consistency checks, and appropriate lint/tests. Skip AP's public release/CDN/mirror/distribution infrastructure.
+
+Gameplay decisions already settled
+Commission
+- Adopt AP planner as the canonical commission system.
+- Temporary legacy fallback during bring-up/testing is acceptable, but not permanent coexistence.
+- AP planner understands visible daily/urgent commissions, running slot availability, deadlines, configured tier/value policy, shortest fallbacks, bounded scheduling optimization, and replanning. LLM policy may influence value preferences; deterministic planner executes.
+
+Research
+- Adopt AP T-type Research support and its coordination with Commission. When a chosen T project requires N completed commissions, persist remaining count, decrement it as commissions complete, and reschedule Research when the prerequisite reaches zero.
+- AP S8 E-first/305 presets may remain available as optional deterministic policy; they are not architectural requirements.
+
+Tactical
+- Adopt AP skill auto-switch. If the currently trained skill maxes, return to skill selection and continue another eligible non-maxed skill on the same ship.
+
+Dorm
+- Use current upstream ALAS as the baseline. It already has food inventory/OCR, feeding, food purchasing, furniture buying, and scheduling. Cherry-pick AP Dorm bug fixes only if relevant testing exposes them.
+
+Meowfficer / coin overflow
+- Adopt AP's policy separation: normal configured cat-box purchasing belongs to the Meowfficer task; excess-coin disposal is a broader resource policy invoked from shop/resource handling.
+- Keep the AP-style overflow purchase calculation respecting daily limits, prior purchases, free first purchase, and affordability.
+
+Guild
+- Adopt AP's safer state-machine handling for supply, mission, and exchange transitions/retries. No new strategic Guild policy is required.
+
+Shops
+- Prefer AP handling.
+- Keep explicit enable/disable controls per General/Guild/Medal/Merit/Core shop.
+- Replace ALAS's fixed boolean/550k General Shop overflow behavior with a configurable numeric coin threshold/reserve.
+- Keep Shop -> Meowfficer as a configurable secondary excess-coin sink.
+- Shop item filters remain configurable user/policy inputs; do not blindly inherit AP item preferences.
+- Correction recorded during review: current upstream ALAS already supports Merit Shop "buy unobtained ship"; this is not an AP-only improvement.
+
+Rewards
+- Keep current ALAS reward collection behavior.
+- Weekly mission collection should remain enabled by default.
+
+Exercise
+- Adopt AP's delayed-execution window: optionally defer Exercise until N hours before the next server update while allowing existing end-of-season/Admiral timing to force use when needed.
+- Do not count AP Exercise auto-equipment as an active feature; helper code exists but application/removal calls are commented/unwired in the inspected tree.
+
+Gacha
+- Prefer current upstream ALAS for minimum fork surface. Cherry-pick AP reliability fixes only if testing encounters the relevant failure (pool navigation, queue/popup/resource-accounting compatibility). AP does not add a strategic Gacha planner.
+
+Daily challenges
+- Use current upstream ALAS; no meaningful AP-only behavioral subsystem was found.
+
+Hard mode
+- Prefer current upstream ALAS unless testing shows the fleet-validation issue matters in practice.
+- AP's active-fleet-only Hard restriction validation is a real correctness fix, but user does not consider fleet preparation especially important and prefers easiest integration.
+- AP Hard auto-equipment helper is currently unwired and should not be treated as a feature.
+
+SOS
+- Remove SOS task/config/UI from AL Cloud instead of carrying a permanently disabled subsystem. It no longer exists on the EN client.
+
+War Archives
+- Adopt AP's War Archives system broadly:
+  - persistent per-day archive/Data Key run quota;
+  - automatic stage-sequence derivation;
+  - story-prerequisite handling;
+  - selectable clear goals (normal three-star, all three-star, hard/100% progression as implemented);
+  - persistent progress so interruptions/restarts resume rather than restart;
+  - deferred/retry handling for temporarily locked stages;
+  - automatic progression through incomplete archive events when enabled.
+- Deterministic automation should perform map progression; higher-level policy chooses which archives/goals and daily key budget.
+
+Generic Campaign/sortie policy
+- Adopt AP's configurable upper CoinLimit stop/delay so campaign farming can pause before coin cap/resource waste.
+- Do not adopt AP Campaign_DefeatWithdraw policy modes; retain ALAS behavior.
+- Do not adopt AP global oil hard floor; retain normal configured oil limit.
+- Do not adopt Fleet_SkipPreparation as an additional generic feature.
+- Do not adopt generic non_stop_clear_all as a broad campaign feature; War Archives may use its own progression logic.
+- Do not rely on Campaign_UseRecommendFleet; the inspected generic setting appears unwired.
+
+Corrections made during review
+- Current upstream ALAS already has Dorm food-buying machinery; do not attribute that capability to AP.
+- Current upstream ALAS already has Merit Shop unobtained-ship support; do not attribute that capability to AP.
+- AP Exercise/Hard equipment helper classes exist, but current calls/integration are commented or otherwise unwired; do not describe them as active features.
+- "AzurPilot supports arbitrary resolution" is only partially true: it normalizes screenshots but does not provide a universal canonical-to-native input transform, and some uiautomator2 paths still assume 1280x720/720x1280.
+
+Expected AL Cloud ownership/control model
+- One input owner at a time.
+- Core states/flow: AUTOMATION -> TAKEOVER_REQUESTED -> HUMAN -> RECONCILING -> AUTOMATION, with AGENT_MANUAL as a separate owner state when needed.
+- HUMAN wins over automation. ALAS watchdog/recovery cannot supersede manual control.
+- Browser/manual control opening should request wake and then ownership; ALAS should suspend/cooperatively yield rather than compete for ADB input.
+- On release, AL Cloud should reconcile game state before handing input back to automation.
+
+Current AP-vs-ALAS review position
+- Foundational/runtime/infrastructure bucket is resolved.
+- Normal gameplay batch 1 (Research, Tactical, Dorm, Meowfficer, Guild, Shops, Reward) is resolved.
+- Normal gameplay batch 2 (Exercise, Gacha, Daily, Hard, SOS, War Archives, generic Campaign policy) is resolved.
+- Next review batch should cover:
+  1. GemsFarming
+  2. Ambush11
+  3. ThreeOilLowCost
+  4. D3/withdrawal farming
+  5. submarine policy
+  6. combat/morale changes
+  7. combat UI assets / map-detection changes
+- After that continue the complete 94-section inventory in order: raid/event/coalition, Operation Handover, Maritime Escort, fleet scan/FleetInfo, retirement/enhancement, equipment core/AutoEquip/helpers/storage/Awaken, Secretary/Shipyard/Private Quarters/Freebies/Minigame/game settings, Operation Siren batch, Island replacement batch, then WebUI/integration/development tooling and final cross-bucket review.
+
+Review process rule
+- Explain each subsystem concretely before making an adoption judgment: upstream ALAS behavior, exact AP changes, resulting practical behavior, dependencies/coupling.
+- Get user decisions after each batch and carry them forward in a running decision table.
+- Keep the running decision table at the absolute bottom of each response so it is not hidden behind reasoning/tool UI.
+- Do not reduce the exercise to a binary "ALAS vs AzurPilot" verdict. The objective is the maintained AL Cloud fork with selective subsystem replacement.
