@@ -1,0 +1,32 @@
+name: SwiftShader Android 14 Pastel raster stride run 22
+
+on:
+  push:
+    branches:
+      - vm-control
+    paths:
+      - .github/workflows/swiftshader-perf-raster-stride-run22.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-raster-stride:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: raster-pitch-precompute
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Android 14 r45 Pastel with raster pitch precompute
+        run: bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Upload Pastel raster-stride artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-pastel-android14-r45-raster-pitch-precompute-run22
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 1
