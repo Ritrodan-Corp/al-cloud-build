@@ -1,0 +1,5 @@
+2026-09-17 PDT — Oracle direct-Mesa re-test Step 4: privileged execution boundary reconfirmed
+Workstream: direct Mesa llvmpipe Oracle re-test
+Action: Re-read the active RDC configuration on the reconnected Oracle device before asking for any manual host action.
+Result/evidence: The active alcloud-a1-01 RDC policy explicitly lists sudo in blockedCommands, alongside su and other privilege/security-sensitive commands. Therefore the staged guarded test cannot be launched as root through this RDC session without changing RDC security policy. No attempt was made to weaken or bypass that policy. The Oracle runtime remains on the untouched ANGLE/Pastel baseline, while the exact Mesa artifact and guarded one-shot test are fully staged in /home/ubuntu/mesa-control.
+Interpretation/next: Execute exactly one authorized privileged invocation from the user's existing SSH terminal: sudo /home/ubuntu/mesa-control/run-mesa-control.sh. The wrapper performs the complete Mesa boot, 90-second game compatibility observation, evidence capture, and automatic ANGLE/Pastel restoration. After it returns, inspect evidence and classify the test.
