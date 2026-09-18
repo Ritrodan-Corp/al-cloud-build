@@ -225,6 +225,8 @@ find "$OUT/payload" -type f -print0 | sort -z | xargs -0 sha256sum > "$OUT/audit
   echo 'Runtime control required: init-level LP_NUM_THREADS=4'
   if [ "$VARIANT" = jito3 ]; then
     echo 'JIT source delta: lp_bld_init.c normal MCJIT codegen Default(O2)->Aggressive(O3)'
+    printf 'Patched JIT source SHA-256: '
+    sha256sum "$MESA/src/gallium/auxiliary/gallivm/lp_bld_init.c" | awk '{print $1}'
   fi
   du -sh "$OUT/payload"
 } | tee "$OUT/audit/manifest.txt"
