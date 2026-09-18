@@ -1,0 +1,12 @@
+2026-09-18 UTC — SwiftShader/Pastel Soong-only correction
+
+Updated experiments/160-swiftshader-perf/build-android-control.sh at commit 9fb18327f07a5cf022b11bedc34b8a63cf59cda2.
+
+Changes:
+- added a source preflight requiring Android 14 r45 build/soong/ui/build/config.go to recognize --skip-make;
+- changed the control target invocation from "m -j2 vulkan.pastel" to "m --skip-make -j2 vulkan.pastel";
+- retained BUILD_BROKEN_DISABLE_BAZEL=true, partial-graph mode, the pinned SwiftShader commit, and the same module_arm64only-eng product.
+
+Reason: run 14's remaining blocker was unrelated legacy Android.mk traversal in Kati. vulkan.pastel is a Soong Android.bp target, so the supported narrow path should skip Make/Kati while still requiring the target's reachable Soong dependency graph to build.
+
+Post-change review confirmed the workflow remains workflow_dispatch-only and no run was triggered by the script commit.
