@@ -1,0 +1,5 @@
+2026-09-17 PDT — Mesa LP_NUM_THREADS=4 A/B launch entered Mesa startup
+Workstream: direct Mesa llvmpipe Oracle performance optimization
+Action: Launched the audited LP4 one-variable wrapper through the authorized SSH sudo boundary.
+Result/evidence: At 2026-09-18T04:31:00Z, exact Gate 1/2 artifact hashes and the baseline 1280x720@30 persistent-data gate had passed. The wrapper had preserved the ANGLE/Pastel baseline and entered `=== start Mesa ===`. The wrapper process remained live; the LP4 SESSION_READY sentinel had not yet appeared.
+Interpretation/next: Wait for Mesa Android qualification and game launch. At SESSION_READY, verify raster-worker creation, per-thread affinity, and multicore CPU use before doing any FPS comparison.
