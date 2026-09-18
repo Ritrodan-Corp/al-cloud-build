@@ -1,0 +1,5 @@
+2026-09-17 PDT — Mesa non-combat menu compatibility: Dock PASS
+Workstream: direct Mesa llvmpipe Oracle performance/menu qualification
+Action: From the logged-in NewMainUI scene under direct Mesa, used the established 1280x720 Dock navigation coordinate (261,680), waited four seconds, and captured a framebuffer screenshot.
+Result/evidence: Game guest PID remained 1643 and MainActivity remained top/resumed. Unity logged `04:25:30.61-528: load DockyardUI(Clone) time cost: 0`, confirming the Dock screen actually loaded. Evidence screenshot: `/home/ubuntu/mesa-control/perf-menu-evidence-20260918T041631Z/menu-dock.png` (1,748,567 bytes). No LuaJIT lightuserdata panic, destroyed-mutex, SIGABRT, SIGSEGV, ANR, or fatal-exception markers were observed.
+Interpretation/next: Dock transition is compatible with direct Mesa. Return to Main using the established top-right navigation control, then test the non-combat Mission menu.
