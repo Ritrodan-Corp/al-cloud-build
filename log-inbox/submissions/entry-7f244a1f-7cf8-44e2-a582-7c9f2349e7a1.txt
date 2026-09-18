@@ -1,0 +1,14 @@
+2026-09-17 PDT — Oracle RDC reconnect and persistence diagnosis
+
+Workstream: Oracle host administration / Remote Desktop Commander reliability
+
+Action: After the user removed the stale RDC connection and re-paired alcloud-a1-01 interactively, checked the Remote Desktop Commander registry and project history before allowing the Mesa experiment to proceed.
+
+Result/evidence:
+- A new RDC device record for alcloud-a1-01 appeared online under Desktop Commander v0.2.50 with a valid auth token.
+- Immediate remote ping / command attempts from ChatGPT timed out even while the registry still reported the device online, so transport reachability is not yet acceptance-qualified.
+- Historical project evidence already documents the matching v0.2.50 failure mode: rotated refresh tokens can remain only in memory, leaving the persisted device session with an already-used token after service restart/reboot.
+- The GCP host previously passed a guarded workaround that re-saves only a live refreshable session every five minutes, preserves device.json mode 0600, and passed accelerated token rotation, service restart, and full VM stop/start acceptance.
+- Oracle alcloud-a1-01 currently uses systemd-managed alcloud-rdc.service under ubuntu, but the same guarded persistence workaround has not been recorded as qualified on Oracle.
+
+Interpretation/next: Treat Oracle RDC reliability as an access gate before starting the Mesa runtime experiment. Port/revalidate the guarded refresh-token persistence workaround on the Oracle v0.2.50 install, then require a systemd service restart plus fresh RDC ping/command acceptance. Once that passes, the Mesa experiment may begin immediately; no additional cooling/wait period is required. Preserve ReDroid/game state during RDC maintenance.
