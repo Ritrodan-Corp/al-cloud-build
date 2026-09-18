@@ -130,11 +130,33 @@ grep -Fq 'ctx.SetAllowMissingDependencies(ctx.Config().AllowMissingDependencies(
 grep -Fq 'IsBazelMixedBuildForceDisabled' build/soong/ui/build/config.go
 grep -Fq 'BUILD_BROKEN_DISABLE_BAZEL' build/soong/ui/build/config.go
 
-# vulkan.pastel is a Soong module. Do not invoke legacy Make/Kati for this
-# control build: the broad PDK checkout contains unrelated Android.mk tests
-# whose optional source closures are intentionally absent. r45's Soong driver
-# must explicitly support --skip-make before we rely on this narrow path.
-grep -Fq 'arg == "--skip-make"' build/soong/ui/build/config.go
+# vulkan.pastel is a Soong module. Do not invoke legacy Make/Kati module
+# traversal for this control build: the broad PDK checkout contains unrelated
+# Android.mk tests whose optional source closures are intentionally absent.
+#
+# Run 15 used --skip-make, but r45 implements that flag by setting skipConfig
+# as well as skipKati. That suppresses the product-config pass which writes
+# BUILD_ID and the other Make product variables into soong.variables. The
+# resulting empty BuildId made unrelated APEX test variants fail global Soong
+# analysis before vulkan.pastel could compile.
+#
+# r45's --soong-only mode is the intended narrow module-build path here: it
+# skips Kati generation and Kati Ninja, while preserving product configuration.
+# Verify those exact pinned-source semantics before relying on it.
+python3 - <<'PY'
+from pathlib import Path
+
+text = Path("build/soong/ui/build/config.go").read_text()
+needle = '} else if arg == "--soong-only" {'
+assert needle in text, "--soong-only is absent from pinned r45"
+block = text.split(needle, 1)[1].split("} else if", 1)[0]
+assert "c.skipKati = true" in block
+assert "c.skipKatiNinja = true" in block
+assert "c.skipConfig = true" not in block
+PY
+grep -Fq 'BUILD_ID=UD2A.240505.001.W1' build/make/core/build_id.mk
+grep -Fq '$(call add_json_str,  BuildId,                           $(BUILD_ID))' \
+  build/make/core/soong_config.mk
 log_disk
 
 export OUT_DIR="$OUT_DIR_BUILD"
@@ -168,11 +190,12 @@ printf 'SOONG_ALLOW_MISSING_DEPENDENCIES=%s\n' "$SOONG_ALLOW_MISSING_DEPENDENCIE
 printf 'BUILD_BROKEN_DISABLE_BAZEL=%s\n' "$BUILD_BROKEN_DISABLE_BAZEL"
 
 # Keep compile parallelism conservative on the standard 15.6 GB hosted runner.
-# --skip-make prevents Kati from traversing unrelated Android.mk modules while
-# retaining normal Soong analysis and Ninja execution for this Android.bp
-# target. Any missing dependency in vulkan.pastel's reachable Soong graph still
+# --soong-only preserves the product-config pass which seeds soong.variables,
+# then skips Kati generation and Kati Ninja so unrelated Android.mk modules are
+# not traversed. Normal Soong analysis and Ninja execution still validate this
+# Android.bp target; any missing dependency in vulkan.pastel's reachable graph
 # becomes an error rule and stops the build.
-m --skip-make -j2 vulkan.pastel 2>&1 | tee "$ART/build.log"
+m --soong-only -j2 vulkan.pastel 2>&1 | tee "$ART/build.log"
 set -u
 
 LIB=$(find "$OUT_DIR_BUILD" -type f \
