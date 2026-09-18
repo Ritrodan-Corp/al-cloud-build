@@ -1,0 +1,6 @@
+Pastel control build progress checkpoint
+
+Step: reconciled current vm-control branch head before further edits.
+Branch head observed: 29bd59d117f8fb6f0e741103d0d29ce17c963bab.
+Reason: the build script has advanced beyond the run-11 state, so any fix must be based on current branch contents rather than stale assumptions.
+No Pastel workflow run was started in this step.
