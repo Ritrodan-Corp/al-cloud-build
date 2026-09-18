@@ -1,0 +1,17 @@
+2026-09-18 UTC — SwiftShader/Pastel run 15 start
+
+Launched validation of the Soong-only Kati correction.
+
+Run:
+- GitHub Actions run 35292033014
+- job 105436736450
+- run number 15
+- head commit af38368c9dc663970a205e4319abd27dac20aab3
+- status at checkpoint: in progress
+- setup: success
+- checkout: success
+- Build stock Android 14 r45 Pastel control: in progress
+
+The run uses the corrected build script from commit 9fb18327f07a5cf022b11bedc34b8a63cf59cda2, including "m --skip-make -j2 vulkan.pastel" plus the r45 source preflight for --skip-make support.
+
+The workflow was immediately restored to workflow_dispatch-only at commit 8d7f50157fbb389f08a20d3add32b1376c73c131 after the controlled trigger, so later commits will not start additional Pastel runs.
