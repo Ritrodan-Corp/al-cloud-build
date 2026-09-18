@@ -1,0 +1,12 @@
+2026-09-17 PDT — Oracle RDC post-pair acceptance check still fails
+
+Workstream: Oracle host administration / Remote Desktop Commander reliability
+
+Action: Rechecked the newly paired alcloud-a1-01 device after the initial reconnect diagnosis.
+
+Result/evidence:
+- Remote Desktop Commander registry still reports alcloud-a1-01 online on v0.2.50 with a valid token and the new device/session identity.
+- A direct ChatGPT RDC ping to that exact device ID timed out again.
+- The device last-seen timestamp did not advance during the retry.
+
+Interpretation/next: The registry's online state is insufficient evidence that the control channel is usable. Treat this as a failed RDC acceptance gate. Do not start the Mesa runtime experiment until the systemd-managed RDC client is proven live with a fresh ping/command after service restart and authentication persistence hardening.
