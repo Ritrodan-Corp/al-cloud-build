@@ -149,6 +149,54 @@ PY
       third_party/marl/src/scheduler_bench.cpp \
       > "$ART/swiftshader-variant.patch"
     ;;
+  aot-neoverse-n1)
+    python3 - <<'PY'
+from pathlib import Path
+
+path = Path("external/swiftshader/src/Android.bp")
+text = path.read_text()
+
+anchors = [
+    '''cc_defaults {
+    name: "libswiftshadervk_llvm_defaults",
+
+    header_libs:''',
+    '''cc_defaults {
+    name: "libvk_swiftshader_defaults",
+    vendor: true,
+
+    defaults: [ "swiftshader_common" ],
+
+    cflags: [
+        "-D_GNU_SOURCE",''',
+]
+assert all(anchor in text for anchor in anchors), "unexpected pinned SwiftShader Android.bp"
+
+reactor_old = '''    cflags: [
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+reactor_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+assert text.count(reactor_old) == 1
+text = text.replace(reactor_old, reactor_new)
+
+renderer_old = '''    cflags: [
+        "-D_GNU_SOURCE",'''
+renderer_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-D_GNU_SOURCE",'''
+assert text.count(renderer_old) == 1
+text = text.replace(renderer_old, renderer_new)
+
+path.write_text(text)
+PY
+    test "$(grep -c -- '-mcpu=neoverse-n1' external/swiftshader/src/Android.bp)" -eq 2
+    grep -Fq '"neoverse-n1"' \
+      prebuilts/clang/host/linux-x86/clang-r487747c/include/llvm/TargetParser/AArch64TargetParser.h
+    VARIANT_DESC='AOT SwiftShader renderer and Reactor host code targeted to Neoverse N1'
+    git -C external/swiftshader diff -- src/Android.bp \
+      > "$ART/swiftshader-variant.patch"
+    ;;
   *)
     echo "Unsupported PASTEL_VARIANT: $PASTEL_VARIANT" >&2
     exit 2
