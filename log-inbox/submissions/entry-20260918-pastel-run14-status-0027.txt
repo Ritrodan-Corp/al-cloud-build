@@ -1,0 +1,22 @@
+2026-09-18 UTC — SwiftShader/Pastel control status
+
+Checked the current branch and latest triggered workflow.
+
+Current script commit lineage includes the reviewed run-14 correction: mixed Bazel analysis is disabled with BUILD_BROKEN_DISABLE_BAZEL=true while retaining the Android 14 r45 PDK checkout plus packages/modules/common and partial-graph mode.
+
+Run 14:
+- GitHub Actions run 35280244399
+- job 105429535179
+- completed: failure
+- r45 source sync succeeded
+- Soong bootstrap completed
+- Android.bp analysis completed successfully
+- build progressed into legacy Make/Kati inclusion
+- failure is now in unrelated TV robotest makefile:
+  packages/apps/TV/common/tests/robotests/Android.mk:54
+  external/robolectric-shadows/run_robotests.mk: No such file or directory
+- ckati exited 1 before vulkan.pastel compilation.
+
+Interpretation: previous Soong/bp2build blockers are cleared. The remaining blocker is global legacy Android.mk traversal pulling an unrelated test from the broad PDK source set. Next fix should prevent irrelevant legacy Make modules/tests from entering the target graph or otherwise use the supported narrow module-build path, rather than add robolectric just to satisfy an unrelated test.
+
+Workflow has been restored to workflow_dispatch-only after run 14.
