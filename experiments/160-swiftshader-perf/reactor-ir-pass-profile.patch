@@ -1,0 +1,170 @@
+--- a/src/Reactor/LLVMJIT.cpp
++++ b/src/Reactor/LLVMJIT.cpp
+@@ -19,6 +19,9 @@
+ #include "LLVMAsm.hpp"
+ #include "PragmaInternals.hpp"
+ #include "Routine.hpp"
++
++#include <atomic>
++#include <chrono>
+ 
+ // TODO(b/143539525): Eliminate when warning has been fixed.
+ #ifdef _MSC_VER
+@@ -150,6 +153,27 @@
+ #endif
+ 
+ namespace {
++
++using AlCloudProfileClock = std::chrono::steady_clock;
++static std::atomic<uint64_t> alCloudProfileNextId{ 1 };
++
++static uint64_t alCloudInstructionCount(const llvm::Module &module)
++{
++	uint64_t count = 0;
++	for(const auto &function : module)
++	{
++		for(const auto &block : function)
++		{
++			count += block.size();
++		}
++	}
++	return count;
++}
++
++static long long alCloudElapsedNs(AlCloudProfileClock::time_point start)
++{
++	return std::chrono::duration_cast<std::chrono::nanoseconds>(AlCloudProfileClock::now() - start).count();
++}
+ 
+ // TODO(b/174587935): Eliminate command-line parsing.
+ bool parseCommandLineOptionsOnce(int argc, const char *const *argv)
+@@ -728,6 +752,27 @@
+ 	}
+ 
+ 	bool *fatal;
++};
++
++class AlCloudTimedIRCompiler : public llvm::orc::IRCompileLayer::IRCompiler
++{
++public:
++	explicit AlCloudTimedIRCompiler(llvm::orc::JITTargetMachineBuilder builder)
++	    : IRCompiler(llvm::orc::irManglingOptionsFromTargetOptions(builder.getOptions()))
++	    , compiler(std::move(builder))
++	{}
++
++	llvm::Expected<std::unique_ptr<llvm::MemoryBuffer>> operator()(llvm::Module &module) override
++	{
++		auto start = AlCloudProfileClock::now();
++		auto object = compiler(module);
++		rr::warn("ALCLOUD_JIT_BACKEND id=%s backend_ns=%lld\n",
++		         module.getModuleIdentifier().c_str(), alCloudElapsedNs(start));
++		return object;
++	}
++
++private:
++	llvm::orc::ConcurrentIRCompiler compiler;
+ };
+ 
+ // JITRoutine is a rr::Routine that holds a LLVM JIT session, compiler and
+@@ -810,7 +855,9 @@
+ 		// Make sure funcs are not referenced after this point.
+ 		funcs = nullptr;
+ 
+-		llvm::orc::IRCompileLayer compileLayer(session, objectLayer, std::make_unique<llvm::orc::ConcurrentIRCompiler>(JITGlobals::get()->getTargetMachineBuilder()));
++		const std::string alCloudProfileId = module->getModuleIdentifier();
++		auto alCloudMaterializeStart = AlCloudProfileClock::now();
++		llvm::orc::IRCompileLayer compileLayer(session, objectLayer, std::make_unique<AlCloudTimedIRCompiler>(JITGlobals::get()->getTargetMachineBuilder()));
+ 		llvm::orc::JITDylib &dylib(Unwrap(session.createJITDylib("<routine>")));
+ 		dylib.addGenerator(std::make_unique<ExternalSymbolGenerator>());
+ 
+@@ -840,6 +887,8 @@
+ #ifdef ENABLE_RR_EMIT_ASM_FILE
+ 		rr::AsmFile::fixupAsmFile(asmFilename, addresses);
+ #endif
++		rr::warn("ALCLOUD_JIT_ROUTINE id=%s name=%s functions=%zu materialize_ns=%lld\n",
++		         alCloudProfileId.c_str(), this->name.c_str(), count, alCloudElapsedNs(alCloudMaterializeStart));
+ 	}
+ 
+ 	~JITRoutine()
+@@ -891,6 +940,9 @@
+ 
+ 	int optimizationLevel = getPragmaState(OptimizationLevel);
+ 
++	const uint64_t alCloudProfileId = alCloudProfileNextId.fetch_add(1, std::memory_order_relaxed);
++	module->setModuleIdentifier("alcloud_" + std::to_string(alCloudProfileId));
++
+ #ifdef ENABLE_RR_DEBUG_INFO
+ 	if(debugInfo != nullptr)
+ 	{
+@@ -944,36 +996,52 @@
+ 
+ 	pm.run(*module, mam);
+ #else  // Legacy pass manager
+-	llvm::legacy::PassManager passManager;
+-
+ 	if(coroutine.id)
+ 	{
+-		// Run mandatory coroutine transforms.
+-		passManager.add(llvm::createCoroEarlyLegacyPass());
+-		passManager.add(llvm::createCoroSplitLegacyPass());
+-		passManager.add(llvm::createCoroElideLegacyPass());
+-		passManager.add(llvm::createBarrierNoopPass());
+-		passManager.add(llvm::createCoroCleanupLegacyPass());
+-	}
++		llvm::legacy::PassManager coroutinePasses;
++		coroutinePasses.add(llvm::createCoroEarlyLegacyPass());
++		coroutinePasses.add(llvm::createCoroSplitLegacyPass());
++		coroutinePasses.add(llvm::createCoroElideLegacyPass());
++		coroutinePasses.add(llvm::createBarrierNoopPass());
++		coroutinePasses.add(llvm::createCoroCleanupLegacyPass());
++		coroutinePasses.run(*module);
++	}
++
++	auto runProfiledPass = [&](const char *passName, llvm::Pass *pass) {
++		const uint64_t before = alCloudInstructionCount(*module);
++		auto start = AlCloudProfileClock::now();
++		llvm::legacy::PassManager onePass;
++		onePass.add(pass);
++		onePass.run(*module);
++		const long long elapsed = alCloudElapsedNs(start);
++		const uint64_t after = alCloudInstructionCount(*module);
++		rr::warn("ALCLOUD_JIT_PASS id=alcloud_%llu pass=%s ir_before=%llu ir_after=%llu delta=%lld pass_ns=%lld\n",
++		         static_cast<unsigned long long>(alCloudProfileId), passName,
++		         static_cast<unsigned long long>(before), static_cast<unsigned long long>(after),
++		         static_cast<long long>(after) - static_cast<long long>(before), elapsed);
++	};
+ 
+ 	if(optimizationLevel > 0)
+ 	{
+-		passManager.add(llvm::createSROAPass());
+-		passManager.add(llvm::createInstructionCombiningPass());
+-	}
+-
++		runProfiledPass("SROA", llvm::createSROAPass());
++		runProfiledPass("SCCP", llvm::createSCCPPass());
++		runProfiledPass("SimplifyCFG1", llvm::createCFGSimplificationPass());
++		runProfiledPass("EarlyCSE", llvm::createEarlyCSEPass());
++		runProfiledPass("SimplifyCFG2", llvm::createCFGSimplificationPass());
++		runProfiledPass("InstCombine", llvm::createInstructionCombiningPass());
++	}
++
++	llvm::legacy::PassManager instrumentationPasses;
+ 	if(__has_feature(memory_sanitizer) && msanInstrumentation)
+ 	{
+ 		llvm::MemorySanitizerOptions msanOpts(0 /* TrackOrigins */, false /* Recover */, false /* Kernel */);
+-		passManager.add(llvm::createMemorySanitizerLegacyPassPass(msanOpts));
+-	}
+-
++		instrumentationPasses.add(llvm::createMemorySanitizerLegacyPassPass(msanOpts));
++	}
+ 	if(__has_feature(address_sanitizer) && ADDRESS_SANITIZER_INSTRUMENTATION_SUPPORTED)
+ 	{
+-		passManager.add(llvm::createAddressSanitizerFunctionPass());
+-	}
+-
+-	passManager.run(*module);
++		instrumentationPasses.add(llvm::createAddressSanitizerFunctionPass());
++	}
++	instrumentationPasses.run(*module);
+ #endif
+ }
