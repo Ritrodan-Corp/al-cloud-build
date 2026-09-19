@@ -6,6 +6,7 @@ on:
       - pastel-jit-profile-20260919
     paths:
       - .github/workflows/swiftshader-pastel-aot-n1-perfjit-profile.yml
+      - experiments/160-swiftshader-perf/build-android-control.sh
 
 permissions:
   contents: read
