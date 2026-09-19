@@ -197,6 +197,45 @@ PY
     git -C external/swiftshader diff -- src/Android.bp \
       > "$ART/swiftshader-variant.patch"
     ;;
+  aot-neoverse-n1-reactor-o3)
+    python3 - <<'PY'
+from pathlib import Path
+
+bp = Path("external/swiftshader/src/Android.bp")
+text = bp.read_text()
+
+reactor_old = '''    cflags: [
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+reactor_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+assert text.count(reactor_old) == 1
+text = text.replace(reactor_old, reactor_new)
+
+renderer_old = '''    cflags: [
+        "-D_GNU_SOURCE",'''
+renderer_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-D_GNU_SOURCE",'''
+assert text.count(renderer_old) == 1
+text = text.replace(renderer_old, renderer_new)
+bp.write_text(text)
+
+pragma = Path("external/swiftshader/src/Reactor/Pragma.cpp")
+text = pragma.read_text()
+old = "int optimizationLevel = 2;  // Default"
+new = "int optimizationLevel = 3;  // Aggressive"
+assert text.count(old) == 1
+pragma.write_text(text.replace(old, new, 1))
+PY
+    test "$(grep -c -- '-mcpu=neoverse-n1' external/swiftshader/src/Android.bp)" -eq 2
+    grep -Fq 'int optimizationLevel = 3;  // Aggressive' external/swiftshader/src/Reactor/Pragma.cpp
+    grep -Fq 'llvm::CodeGenOpt::Aggressive' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    VARIANT_DESC='AOT Neoverse-N1 plus Reactor optimization level 3 / LLVM CodeGenOpt::Aggressive'
+    git -C external/swiftshader diff -- src/Android.bp src/Reactor/Pragma.cpp \
+      > "$ART/swiftshader-variant.patch"
+    ;;
+
   raster-pitch-precompute)
     python3 - <<'PY'
 from pathlib import Path
