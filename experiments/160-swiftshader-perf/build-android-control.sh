@@ -339,7 +339,8 @@ assert t.count(anchor)==1
 jit.write_text(t.replace(anchor,insert,1))
 
 perf=Path('external/swiftshader/third_party/llvm-10.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp')
-t=perf.read_text(); old='  else if (!sys::path::home_directory(Path))\n    Path = ".";'; new='  else\n    Path = "/data/data/com.YoStarEN.AzurLane/files";'; assert t.count(old)==1; perf.write_text(t.replace(old,new,1))
+t=perf.read_text(); old='  else if (!sys::path::home_directory(Path))\n    Path = ".";'; new='  else\n    Path = "/data/data/com.YoStarEN.AzurLane/files";'; assert t.count(old)==1; t=t.replace(old,new,1)
+old='  LLVMPerfJitHeader Header = {0};'; new='  LLVMPerfJitHeader Header{};'; assert t.count(old)==1; perf.write_text(t.replace(old,new,1))
 PYPROFILE
   grep -Fq '#define LLVM_USE_PERF 1' external/swiftshader/third_party/llvm-10.0/configs/android/include/llvm/Config/llvm-config.h
   grep -Fq 'PerfJITEvents/PerfJITEventListener.cpp' external/swiftshader/third_party/llvm-10.0/Android.bp
@@ -347,6 +348,7 @@ PYPROFILE
   grep -Fq 'ENABLE_RR_PERF_JIT' external/swiftshader/src/Android.bp
   grep -Fq 'createPerfJITEventListener' external/swiftshader/src/Reactor/LLVMJIT.cpp
   grep -Fq '/data/data/com.YoStarEN.AzurLane/files' external/swiftshader/third_party/llvm-10.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp
+  grep -Fq 'LLVMPerfJitHeader Header{};' external/swiftshader/third_party/llvm-10.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp
   VARIANT_DESC="${VARIANT_DESC} + profiling-only LLVM PerfJIT/jitdump"
   git -C external/swiftshader diff -- \
     src/Android.bp src/Reactor/LLVMJIT.cpp \
