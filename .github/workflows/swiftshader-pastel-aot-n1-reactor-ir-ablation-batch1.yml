@@ -1,0 +1,54 @@
+name: SwiftShader Pastel AOT N1 Reactor IR Ablation Batch 1
+
+on:
+  push:
+    branches:
+      - pastel-reactor-ir-ablation-batch1-20260919
+    paths:
+      - .github/workflows/swiftshader-pastel-aot-n1-reactor-ir-ablation-batch1.yml
+      - experiments/160-swiftshader-perf/build-android-control.sh
+      - experiments/160-swiftshader-perf/select-ir-ablation.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ablation:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [e, se, ce, sce]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: aot-neoverse-n1-reactor-ir-cleanup
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+      ABLATION_VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select exact Reactor pass subset
+        run: python3 experiments/160-swiftshader-perf/select-ir-ablation.py "$ABLATION_VARIANT" experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Build Android 14 r45 Pastel AOT N1 Reactor IR ablation
+        run: bash experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Record ablation provenance
+        if: success()
+        shell: bash
+        run: |
+          printf '%s\n' "$ABLATION_VARIANT" > experiments/160-swiftshader-perf/out-control/ablation-variant.txt
+          case "$ABLATION_VARIANT" in
+            e)   printf '%s\n' 'SROA -> EarlyCSE -> InstCombine' ;;
+            se)  printf '%s\n' 'SROA -> SCCP -> EarlyCSE -> InstCombine' ;;
+            ce)  printf '%s\n' 'SROA -> SimplifyCFG1 -> EarlyCSE -> InstCombine' ;;
+            sce) printf '%s\n' 'SROA -> SCCP -> SimplifyCFG1 -> EarlyCSE -> InstCombine' ;;
+          esac > experiments/160-swiftshader-perf/out-control/ablation-pass-chain.txt
+          sha256sum experiments/160-swiftshader-perf/out-control/vulkan.pastel.so > experiments/160-swiftshader-perf/out-control/ablation-renderer-sha256.txt
+      - name: Upload ablation artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-pastel-android14-r45-aot-n1-ir-ablation-${{ matrix.variant }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 1
