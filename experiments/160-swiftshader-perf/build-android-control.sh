@@ -247,6 +247,40 @@ PY
     git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp \
       > "$ART/swiftshader-variant.patch"
     ;;
+  aot-neoverse-n1-reactor-ir-cleanup-profile)
+    python3 - <<'PY2'
+from pathlib import Path
+
+bp = Path("external/swiftshader/src/Android.bp")
+text = bp.read_text()
+reactor_old = '''    cflags: [
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+reactor_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+renderer_old = '''    cflags: [
+        "-D_GNU_SOURCE",'''
+renderer_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-D_GNU_SOURCE",'''
+assert text.count(reactor_old) == 1
+assert text.count(renderer_old) == 1
+text = text.replace(reactor_old, reactor_new, 1)
+text = text.replace(renderer_old, renderer_new, 1)
+bp.write_text(text)
+PY2
+    git -C external/swiftshader apply \
+      "$GITHUB_WORKSPACE/experiments/160-swiftshader-perf/reactor-ir-pass-profile.patch"
+    test "$(grep -c -- '-mcpu=neoverse-n1' external/swiftshader/src/Android.bp)" -eq 2
+    grep -Fq 'ALCLOUD_JIT_PASS' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    grep -Fq 'ALCLOUD_JIT_BACKEND' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    grep -Fq 'ALCLOUD_JIT_ROUTINE' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    grep -Fq 'runProfiledPass("EarlyCSE"' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    grep -Fq 'int optimizationLevel = 2;  // Default' external/swiftshader/src/Reactor/Pragma.cpp
+    VARIANT_DESC='AOT N1 + winning IR cleanup + pass timing/IR-count/backend/materialization instrumentation only'
+    git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp \
+      > "$ART/swiftshader-variant.patch"
+    ;;
   raster-pitch-precompute)
     python3 - <<'PY'
 from pathlib import Path
