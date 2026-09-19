@@ -1,0 +1,33 @@
+name: SwiftShader Pastel AOT N1 Reactor IR Cleanup
+
+on:
+  push:
+    branches:
+      - pastel-reactor-ir-cleanup-20260919
+    paths:
+      - .github/workflows/swiftshader-pastel-aot-n1-reactor-ir-cleanup.yml
+      - experiments/160-swiftshader-perf/build-android-control.sh
+
+permissions:
+  contents: read
+
+jobs:
+  build-ir-cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: aot-neoverse-n1-reactor-ir-cleanup
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Android 14 r45 Pastel AOT N1 Reactor IR cleanup
+        run: bash experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Upload Reactor IR cleanup artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-pastel-android14-r45-aot-n1-reactor-ir-cleanup
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 1
