@@ -197,6 +197,56 @@ PY
     git -C external/swiftshader diff -- src/Android.bp \
       > "$ART/swiftshader-variant.patch"
     ;;
+  aot-neoverse-n1-reactor-ir-cleanup)
+    python3 - <<'PY'
+from pathlib import Path
+
+bp = Path("external/swiftshader/src/Android.bp")
+text = bp.read_text()
+reactor_old = '''    cflags: [
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+reactor_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+renderer_old = '''    cflags: [
+        "-D_GNU_SOURCE",'''
+renderer_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-D_GNU_SOURCE",'''
+assert text.count(reactor_old) == 1
+assert text.count(renderer_old) == 1
+text = text.replace(reactor_old, reactor_new, 1)
+text = text.replace(renderer_old, renderer_new, 1)
+bp.write_text(text)
+
+jit = Path("external/swiftshader/src/Reactor/LLVMJIT.cpp")
+text = jit.read_text()
+old = '''\tif(optimizationLevel > 0)
+\t{
+\t\tpassManager.add(llvm::createSROAPass());
+\t\tpassManager.add(llvm::createInstructionCombiningPass());
+\t}'''
+new = '''\tif(optimizationLevel > 0)
+\t{
+\t\tpassManager.add(llvm::createSROAPass());
+\t\tpassManager.add(llvm::createSCCPPass());
+\t\tpassManager.add(llvm::createCFGSimplificationPass());
+\t\tpassManager.add(llvm::createEarlyCSEPass());
+\t\tpassManager.add(llvm::createCFGSimplificationPass());
+\t\tpassManager.add(llvm::createInstructionCombiningPass());
+\t}'''
+assert text.count(old) == 1, "unexpected LLVM10 Reactor pass sequence"
+jit.write_text(text.replace(old, new, 1))
+PY
+    test "$(grep -c -- '-mcpu=neoverse-n1' external/swiftshader/src/Android.bp)" -eq 2
+    grep -Fq 'int optimizationLevel = 2;  // Default' external/swiftshader/src/Reactor/Pragma.cpp
+    grep -Fq 'passManager.add(llvm::createSCCPPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    grep -Fq 'passManager.add(llvm::createEarlyCSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    test "$(grep -c 'passManager.add(llvm::createCFGSimplificationPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq 2
+    VARIANT_DESC='AOT Neoverse-N1 plus historical SwiftShader Vulkan LLVM10 IR cleanup: SROA/SCCP/SimplifyCFG/EarlyCSE/SimplifyCFG/InstCombine; backend Default'
+    git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp \
+      > "$ART/swiftshader-variant.patch"
+    ;;
   raster-pitch-precompute)
     python3 - <<'PY'
 from pathlib import Path
