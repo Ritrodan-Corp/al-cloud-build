@@ -1,0 +1,35 @@
+name: SwiftShader AOT N1 PerfJIT profiling build
+
+on:
+  push:
+    branches:
+      - pastel-jit-profile-20260919
+    paths:
+      - .github/workflows/swiftshader-pastel-aot-n1-perfjit-profile.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: aot-neoverse-n1
+      PASTEL_PROFILE_JIT: "1"
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Android 14 r45 Pastel AOT N1 with PerfJIT profiling
+        run: bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Upload profiling Pastel artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-pastel-android14-r45-aot-n1-perfjit-profile
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 1
