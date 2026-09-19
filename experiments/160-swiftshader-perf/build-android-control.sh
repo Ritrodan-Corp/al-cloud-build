@@ -336,7 +336,24 @@ t=t.replace(inc,'#include "llvm/ExecutionEngine/JITEventListener.h"\n'+inc,1)
 anchor='#endif  // ENABLE_RR_DEBUG_INFO\n\n\t\tif(JITGlobals::get()->getTargetTriple().isOSBinFormatCOFF())'
 insert='#endif  // ENABLE_RR_DEBUG_INFO\n\n#ifdef ENABLE_RR_PERF_JIT\n\t\tobjectLayer.setNotifyLoaded([](llvm::orc::VModuleKey,\n\t\t                               const llvm::object::ObjectFile &obj,\n\t\t                               const llvm::RuntimeDyld::LoadedObjectInfo &l) {\n\t\t\tstatic std::atomic<uint64_t> unique_key{ 0 };\n\t\t\tstatic llvm::JITEventListener *listener = llvm::JITEventListener::createPerfJITEventListener();\n\t\t\tlistener->notifyObjectLoaded(unique_key++, obj, l);\n\t\t});\n#endif  // ENABLE_RR_PERF_JIT\n\n\t\tif(JITGlobals::get()->getTargetTriple().isOSBinFormatCOFF())'
 assert t.count(anchor)==1
-jit.write_text(t.replace(anchor,insert,1))
+t=t.replace(anchor,insert,1)
+old_names='''\t\t\tif(!func->hasName())
+\t\t\t{
+\t\t\t\tfunc->setName("f" + llvm::Twine(i).str());
+\t\t\t}'''
+new_names='''\t\t\tif(!func->hasName())
+\t\t\t{
+\t\t\t\tif(count == 1)
+\t\t\t\t{
+\t\t\t\t\tfunc->setName(name);
+\t\t\t\t}
+\t\t\t\telse
+\t\t\t\t{
+\t\t\t\t\tfunc->setName("f" + llvm::Twine(i).str());
+\t\t\t\t}
+\t\t\t}'''
+assert t.count(old_names)==1
+jit.write_text(t.replace(old_names,new_names,1))
 
 perf=Path('external/swiftshader/third_party/llvm-10.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp')
 t=perf.read_text(); old='  else if (!sys::path::home_directory(Path))\n    Path = ".";'; new='  else\n    Path = "/data/data/com.YoStarEN.AzurLane/files";'; assert t.count(old)==1; t=t.replace(old,new,1)
@@ -347,6 +364,7 @@ PYPROFILE
   grep -Fq 'llvm/lib/Object/SymbolSize.cpp' external/swiftshader/third_party/llvm-10.0/Android.bp
   grep -Fq 'ENABLE_RR_PERF_JIT' external/swiftshader/src/Android.bp
   grep -Fq 'createPerfJITEventListener' external/swiftshader/src/Reactor/LLVMJIT.cpp
+  grep -Fq 'func->setName(name);' external/swiftshader/src/Reactor/LLVMJIT.cpp
   grep -Fq '/data/data/com.YoStarEN.AzurLane/files' external/swiftshader/third_party/llvm-10.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp
   grep -Fq 'LLVMPerfJitHeader Header{};' external/swiftshader/third_party/llvm-10.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp
   VARIANT_DESC="${VARIANT_DESC} + profiling-only LLVM PerfJIT/jitdump"
