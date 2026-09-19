@@ -1,0 +1,150 @@
+name: AL Cloud Delegated Pastel Build Runner
+
+on:
+  push:
+    branches:
+      - delegated-pastel-build-runner
+    paths:
+      - experiments/160-swiftshader-perf/delegated-pastel-build-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      request_id: ${{ steps.plan.outputs.request_id }}
+      source_ref: ${{ steps.plan.outputs.source_ref }}
+      base_variant: ${{ steps.plan.outputs.base_variant }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        name: Validate delegated build request
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+
+          path = "experiments/160-swiftshader-perf/delegated-pastel-build-request.json"
+          with open(path) as f:
+              req = json.load(f)
+
+          mode = req.get("mode")
+          request_id = req.get("request_id", "")
+          source_ref = req.get("source_ref", "")
+          base_variant = req.get("base_variant", "")
+          variants = req.get("variants", [])
+
+          assert mode in {"probe", "build"}, mode
+          assert re.fullmatch(r"[A-Za-z0-9._-]+", request_id), request_id
+          assert re.fullmatch(r"[A-Za-z0-9._/-]+", source_ref), source_ref
+          assert re.fullmatch(r"[A-Za-z0-9._-]+", base_variant), base_variant
+          assert isinstance(variants, list) and len(variants) <= 8
+          if mode == "build":
+              assert variants, "build mode requires at least one variant"
+
+          seen = set()
+          include = []
+          for v in variants:
+              vid = v.get("id", "")
+              passes = v.get("passes", [])
+              assert re.fullmatch(r"[A-Za-z0-9._-]+", vid), vid
+              assert vid not in seen, vid
+              seen.add(vid)
+              assert isinstance(passes, list) and len(passes) <= 8
+              assert all(p in {"SCCP", "SimplifyCFG", "EarlyCSE"} for p in passes), passes
+              include.append({"id": vid})
+
+          if not include:
+              include = [{"id": "probe"}]
+
+          matrix = json.dumps({"include": include}, separators=(",", ":"))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              print(f"mode={mode}", file=out)
+              print(f"request_id={request_id}", file=out)
+              print(f"source_ref={source_ref}", file=out)
+              print(f"base_variant={base_variant}", file=out)
+              print(f"matrix={matrix}", file=out)
+          PY
+
+  probe:
+    needs: plan
+    if: needs.plan.outputs.mode == 'probe'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delegation trigger probe
+        run: |
+          echo "request_id=${{ needs.plan.outputs.request_id }}"
+          echo "source_ref=${{ needs.plan.outputs.source_ref }}"
+          echo "DELEGATED_PASTEL_RUNNER_PROBE_PASS"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.mode == 'build'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout runner definition
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: runner
+
+      - name: Checkout requested source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.source_ref }}
+          path: src
+
+      - name: Apply requested Reactor pass subset
+        shell: bash
+        run: |
+          python3 runner/experiments/160-swiftshader-perf/apply-delegated-ir-request.py \
+            runner/experiments/160-swiftshader-perf/delegated-pastel-build-request.json \
+            "${{ matrix.id }}" \
+            src/experiments/160-swiftshader-perf/build-android-control.sh \
+            src/experiments/160-swiftshader-perf/delegated-selected-pass-chain.txt
+
+      - name: Build requested Pastel variant
+        working-directory: src
+        env:
+          PASTEL_VARIANT: ${{ needs.plan.outputs.base_variant }}
+          PASTEL_EXTRA_SWAP_GB: "8"
+          PASTEL_DIAGNOSTICS: "1"
+        run: |
+          GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Record delegated build provenance
+        if: success()
+        shell: bash
+        run: |
+          OUT=src/experiments/160-swiftshader-perf/out-control
+          cp runner/experiments/160-swiftshader-perf/delegated-pastel-build-request.json "$OUT/delegated-build-request.json"
+          cp src/experiments/160-swiftshader-perf/delegated-selected-pass-chain.txt "$OUT/delegated-selected-pass-chain.txt"
+          {
+            echo "request_id=${{ needs.plan.outputs.request_id }}"
+            echo "variant_id=${{ matrix.id }}"
+            echo "source_ref=${{ needs.plan.outputs.source_ref }}"
+            echo "base_variant=${{ needs.plan.outputs.base_variant }}"
+            echo "runner_sha=${{ github.sha }}"
+          } > "$OUT/delegated-build-provenance.txt"
+          sha256sum "$OUT/vulkan.pastel.so" > "$OUT/delegated-renderer-sha256.txt"
+          readelf -n "$OUT/vulkan.pastel.so" | awk '/Build ID:/ {print $3; exit}' > "$OUT/delegated-renderer-build-id.txt" || true
+
+      - name: Upload delegated Pastel artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: delegated-pastel-${{ needs.plan.outputs.request_id }}-${{ matrix.id }}
+          path: src/experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 3

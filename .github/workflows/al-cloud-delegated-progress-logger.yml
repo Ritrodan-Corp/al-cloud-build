@@ -1,0 +1,77 @@
+name: AL Cloud Delegated Progress Logger
+
+on:
+  push:
+    branches:
+      - delegated-pastel-build-runner
+    paths:
+      - 'experiments/delegated-progress-log/*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  post-progress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Post delegated progress entries to issue 61
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git diff-tree --no-commit-id --name-only -r "$SHA" -- 'experiments/delegated-progress-log/*.json')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No delegated progress files in head commit."
+            exit 0
+          fi
+
+          for file in "${files[@]}"; do
+            python3 - "$file" > /tmp/delegated-log.env <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          p = Path(sys.argv[1])
+          data = json.loads(p.read_text())
+          request_id = data.get("request_id", "")
+          issue = data.get("issue_number")
+          body = data.get("body", "")
+
+          assert issue == 61, issue
+          assert re.fullmatch(r"[A-Za-z0-9._-]{1,120}", request_id), request_id
+          assert isinstance(body, str) and 1 <= len(body) <= 60000
+
+          marker = f"<!-- alcloud-delegated-log:{request_id} -->"
+          print("REQUEST_ID=" + request_id)
+          print("MARKER=" + marker)
+          PY
+
+            REQUEST_ID=$(sed -n 's/^REQUEST_ID=//p' /tmp/delegated-log.env)
+            MARKER=$(sed -n 's/^MARKER=//p' /tmp/delegated-log.env)
+
+            if gh api --paginate "repos/$REPO/issues/61/comments" --jq '.[].body' | grep -Fq -- "$MARKER"; then
+              echo "Already posted: $REQUEST_ID"
+              continue
+            fi
+
+            BODY=$(python3 - "$file" <<'PY'
+          import json, sys
+          print(json.load(open(sys.argv[1]))["body"], end="")
+          PY
+            )
+
+            gh api "repos/$REPO/issues/61/comments"               --method POST               -f body="$BODY
+
+          $MARKER" >/dev/null
+            echo "Posted: $REQUEST_ID"
+          done

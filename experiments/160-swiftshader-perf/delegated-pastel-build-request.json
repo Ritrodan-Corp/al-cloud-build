@@ -1,0 +1,14 @@
+{
+  "request_id": "manual-probe-20260919-1",
+  "mode": "probe",
+  "source_ref": "pastel-reactor-ir-cleanup-20260919",
+  "base_variant": "aot-neoverse-n1-reactor-ir-cleanup",
+  "variants": [
+    {
+      "id": "probe",
+      "passes": [
+        "EarlyCSE"
+      ]
+    }
+  ]
+}
