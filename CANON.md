@@ -73,7 +73,7 @@ Stretch: broad autonomous gameplay. Expand into this only after lower tiers are 
 
 ### Open housekeeping
 
-Housekeeping remains secondary to the active fork/runtime work. Verified cleanup candidates include stale disposable GCP clones and old Anbox-PoC/account-side artifacts, plus approved stale branch refs once an authorized delete-ref surface is available. Current GitHub issue/PR hygiene is clean: issue #61 is the sole active raw-log issue and there are zero open PRs. Keep evidence-bearing Actions runs and artifacts available unless a later cleanup explicitly proves they are redundant.
+Housekeeping remains secondary to active runtime work. Verified cleanup candidates include stale disposable GCP clones and old Anbox-PoC/account-side artifacts, plus retired historical branch refs once an authorized delete-ref surface is available. Public build issue #61 is archived and there are currently zero open pull requests. Keep evidence-bearing Actions runs and artifacts available unless a later cleanup explicitly proves they are redundant.
 
 ### Agent-control architecture
 
