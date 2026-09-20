@@ -1,27 +1,37 @@
 {
-  "request_id": "newgvn-licm-order-20260920-1",
+  "request_id": "newgvn-loop-batch-20260920-1",
   "mode": "build",
   "source_ref": "pastel-reactor-ir-cleanup-20260919",
   "base_variant": "aot-neoverse-n1-reactor-ir-cleanup",
   "variants": [
     {
-      "id": "newgvn-dse-licm",
+      "id": "newgvn-dse-looprotate",
       "passes": [
         "EarlyCSE",
         "Reassociate",
         "NewGVN",
         "DSE",
-        "LICM"
+        "LoopRotate"
       ]
     },
     {
-      "id": "newgvn-licm-dse",
+      "id": "newgvn-dse-indvarsimplify",
       "passes": [
         "EarlyCSE",
         "Reassociate",
         "NewGVN",
-        "LICM",
-        "DSE"
+        "DSE",
+        "IndVarSimplify"
+      ]
+    },
+    {
+      "id": "newgvn-dse-loopstrengthreduce",
+      "passes": [
+        "EarlyCSE",
+        "Reassociate",
+        "NewGVN",
+        "DSE",
+        "LoopStrengthReduce"
       ]
     }
   ]
