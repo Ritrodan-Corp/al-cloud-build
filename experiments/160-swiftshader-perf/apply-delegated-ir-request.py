@@ -13,6 +13,8 @@ allowed = {
     "SCCP": "createSCCPPass",
     "SimplifyCFG": "createCFGSimplificationPass",
     "EarlyCSE": "createEarlyCSEPass",
+    "ADCE": "createAggressiveDCEPass",
+    "DSE": "createDeadStoreEliminationPass",
 }
 passes = variants[variant_id].get("passes", [])
 assert isinstance(passes, list) and len(passes) <= 8
@@ -45,16 +47,16 @@ old_checks = """    grep -Fq 'int optimizationLevel = 2;  // Default' external/s
     VARIANT_DESC='AOT Neoverse-N1 plus historical SwiftShader Vulkan LLVM10 IR cleanup: SROA/SCCP/SimplifyCFG/EarlyCSE/SimplifyCFG/InstCombine; backend Default'
 """
 
-sccp_count = passes.count("SCCP")
-early_count = passes.count("EarlyCSE")
-cfg_count = passes.count("SimplifyCFG")
+counts = {name: passes.count(name) for name in allowed}
 chain = ["SROA", *passes, "InstCombine"]
 chain_text = " -> ".join(chain)
 
 new_checks = f"""    grep -Fq 'int optimizationLevel = 2;  // Default' external/swiftshader/src/Reactor/Pragma.cpp
-    test "$(grep -c 'passManager.add(llvm::createSCCPPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {sccp_count}
-    test "$(grep -c 'passManager.add(llvm::createEarlyCSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {early_count}
-    test "$(grep -c 'passManager.add(llvm::createCFGSimplificationPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {cfg_count}
+    test "$(grep -c 'passManager.add(llvm::createSCCPPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['SCCP']}
+    test "$(grep -c 'passManager.add(llvm::createEarlyCSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['EarlyCSE']}
+    test "$(grep -c 'passManager.add(llvm::createCFGSimplificationPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['SimplifyCFG']}
+    test "$(grep -c 'passManager.add(llvm::createAggressiveDCEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['ADCE']}
+    test "$(grep -c 'passManager.add(llvm::createDeadStoreEliminationPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['DSE']}
     VARIANT_DESC='AOT Neoverse-N1 delegated Reactor IR variant {variant_id}: {chain_text}; backend Default'
 """
 assert text.count(old_checks) == 1, "expected exactly one full-cleanup validation block"
