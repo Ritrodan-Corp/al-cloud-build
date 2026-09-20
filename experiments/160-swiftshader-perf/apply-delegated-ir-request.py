@@ -16,6 +16,8 @@ allowed = {
     "ADCE": "createAggressiveDCEPass",
     "DSE": "createDeadStoreEliminationPass",
     "Reassociate": "createReassociatePass",
+    "GVN": "createGVNPass",
+    "NewGVN": "createNewGVNPass",
 }
 passes = variants[variant_id].get("passes", [])
 assert isinstance(passes, list) and len(passes) <= 8
@@ -59,6 +61,8 @@ new_checks = f"""    grep -Fq 'int optimizationLevel = 2;  // Default' external/
     test "$(grep -c 'passManager.add(llvm::createAggressiveDCEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['ADCE']}
     test "$(grep -c 'passManager.add(llvm::createDeadStoreEliminationPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['DSE']}
     test "$(grep -c 'passManager.add(llvm::createReassociatePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['Reassociate']}
+    test "$(grep -c 'passManager.add(llvm::createGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['GVN']}
+    test "$(grep -c 'passManager.add(llvm::createNewGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['NewGVN']}
     VARIANT_DESC='AOT Neoverse-N1 delegated Reactor IR variant {variant_id}: {chain_text}; backend Default'
 """
 assert text.count(old_checks) == 1, "expected exactly one full-cleanup validation block"
