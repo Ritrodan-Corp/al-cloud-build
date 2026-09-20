@@ -58,7 +58,7 @@ jobs:
               assert vid not in seen, vid
               seen.add(vid)
               assert isinstance(passes, list) and len(passes) <= 8
-              assert all(p in {"SCCP", "SimplifyCFG", "EarlyCSE", "ADCE", "DSE", "Reassociate", "GVN", "NewGVN"} for p in passes), passes
+              assert all(p in {"SCCP", "SimplifyCFG", "EarlyCSE", "ADCE", "DSE", "Reassociate", "GVN", "NewGVN", "LICM"} for p in passes), passes
               include.append({"id": vid})
 
           if not include:
