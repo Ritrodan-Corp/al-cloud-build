@@ -1,20 +1,16 @@
 {
-  "request_id": "e-adce-dse-20260920-1",
+  "request_id": "edr-reassociate-20260920-1",
   "mode": "build",
   "source_ref": "pastel-reactor-ir-cleanup-20260919",
   "base_variant": "aot-neoverse-n1-reactor-ir-cleanup",
   "variants": [
     {
-      "id": "ea",
-      "passes": ["EarlyCSE", "ADCE"]
-    },
-    {
-      "id": "ed",
-      "passes": ["EarlyCSE", "DSE"]
-    },
-    {
-      "id": "eda",
-      "passes": ["EarlyCSE", "DSE", "ADCE"]
+      "id": "edr",
+      "passes": [
+        "EarlyCSE",
+        "Reassociate",
+        "DSE"
+      ]
     }
   ]
 }
