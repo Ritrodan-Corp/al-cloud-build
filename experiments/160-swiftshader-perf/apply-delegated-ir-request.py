@@ -15,6 +15,7 @@ allowed = {
     "EarlyCSE": "createEarlyCSEPass",
     "ADCE": "createAggressiveDCEPass",
     "DSE": "createDeadStoreEliminationPass",
+    "Reassociate": "createReassociatePass",
 }
 passes = variants[variant_id].get("passes", [])
 assert isinstance(passes, list) and len(passes) <= 8
@@ -57,6 +58,7 @@ new_checks = f"""    grep -Fq 'int optimizationLevel = 2;  // Default' external/
     test "$(grep -c 'passManager.add(llvm::createCFGSimplificationPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['SimplifyCFG']}
     test "$(grep -c 'passManager.add(llvm::createAggressiveDCEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['ADCE']}
     test "$(grep -c 'passManager.add(llvm::createDeadStoreEliminationPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['DSE']}
+    test "$(grep -c 'passManager.add(llvm::createReassociatePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['Reassociate']}
     VARIANT_DESC='AOT Neoverse-N1 delegated Reactor IR variant {variant_id}: {chain_text}; backend Default'
 """
 assert text.count(old_checks) == 1, "expected exactly one full-cleanup validation block"
