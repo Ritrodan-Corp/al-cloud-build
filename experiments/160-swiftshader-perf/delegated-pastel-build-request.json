@@ -1,14 +1,24 @@
 {
-  "request_id": "edr-reassociate-20260920-1",
+  "request_id": "edr-gvn-newgvn-20260920-1",
   "mode": "build",
   "source_ref": "pastel-reactor-ir-cleanup-20260919",
   "base_variant": "aot-neoverse-n1-reactor-ir-cleanup",
   "variants": [
     {
-      "id": "edr",
+      "id": "edr-gvn",
       "passes": [
         "EarlyCSE",
         "Reassociate",
+        "GVN",
+        "DSE"
+      ]
+    },
+    {
+      "id": "edr-newgvn",
+      "passes": [
+        "EarlyCSE",
+        "Reassociate",
+        "NewGVN",
         "DSE"
       ]
     }
