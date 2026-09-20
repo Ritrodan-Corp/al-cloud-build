@@ -1,6 +1,6 @@
 # GCP lifecycle control plane
 
-This public directory documents the narrow lifecycle-control pattern without publishing the deployment's private identifiers.
+This directory documents the narrow lifecycle-control pattern without publishing deployment-specific identifiers.
 
 ## Security model
 
@@ -14,11 +14,11 @@ The runtime identity should receive only:
 
 Bind that custom role on the individual VM, not project-wide. WIF providers should constrain repository ID, repository-owner ID, branch/ref, event name, and exact workflow ref before service-account impersonation is allowed.
 
-## Private configuration
+## Deployment configuration
 
-Exact project, zone, VM, repository numeric IDs, service-account identity, provider IDs, and workflow refs are private deployment configuration. Do not commit them to this public repository.
+Exact project, zone, VM, repository numeric IDs, service-account identity, provider IDs, and workflow refs are deployment-specific configuration. Do not commit them to this repository.
 
-Run `bootstrap.sh` only from a trusted authenticated `gcloud` environment after supplying the required environment variables documented by the script. Store the exact values in the private internal canon or another private configuration source.
+Run `bootstrap.sh` only from a trusted authenticated `gcloud` environment after supplying the required environment variables documented by the script. Store exact deployment values in an appropriate secure configuration source.
 
 ## Safety boundary
 
