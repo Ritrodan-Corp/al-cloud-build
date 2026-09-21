@@ -1,38 +1,15 @@
 {
-  "request_id": "newgvn-loop-batch-20260920-1",
+  "request_id": "retained-indvar-msr-matrix-20260920-1",
   "mode": "build",
   "source_ref": "pastel-reactor-ir-cleanup-20260919",
   "base_variant": "aot-neoverse-n1-reactor-ir-cleanup",
   "variants": [
-    {
-      "id": "newgvn-dse-looprotate",
-      "passes": [
-        "EarlyCSE",
-        "Reassociate",
-        "NewGVN",
-        "DSE",
-        "LoopRotate"
-      ]
-    },
-    {
-      "id": "newgvn-dse-indvarsimplify",
-      "passes": [
-        "EarlyCSE",
-        "Reassociate",
-        "NewGVN",
-        "DSE",
-        "IndVarSimplify"
-      ]
-    },
-    {
-      "id": "newgvn-dse-loopstrengthreduce",
-      "passes": [
-        "EarlyCSE",
-        "Reassociate",
-        "NewGVN",
-        "DSE",
-        "LoopStrengthReduce"
-      ]
-    }
+    {"id":"indvar-m","passes":["EarlyCSE-MSSA","Reassociate","NewGVN","DSE","IndVarSimplify"]},
+    {"id":"indvar-s","passes":["EarlyCSE","Reassociate","NewGVN","DSE","IndVarSimplify","Sinking"]},
+    {"id":"indvar-r","passes":["EarlyCSE","Reassociate","SLR","NewGVN","DSE","IndVarSimplify"]},
+    {"id":"indvar-ms","passes":["EarlyCSE-MSSA","Reassociate","NewGVN","DSE","IndVarSimplify","Sinking"]},
+    {"id":"indvar-mr","passes":["EarlyCSE-MSSA","Reassociate","SLR","NewGVN","DSE","IndVarSimplify"]},
+    {"id":"indvar-sr","passes":["EarlyCSE","Reassociate","SLR","NewGVN","DSE","IndVarSimplify","Sinking"]},
+    {"id":"indvar-msr","passes":["EarlyCSE-MSSA","Reassociate","SLR","NewGVN","DSE","IndVarSimplify","Sinking"]}
   ]
 }
