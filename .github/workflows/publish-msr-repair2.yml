@@ -1,0 +1,49 @@
+name: Publish MSR repair2 artifact
+
+on:
+  push:
+    branches:
+      - delegated-pastel-build-runner
+    paths:
+      - .github/workflows/publish-msr-repair2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: alcloud-msr-repair2-20260921-1
+      ART_ID: "10618851417"
+      ART_SHA: "d4c8f943126e7508971dd1bed2ac9dc7b94d19b0fe17ab51d1d51471b3234ad3"
+    steps:
+      - name: Download and verify exact artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          curl -fL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ART_ID/zip" \
+            -o release-assets/indvar-msr-repair2.zip
+          echo "$ART_SHA  release-assets/indvar-msr-repair2.zip" | sha256sum -c -
+
+      - name: Publish staging release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target delegated-pastel-build-runner \
+              --title "AL Cloud MSR repair2 staging" \
+              --notes "Temporary staging bridge for verified MSR repair2 artifact from workflow run 35550125817."
+          fi
+          gh release upload "$TAG" release-assets/indvar-msr-repair2.zip --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Verify release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,assets
