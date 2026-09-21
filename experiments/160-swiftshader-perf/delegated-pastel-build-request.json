@@ -1,11 +1,11 @@
 {
-  "request_id": "retained-indvar-msr-repair-20260920-1",
+  "request_id": "retained-indvar-msr-repair2-20260920-1",
   "mode": "build",
   "source_ref": "pastel-reactor-ir-cleanup-20260919",
   "base_variant": "aot-neoverse-n1-reactor-ir-cleanup",
   "variants": [
     {
-      "id": "indvar-s-repair",
+      "id": "indvar-s-repair2",
       "passes": [
         "EarlyCSE",
         "Reassociate",
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "id": "indvar-r-repair",
+      "id": "indvar-r-repair2",
       "passes": [
         "EarlyCSE",
         "Reassociate",
@@ -27,7 +27,7 @@
       ]
     },
     {
-      "id": "indvar-ms-repair",
+      "id": "indvar-ms-repair2",
       "passes": [
         "EarlyCSE-MSSA",
         "Reassociate",
@@ -38,7 +38,7 @@
       ]
     },
     {
-      "id": "indvar-mr-repair",
+      "id": "indvar-mr-repair2",
       "passes": [
         "EarlyCSE-MSSA",
         "Reassociate",
@@ -49,7 +49,7 @@
       ]
     },
     {
-      "id": "indvar-sr-repair",
+      "id": "indvar-sr-repair2",
       "passes": [
         "EarlyCSE",
         "Reassociate",
@@ -61,7 +61,7 @@
       ]
     },
     {
-      "id": "indvar-msr-repair",
+      "id": "indvar-msr-repair2",
       "passes": [
         "EarlyCSE-MSSA",
         "Reassociate",
