@@ -13,6 +13,7 @@ allowed = {
     "SCCP": "createSCCPPass",
     "SimplifyCFG": "createCFGSimplificationPass",
     "EarlyCSE": "createEarlyCSEPass",
+    "EarlyCSE-MSSA": "createEarlyCSEPass",
     "ADCE": "createAggressiveDCEPass",
     "DSE": "createDeadStoreEliminationPass",
     "Reassociate": "createReassociatePass",
@@ -22,6 +23,8 @@ allowed = {
     "LoopRotate": "createLoopRotatePass",
     "IndVarSimplify": "createIndVarSimplifyPass",
     "LoopStrengthReduce": "createLoopStrengthReducePass",
+    "Sinking": "createSinkingPass",
+    "SLR": "createStraightLineStrengthReducePass",
 }
 passes = variants[variant_id].get("passes", [])
 assert isinstance(passes, list) and len(passes) <= 8
@@ -38,11 +41,16 @@ old = r'''\t\tpassManager.add(llvm::createSROAPass());
 \t\tpassManager.add(llvm::createCFGSimplificationPass());
 \t\tpassManager.add(llvm::createInstructionCombiningPass());'''
 
-factories = ["createSROAPass", *(allowed[p] for p in passes),
-             "createInstructionCombiningPass"]
+def call_for(pass_name):
+    if pass_name == "EarlyCSE-MSSA":
+        return "createEarlyCSEPass(true)"
+    return f"{allowed[pass_name]}()"
+
+calls = ["createSROAPass()", *(call_for(p) for p in passes),
+         "createInstructionCombiningPass()"]
 new = "\n".join(
-    r"\t\tpassManager.add(llvm::%s());" % factory
-    for factory in factories
+    r"\t\tpassManager.add(llvm::%s);" % call
+    for call in calls
 )
 assert text.count(old) == 1, "expected exactly one validated full-cleanup template"
 text = text.replace(old, new, 1)
@@ -61,6 +69,7 @@ chain_text = " -> ".join(chain)
 new_checks = f"""    grep -Fq 'int optimizationLevel = 2;  // Default' external/swiftshader/src/Reactor/Pragma.cpp
     test "$(grep -c 'passManager.add(llvm::createSCCPPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['SCCP']}
     test "$(grep -c 'passManager.add(llvm::createEarlyCSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['EarlyCSE']}
+    test "$(grep -c 'passManager.add(llvm::createEarlyCSEPass(true));' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['EarlyCSE-MSSA']}
     test "$(grep -c 'passManager.add(llvm::createCFGSimplificationPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['SimplifyCFG']}
     test "$(grep -c 'passManager.add(llvm::createAggressiveDCEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['ADCE']}
     test "$(grep -c 'passManager.add(llvm::createDeadStoreEliminationPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['DSE']}
@@ -71,6 +80,8 @@ new_checks = f"""    grep -Fq 'int optimizationLevel = 2;  // Default' external/
     test "$(grep -c 'passManager.add(llvm::createLoopRotatePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['LoopRotate']}
     test "$(grep -c 'passManager.add(llvm::createIndVarSimplifyPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['IndVarSimplify']}
     test "$(grep -c 'passManager.add(llvm::createLoopStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['LoopStrengthReduce']}
+    test "$(grep -c 'passManager.add(llvm::createSinkingPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['Sinking']}
+    test "$(grep -c 'passManager.add(llvm::createStraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['SLR']}
     VARIANT_DESC='AOT Neoverse-N1 delegated Reactor IR variant {variant_id}: {chain_text}; backend Default'
 """
 assert text.count(old_checks) == 1, "expected exactly one full-cleanup validation block"
