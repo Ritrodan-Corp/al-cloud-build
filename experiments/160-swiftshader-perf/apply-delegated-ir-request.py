@@ -74,24 +74,21 @@ if counts["SLR"]:
 
 source_patch = ""
 if extra_scalar_sources:
-    source_lines = "".join(
-        f'        "{src}",\\n' for src in extra_scalar_sources
-    )
-    source_checks = "\\n".join(
-        f'assert Path("external/swiftshader/third_party/llvm-10.0/{src}").is_file(), "{src} missing"'
-        for src in extra_scalar_sources
-    )
     source_patch = f"""    python3 - <<'PY'
 from pathlib import Path
 
 bp = Path("external/swiftshader/third_party/llvm-10.0/Android.bp")
 text = bp.read_text()
-anchor = '        "llvm/lib/Transforms/Scalar/SROA.cpp",\\n'
+newline = chr(10)
+anchor = '        "llvm/lib/Transforms/Scalar/SROA.cpp",' + newline
 assert text.count(anchor) == 1, "expected one LLVM10 Scalar/SROA.cpp source anchor"
-{source_checks}
-for src in {extra_scalar_sources!r}:
+sources = {extra_scalar_sources!r}
+for src in sources:
+    source_path = Path("external/swiftshader/third_party/llvm-10.0") / src
+    assert source_path.is_file(), f"{{src}} missing"
     assert f'        "{{src}}",' not in text, f"LLVM10 source already present: {{src}}"
-text = text.replace(anchor, anchor + {source_lines!r}, 1)
+insert = "".join(f'        "{{src}}",' + newline for src in sources)
+text = text.replace(anchor, anchor + insert, 1)
 bp.write_text(text)
 PY
 """
