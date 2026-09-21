@@ -66,6 +66,36 @@ counts = {name: passes.count(name) for name in allowed}
 chain = ["SROA", *passes, "InstCombine"]
 chain_text = " -> ".join(chain)
 
+extra_scalar_sources = []
+if counts["Sinking"]:
+    extra_scalar_sources.append("llvm/lib/Transforms/Scalar/Sink.cpp")
+if counts["SLR"]:
+    extra_scalar_sources.append("llvm/lib/Transforms/Scalar/StraightLineStrengthReduce.cpp")
+
+source_patch = ""
+if extra_scalar_sources:
+    source_lines = "".join(
+        f'        "{src}",\\n' for src in extra_scalar_sources
+    )
+    source_checks = "\\n".join(
+        f'assert Path("external/swiftshader/third_party/llvm-10.0/{src}").is_file(), "{src} missing"'
+        for src in extra_scalar_sources
+    )
+    source_patch = f"""    python3 - <<'PY'
+from pathlib import Path
+
+bp = Path("external/swiftshader/third_party/llvm-10.0/Android.bp")
+text = bp.read_text()
+anchor = '        "llvm/lib/Transforms/Scalar/SROA.cpp",\\n'
+assert text.count(anchor) == 1, "expected one LLVM10 Scalar/SROA.cpp source anchor"
+{source_checks}
+for src in {extra_scalar_sources!r}:
+    assert f'        "{{src}}",' not in text, f"LLVM10 source already present: {{src}}"
+text = text.replace(anchor, anchor + {source_lines!r}, 1)
+bp.write_text(text)
+PY
+"""
+
 new_checks = f"""    grep -Fq 'int optimizationLevel = 2;  // Default' external/swiftshader/src/Reactor/Pragma.cpp
     test "$(grep -c 'passManager.add(llvm::createSCCPPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['SCCP']}
     test "$(grep -c 'passManager.add(llvm::createEarlyCSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['EarlyCSE']}
@@ -82,10 +112,12 @@ new_checks = f"""    grep -Fq 'int optimizationLevel = 2;  // Default' external/
     test "$(grep -c 'passManager.add(llvm::createLoopStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['LoopStrengthReduce']}
     test "$(grep -c 'passManager.add(llvm::createSinkingPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['Sinking']}
     test "$(grep -c 'passManager.add(llvm::createStraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp)" -eq {counts['SLR']}
+    test "$(grep -c 'llvm/lib/Transforms/Scalar/Sink.cpp' external/swiftshader/third_party/llvm-10.0/Android.bp)" -eq {1 if counts['Sinking'] else 0}
+    test "$(grep -c 'llvm/lib/Transforms/Scalar/StraightLineStrengthReduce.cpp' external/swiftshader/third_party/llvm-10.0/Android.bp)" -eq {1 if counts['SLR'] else 0}
     VARIANT_DESC='AOT Neoverse-N1 delegated Reactor IR variant {variant_id}: {chain_text}; backend Default'
 """
 assert text.count(old_checks) == 1, "expected exactly one full-cleanup validation block"
-text = text.replace(old_checks, new_checks, 1)
+text = text.replace(old_checks, source_patch + new_checks, 1)
 
 path.write_text(text)
 Path(provenance_path).write_text(chain_text + "\n")
