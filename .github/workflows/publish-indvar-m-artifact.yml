@@ -1,0 +1,43 @@
+name: Publish IndVar MemorySSA artifact
+
+on:
+  push:
+    branches:
+      - delegated-pastel-build-runner
+    paths:
+      - .github/workflows/publish-indvar-m-artifact.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: alcloud-indvar-m-20260920-1
+      ARTIFACT_ID: "10617686323"
+      EXPECTED_ZIP_SHA: "1845c5ca8448d1c5c6fe485d9ed06371214e6c98dac9a40a77fa71a689dab517"
+    steps:
+      - name: Download verified Actions artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          curl -fL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip"             -o release-assets/indvar-m.zip
+          echo "$EXPECTED_ZIP_SHA  release-assets/indvar-m.zip" | sha256sum -c -
+
+      - name: Create or update public staging release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG"               --repo "$GITHUB_REPOSITORY"               --target delegated-pastel-build-runner               --title "AL Cloud IndVar MemorySSA staging"               --notes "Temporary public staging bridge for verified indvar-m artifact from workflow run 35546598468."
+          fi
+          gh release upload "$TAG" release-assets/indvar-m.zip --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Verify release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,assets
