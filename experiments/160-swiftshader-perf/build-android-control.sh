@@ -396,7 +396,7 @@ if variant == "aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather":
 				offsets = Insert(offsets, Int(index[2] * 4), 2);
 				offsets = Insert(offsets, Int(index[3] * 4), 3);
 				SIMD::Int mask([](int lane) { return lane < 4 ? -1 : 0; });
-				c.x = Extract128(Gather(Pointer<Float>(buffer), offsets, mask, 4), 0);
+				c.x = Extract128(rr::Gather(Pointer<Float>(buffer), offsets, mask, 4), 0);
 			}
 			break;'''
     assert text.count(old) == 1, "unexpected R32/D32 scalar sampler block"
