@@ -638,6 +638,107 @@ PY
     exit 2
     ;;
 esac
+if [[ "${PASTEL_PROFILE_JIT:-0}" == "1" ]]; then
+  case "$PASTEL_VARIANT" in
+    aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather) ;;
+    *) echo "PASTEL_PROFILE_JIT=1 unsupported for $PASTEL_VARIANT" >&2; exit 2 ;;
+  esac
+  python3 - <<'PYPROFILE'
+from pathlib import Path
+
+llvm = Path("external/swiftshader/third_party/llvm-16.0")
+cfg = llvm / "configs/android/include/llvm/Config/llvm-config.h"
+text = cfg.read_text()
+old = "#define LLVM_USE_PERF 0"
+assert text.count(old) == 1
+cfg.write_text(text.replace(old, "#define LLVM_USE_PERF 1", 1))
+
+bp = llvm / "Android.bp"
+text = bp.read_text()
+old = '        "llvm/lib/ExecutionEngine/SectionMemoryManager.cpp",\n'
+new = old + '        "llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp",\n        "llvm/lib/Object/SymbolSize.cpp",\n'
+assert text.count(old) == 1
+assert "PerfJITEvents/PerfJITEventListener.cpp" not in text
+assert "llvm/lib/Object/SymbolSize.cpp" not in text
+bp.write_text(text.replace(old, new, 1))
+
+srcbp = Path("external/swiftshader/src/Android.bp")
+text = srcbp.read_text()
+old = '        "-mcpu=neoverse-n1",\n        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'
+new = '        "-mcpu=neoverse-n1",\n        "-DENABLE_RR_PERF_JIT",\n        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'
+assert text.count(old) == 1
+srcbp.write_text(text.replace(old, new, 1))
+
+jit = Path("external/swiftshader/src/Reactor/LLVMJIT.cpp")
+text = jit.read_text()
+inc = '#include "llvm/ExecutionEngine/SectionMemoryManager.h"\n'
+assert text.count(inc) == 1
+text = text.replace(inc, '#include "llvm/ExecutionEngine/JITEventListener.h"\n' + inc, 1)
+
+anchor = '#endif  // ENABLE_RR_DEBUG_INFO\n\n\t\tif(JITGlobals::get()->getTargetTriple().isOSBinFormatCOFF())'
+insert = '''#endif  // ENABLE_RR_DEBUG_INFO
+
+#ifdef ENABLE_RR_PERF_JIT
+\t\tobjectLayer.setNotifyLoaded([](llvm::orc::MaterializationResponsibility &,
+\t\t                               const llvm::object::ObjectFile &obj,
+\t\t                               const llvm::RuntimeDyld::LoadedObjectInfo &l) {
+\t\t\tstatic std::atomic<uint64_t> unique_key{ 0 };
+\t\t\tstatic llvm::JITEventListener *listener = llvm::JITEventListener::createPerfJITEventListener();
+\t\t\tlistener->notifyObjectLoaded(unique_key++, obj, l);
+\t\t});
+#endif  // ENABLE_RR_PERF_JIT
+
+\t\tif(JITGlobals::get()->getTargetTriple().isOSBinFormatCOFF())'''
+assert text.count(anchor) == 1
+text = text.replace(anchor, insert, 1)
+
+old_names = '''\t\t\tif(!func->hasName())
+\t\t\t{
+\t\t\t\tfunc->setName("f" + llvm::Twine(i).str());
+\t\t\t}'''
+new_names = '''\t\t\tif(!func->hasName())
+\t\t\t{
+\t\t\t\tif(count == 1)
+\t\t\t\t{
+\t\t\t\t\tfunc->setName(name);
+\t\t\t\t}
+\t\t\t\telse
+\t\t\t\t{
+\t\t\t\t\tfunc->setName("f" + llvm::Twine(i).str());
+\t\t\t\t}
+\t\t\t}'''
+assert text.count(old_names) == 1
+jit.write_text(text.replace(old_names, new_names, 1))
+
+perf = llvm / "llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp"
+text = perf.read_text()
+anchor_def = 'void llvm::JITEventListener::anchor() {}\n'
+assert 'JITEventListener::anchor()' not in text
+using_anchor = 'using namespace llvm::object;\n'
+assert text.count(using_anchor) == 1
+text = text.replace(using_anchor, using_anchor + anchor_def, 1)
+old = '  else if (!sys::path::home_directory(Path))\n    Path = ".";'
+new = '  else\n    Path = "/data/data/com.YoStarEN.AzurLane/files";'
+assert text.count(old) == 1
+perf.write_text(text.replace(old, new, 1))
+PYPROFILE
+
+  grep -Fq '#define LLVM_USE_PERF 1' external/swiftshader/third_party/llvm-16.0/configs/android/include/llvm/Config/llvm-config.h
+  grep -Fq 'PerfJITEvents/PerfJITEventListener.cpp' external/swiftshader/third_party/llvm-16.0/Android.bp
+  grep -Fq 'llvm/lib/Object/SymbolSize.cpp' external/swiftshader/third_party/llvm-16.0/Android.bp
+  grep -Fq 'ENABLE_RR_PERF_JIT' external/swiftshader/src/Android.bp
+  grep -Fq 'createPerfJITEventListener' external/swiftshader/src/Reactor/LLVMJIT.cpp
+  grep -Fq 'func->setName(name);' external/swiftshader/src/Reactor/LLVMJIT.cpp
+  grep -Fq '/data/data/com.YoStarEN.AzurLane/files' external/swiftshader/third_party/llvm-16.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp
+  VARIANT_DESC="${VARIANT_DESC} + profiling-only LLVM16 PerfJIT/jitdump with semantic routine names"
+  git -C external/swiftshader diff -- \
+    src/Android.bp src/Reactor/LLVMJIT.cpp \
+    third_party/llvm-16.0/Android.bp \
+    third_party/llvm-16.0/configs/android/include/llvm/Config/llvm-config.h \
+    third_party/llvm-16.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp \
+    > "$ART/swiftshader-profile-jit.patch"
+fi
+
 printf 'pastel_variant=%s\n' "$PASTEL_VARIANT" | tee "$ART/variant.txt"
 
 # Run 11 exposed why packages/modules/common is required in addition to plain
