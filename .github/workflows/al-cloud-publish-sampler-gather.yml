@@ -1,0 +1,37 @@
+name: Publish sampler-gather staging artifact
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-hotspot-candidates-20260927
+    paths:
+      - .github/workflows/al-cloud-publish-sampler-gather.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: github.event.head_commit.message == 'Publish sampler-gather staging artifact'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact sampler-gather artifact ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/10944695837/zip" \
+            -o pastel-hotspot-sampler-gather.zip
+          echo "6a0e8f0884893fc3a9dec5484cc77d66744941f0a3991ee91b2f723bbd7d95c2  pastel-hotspot-sampler-gather.zip" | sha256sum -c -
+
+      - name: Publish temporary staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create alcloud-sampler-gather-20260927-1 \
+            pastel-hotspot-sampler-gather.zip \
+            --repo Ritrodan-Corp/al-cloud-build \
+            --title "AL Cloud sampler-gather staging" \
+            --notes "Exact workflow artifact 10944695837 from run 36354471161."
