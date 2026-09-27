@@ -1,0 +1,56 @@
+name: AL Cloud Pastel LLVM16 Hotspot Candidates
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-hotspot-candidates-20260927
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-hotspot-candidates.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: sampler-gather
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather
+          - id: outline-span
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-outline-span
+    env:
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate builder
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Build hotspot candidate
+        env:
+          PASTEL_VARIANT: ${{ matrix.variant }}
+        run: GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Record hotspot provenance
+        if: success()
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "experiment=llvm16-retained-no-mr-hotspot-${{ matrix.id }}"
+            echo "variant=${{ matrix.variant }}"
+            echo "baseline_renderer_sha=1b2aed583c4430630296049d7a14b3eca51d20bfa0a73520ba73cdb98f4160fa"
+            echo "pipeline_chain=SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine"
+            echo "source_branch=pastel-llvm16-hotspot-candidates-20260927"
+            echo "source_commit=${GITHUB_SHA}"
+          } > "$OUT/hotspot-provenance.txt"
+      - name: Upload hotspot artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-hotspot-${{ matrix.id }}-${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
