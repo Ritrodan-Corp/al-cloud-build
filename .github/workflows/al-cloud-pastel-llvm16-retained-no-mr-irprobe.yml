@@ -1,0 +1,60 @@
+name: AL Cloud Pastel LLVM16 Retained No MR IR Probe
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-retained-no-mr-irprobe-20260927
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-retained-no-mr-irprobe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-irprobe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: aot-neoverse-n1-llvm16-retained-no-mr
+      PASTEL_PROFILE_JIT: "1"
+      PASTEL_PROFILE_IR: "1"
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+
+    steps:
+      - name: Checkout retained-no-MR IR probe source
+        uses: actions/checkout@v4
+
+      - name: Validate build script syntax
+        shell: bash
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Build retained-no-MR IR probe renderer
+        run: GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Record IR probe provenance
+        if: success()
+        shell: bash
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "experiment=llvm16-retained-no-mr-perfjit-optimized-ir-probe"
+            echo "pastel_variant=aot-neoverse-n1-llvm16-retained-no-mr"
+            echo "pipeline_chain=SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine"
+            echo "baseline_renderer_sha=1b2aed583c4430630296049d7a14b3eca51d20bfa0a73520ba73cdb98f4160fa"
+            echo "semantic_profiler_sha=33a3c66c2d4aeab1af477cd70ec768bc9dd8c847d3b70afdf7cffcb962ab482f"
+            echo "source_branch=pastel-llvm16-retained-no-mr-irprobe-20260927"
+            echo "source_commit=${GITHUB_SHA}"
+            echo "ir_probe_builder_commit=ae0f0d27b7aeb492709295c88b4c9fe85d635d21"
+            echo "profile=PerfJIT semantic symbols + unique __ir tags + selected post-pass LLVM IR dumps"
+          } > "$OUT/llvm16-retained-no-mr-irprobe-provenance.txt"
+
+      - name: Upload IR probe artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-irprobe-retained-no-mr-${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
