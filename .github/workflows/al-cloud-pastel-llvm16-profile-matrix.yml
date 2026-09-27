@@ -1,0 +1,83 @@
+name: AL Cloud Pastel LLVM16 Profile Matrix
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-profile-matrix-20260926
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-profile-matrix.yml
+      - experiments/160-swiftshader-perf/build-android-control.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-profile:
+    name: Profile ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: full-mr
+            label: full MR
+            variant: aot-neoverse-n1-llvm16-mr
+            chain: SROA -> EarlyCSE-MSSA -> Reassociate -> SLR -> NewGVN -> DSE -> IndVarSimplify -> InstCombine
+            baseline_sha: e4a181065ef522222a9b37e62fb57b09dfa37a59833fb333b2140e3f21f4df46
+          - id: mr-only
+            label: MR only
+            variant: aot-neoverse-n1-llvm16-mr-only
+            chain: SROA -> EarlyCSE-MSSA -> SLR -> InstCombine
+            baseline_sha: 4990e99c19d6e1babb21809306c9dbf55e3d09276e4f03e2deb59b3e8e10d740
+          - id: retained-no-mr
+            label: retained no MR
+            variant: aot-neoverse-n1-llvm16-retained-no-mr
+            chain: SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine
+            baseline_sha: 1b2aed583c4430630296049d7a14b3eca51d20bfa0a73520ba73cdb98f4160fa
+
+    env:
+      PASTEL_PROFILE_JIT: "1"
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+
+    steps:
+      - name: Checkout profile matrix source
+        uses: actions/checkout@v4
+
+      - name: Validate build script syntax
+        shell: bash
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Build profiling renderer
+        env:
+          PASTEL_VARIANT: ${{ matrix.variant }}
+        run: GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Record profile provenance
+        if: success()
+        shell: bash
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "experiment=llvm16-semantic-perfjit-profile-matrix"
+            echo "matrix_id=${{ matrix.id }}"
+            echo "pastel_variant=${{ matrix.variant }}"
+            echo "pipeline_chain=${{ matrix.chain }}"
+            echo "baseline_renderer_sha=${{ matrix.baseline_sha }}"
+            echo "source_branch=pastel-llvm16-profile-matrix-20260926"
+            echo "source_commit=${GITHUB_SHA}"
+            echo "stack_matrix_base=7179651343db929cc534e0cd609526dbead45b61"
+            echo "profile_instrumentation_commit=46c5eb5169b176892b9e0ab89440d82909262be8"
+            echo "profile=LLVM16 PerfJIT jitdump with semantic single-function routine names"
+          } > "$OUT/llvm16-profile-matrix-provenance.txt"
+
+      - name: Upload profiling artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-prof-${{ matrix.id }}-${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
