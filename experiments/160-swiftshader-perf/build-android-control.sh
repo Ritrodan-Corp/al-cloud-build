@@ -247,7 +247,7 @@ PY
     git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp \
       > "$ART/swiftshader-variant.patch"
     ;;
-  aot-neoverse-n1-llvm16-mr)
+  aot-neoverse-n1-llvm16-stock|aot-neoverse-n1-llvm16-mr-only|aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-mr)
     LLVM16_SWIFTSHADER_COMMIT='dda70a3ef9fede53c5716a83cea086da96e20daf'
     LLVM16_LLVM_COMMIT='fce3e75e01ba'
     LLVM16_STAGE="${RUNNER_TEMP}/swiftshader-llvm16-source"
@@ -265,8 +265,11 @@ PY
     rm -rf external/swiftshader/third_party/llvm-16.0
     cp -a "$LLVM16_STAGE/third_party/llvm-16.0" external/swiftshader/third_party/
 
-    python3 - <<'PY'
+    python3 - "$PASTEL_VARIANT" <<'PY'
 from pathlib import Path
+import sys
+
+variant = sys.argv[1]
 
 bp = Path("external/swiftshader/src/Android.bp")
 text = bp.read_text()
@@ -309,7 +312,30 @@ old_pipeline = '''\tif(optimizationLevel > 0)
 \t\tfpm.addPass(llvm::SROAPass(llvm::SROAOptions::PreserveCFG));
 \t\tfpm.addPass(llvm::InstCombinePass());
 \t}'''
-new_pipeline = '''\tif(optimizationLevel > 0)
+pipelines = {
+    "aot-neoverse-n1-llvm16-stock": '''\tif(optimizationLevel > 0)
+\t{
+\t\tfpm.addPass(llvm::SROAPass(llvm::SROAOptions::PreserveCFG));
+\t\tfpm.addPass(llvm::InstCombinePass());
+\t}''',
+    "aot-neoverse-n1-llvm16-mr-only": '''\tif(optimizationLevel > 0)
+\t{
+\t\tfpm.addPass(llvm::SROAPass(llvm::SROAOptions::PreserveCFG));
+\t\tfpm.addPass(llvm::EarlyCSEPass(true));
+\t\tfpm.addPass(llvm::StraightLineStrengthReducePass());
+\t\tfpm.addPass(llvm::InstCombinePass());
+\t}''',
+    "aot-neoverse-n1-llvm16-retained-no-mr": '''\tif(optimizationLevel > 0)
+\t{
+\t\tfpm.addPass(llvm::SROAPass(llvm::SROAOptions::PreserveCFG));
+\t\tfpm.addPass(llvm::EarlyCSEPass());
+\t\tfpm.addPass(llvm::ReassociatePass());
+\t\tfpm.addPass(llvm::NewGVNPass());
+\t\tfpm.addPass(llvm::DSEPass());
+\t\tfpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));
+\t\tfpm.addPass(llvm::InstCombinePass());
+\t}''',
+    "aot-neoverse-n1-llvm16-mr": '''\tif(optimizationLevel > 0)
 \t{
 \t\tfpm.addPass(llvm::SROAPass(llvm::SROAOptions::PreserveCFG));
 \t\tfpm.addPass(llvm::EarlyCSEPass(true));
@@ -319,7 +345,10 @@ new_pipeline = '''\tif(optimizationLevel > 0)
 \t\tfpm.addPass(llvm::DSEPass());
 \t\tfpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));
 \t\tfpm.addPass(llvm::InstCombinePass());
-\t}'''
+\t}''',
+}
+assert variant in pipelines, variant
+new_pipeline = pipelines[variant]
 assert text.count(old_pipeline) == 1, "unexpected LLVM >=13 optimization block"
 text = text.replace(old_pipeline, new_pipeline, 1)
 
@@ -350,20 +379,48 @@ PY
     grep -Fq '"llvm/lib/Transforms/Scalar/StraightLineStrengthReduce.cpp"' external/swiftshader/third_party/llvm-16.0/Android.bp
     grep -Fq '"llvm/lib/Transforms/Scalar/NewGVN.cpp"' external/swiftshader/third_party/llvm-16.0/Android.bp
     grep -Fq '"llvm/lib/Transforms/Scalar/IndVarSimplify.cpp"' external/swiftshader/third_party/llvm-16.0/Android.bp
-    grep -Fq 'fpm.addPass(llvm::EarlyCSEPass(true));' external/swiftshader/src/Reactor/LLVMJIT.cpp
-    grep -Fq 'fpm.addPass(llvm::StraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
-    grep -Fq 'fpm.addPass(llvm::NewGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
-    grep -Fq 'fpm.addPass(llvm::DSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
-    grep -Fq 'fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));' external/swiftshader/src/Reactor/LLVMJIT.cpp
+
+    case "$PASTEL_VARIANT" in
+      aot-neoverse-n1-llvm16-stock)
+        LLVM16_CHAIN='SROA -> InstCombine'
+        grep -Fq 'fpm.addPass(llvm::SROAPass(llvm::SROAOptions::PreserveCFG));' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::InstCombinePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        ! grep -Fq 'fpm.addPass(llvm::EarlyCSEPass' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        ;;
+      aot-neoverse-n1-llvm16-mr-only)
+        LLVM16_CHAIN='SROA -> EarlyCSE-MSSA -> SLR -> InstCombine'
+        grep -Fq 'fpm.addPass(llvm::EarlyCSEPass(true));' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::StraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        ! grep -Fq 'fpm.addPass(llvm::NewGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        ;;
+      aot-neoverse-n1-llvm16-retained-no-mr)
+        LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine'
+        grep -Fq 'fpm.addPass(llvm::EarlyCSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::ReassociatePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::NewGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::DSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        ! grep -Fq 'fpm.addPass(llvm::StraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        ;;
+      aot-neoverse-n1-llvm16-mr)
+        LLVM16_CHAIN='SROA -> EarlyCSE-MSSA -> Reassociate -> SLR -> NewGVN -> DSE -> IndVarSimplify -> InstCombine'
+        grep -Fq 'fpm.addPass(llvm::EarlyCSEPass(true));' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::StraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::NewGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::DSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        ;;
+    esac
 
     {
       echo "reactor_backend=LLVM16"
       echo "llvm16_swiftshader_source_commit=$LLVM16_SWIFTSHADER_COMMIT"
       echo "llvm16_upstream_llvm_commit=$LLVM16_LLVM_COMMIT"
-      echo "retained_chain=SROA -> EarlyCSE-MSSA -> Reassociate -> SLR -> NewGVN -> DSE -> IndVarSimplify -> InstCombine"
+      echo "pipeline_chain=$LLVM16_CHAIN"
     } > "$ART/llvm16-backend-provenance.txt"
-    git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp src/Reactor/LLVMReactor.cpp       > "$ART/swiftshader-variant.patch"
-    VARIANT_DESC='AOT Neoverse-N1 retained MR Reactor chain on upstream SwiftShader LLVM16 Android backend (LLVM source fce3e75e01ba)'
+    git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp src/Reactor/LLVMReactor.cpp \
+      > "$ART/swiftshader-variant.patch"
+    VARIANT_DESC="AOT Neoverse-N1 Reactor on upstream SwiftShader LLVM16 Android backend; pipeline: $LLVM16_CHAIN"
     ;;
   raster-pitch-precompute)
     python3 - <<'PY'
