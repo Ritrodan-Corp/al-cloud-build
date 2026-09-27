@@ -247,6 +247,124 @@ PY
     git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp \
       > "$ART/swiftshader-variant.patch"
     ;;
+  aot-neoverse-n1-llvm16-mr)
+    LLVM16_SWIFTSHADER_COMMIT='dda70a3ef9fede53c5716a83cea086da96e20daf'
+    LLVM16_LLVM_COMMIT='fce3e75e01ba'
+    LLVM16_STAGE="${RUNNER_TEMP}/swiftshader-llvm16-source"
+
+    rm -rf "$LLVM16_STAGE"
+    git init -q "$LLVM16_STAGE"
+    git -C "$LLVM16_STAGE" remote add origin https://github.com/google/swiftshader.git
+    git -C "$LLVM16_STAGE" sparse-checkout init --cone
+    git -C "$LLVM16_STAGE" sparse-checkout set third_party/llvm-16.0
+    git -C "$LLVM16_STAGE" -c protocol.version=2 fetch -q --depth=1 --filter=blob:none origin "$LLVM16_SWIFTSHADER_COMMIT"
+    git -C "$LLVM16_STAGE" checkout -q --detach FETCH_HEAD
+    test -f "$LLVM16_STAGE/third_party/llvm-16.0/Android.bp"
+    grep -Fq 'name: "libLLVM16_swiftshader"' "$LLVM16_STAGE/third_party/llvm-16.0/Android.bp"
+
+    rm -rf external/swiftshader/third_party/llvm-16.0
+    cp -a "$LLVM16_STAGE/third_party/llvm-16.0" external/swiftshader/third_party/
+
+    python3 - <<'PY'
+from pathlib import Path
+
+bp = Path("external/swiftshader/src/Android.bp")
+text = bp.read_text()
+
+reactor_old = '''    cflags: [
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+reactor_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",'''
+renderer_old = '''    cflags: [
+        "-D_GNU_SOURCE",'''
+renderer_new = '''    cflags: [
+        "-mcpu=neoverse-n1",
+        "-D_GNU_SOURCE",'''
+assert text.count(reactor_old) == 1
+assert text.count(renderer_old) == 1
+text = text.replace(reactor_old, reactor_new, 1)
+text = text.replace(renderer_old, renderer_new, 1)
+
+assert text.count('"libLLVM10_swiftshader"') == 2
+assert text.count('"libLLVM10_swiftshader_debug"') == 1
+text = text.replace('"libLLVM10_swiftshader"', '"libLLVM16_swiftshader"')
+text = text.replace('"libLLVM10_swiftshader_debug"', '"libLLVM16_swiftshader_debug"')
+bp.write_text(text)
+
+jit = Path("external/swiftshader/src/Reactor/LLVMJIT.cpp")
+text = jit.read_text()
+
+include_anchor = '#\tinclude "llvm/Transforms/Scalar/LICM.h"\n'
+assert text.count(include_anchor) == 1
+extra_includes = (
+    '#\tinclude "llvm/Transforms/Scalar/IndVarSimplify.h"\n'
+    '#\tinclude "llvm/Transforms/Scalar/NewGVN.h"\n'
+    '#\tinclude "llvm/Transforms/Scalar/StraightLineStrengthReduce.h"\n'
+)
+text = text.replace(include_anchor, include_anchor + extra_includes, 1)
+
+old_pipeline = '''\tif(optimizationLevel > 0)
+\t{
+\t\tfpm.addPass(llvm::SROAPass(llvm::SROAOptions::PreserveCFG));
+\t\tfpm.addPass(llvm::InstCombinePass());
+\t}'''
+new_pipeline = '''\tif(optimizationLevel > 0)
+\t{
+\t\tfpm.addPass(llvm::SROAPass(llvm::SROAOptions::PreserveCFG));
+\t\tfpm.addPass(llvm::EarlyCSEPass(true));
+\t\tfpm.addPass(llvm::ReassociatePass());
+\t\tfpm.addPass(llvm::StraightLineStrengthReducePass());
+\t\tfpm.addPass(llvm::NewGVNPass());
+\t\tfpm.addPass(llvm::DSEPass());
+\t\tfpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));
+\t\tfpm.addPass(llvm::InstCombinePass());
+\t}'''
+assert text.count(old_pipeline) == 1, "unexpected LLVM >=13 optimization block"
+text = text.replace(old_pipeline, new_pipeline, 1)
+
+old_unsupported = 'UNSUPPORTED("MemorySanitizer used an unrecognized TLS variable: %d", tlsIndex);'
+new_unsupported = 'UNSUPPORTED("MemorySanitizer used an unrecognized TLS variable: %d", static_cast<int>(tlsIndex));'
+assert text.count(old_unsupported) == 1
+text = text.replace(old_unsupported, new_unsupported, 1)
+jit.write_text(text)
+
+reactor = Path("external/swiftshader/src/Reactor/LLVMReactor.cpp")
+text = reactor.read_text()
+old_shl = 'return V(jit->builder->CreateShl(V(lhs), V(rhs)));'
+new_shl = 'return V(jit->builder->CreateFreeze(jit->builder->CreateShl(V(lhs), V(rhs))));'
+old_lshr = 'return V(jit->builder->CreateLShr(V(lhs), V(rhs)));'
+new_lshr = 'return V(jit->builder->CreateFreeze(jit->builder->CreateLShr(V(lhs), V(rhs))));'
+assert text.count(old_shl) == 1
+assert text.count(old_lshr) == 1
+text = text.replace(old_shl, new_shl, 1)
+text = text.replace(old_lshr, new_lshr, 1)
+reactor.write_text(text)
+PY
+
+    test "$(grep -c -- '-mcpu=neoverse-n1' external/swiftshader/src/Android.bp)" -eq 2
+    test "$(grep -c '"libLLVM16_swiftshader"' external/swiftshader/src/Android.bp)" -eq 2
+    test "$(grep -c '"libLLVM16_swiftshader_debug"' external/swiftshader/src/Android.bp)" -eq 1
+    test -f external/swiftshader/third_party/llvm-16.0/Android.bp
+    grep -Fq 'name: "libLLVM16_swiftshader"' external/swiftshader/third_party/llvm-16.0/Android.bp
+    grep -Fq '"llvm/lib/Transforms/Scalar/StraightLineStrengthReduce.cpp"' external/swiftshader/third_party/llvm-16.0/Android.bp
+    grep -Fq '"llvm/lib/Transforms/Scalar/NewGVN.cpp"' external/swiftshader/third_party/llvm-16.0/Android.bp
+    grep -Fq '"llvm/lib/Transforms/Scalar/IndVarSimplify.cpp"' external/swiftshader/third_party/llvm-16.0/Android.bp
+    grep -Fq 'fpm.addPass(llvm::EarlyCSEPass(true));' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    grep -Fq 'fpm.addPass(llvm::StraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    grep -Fq 'fpm.addPass(llvm::NewGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    grep -Fq 'fpm.addPass(llvm::DSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+    grep -Fq 'fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));' external/swiftshader/src/Reactor/LLVMJIT.cpp
+
+    {
+      echo "reactor_backend=LLVM16"
+      echo "llvm16_swiftshader_source_commit=$LLVM16_SWIFTSHADER_COMMIT"
+      echo "llvm16_upstream_llvm_commit=$LLVM16_LLVM_COMMIT"
+      echo "retained_chain=SROA -> EarlyCSE-MSSA -> Reassociate -> SLR -> NewGVN -> DSE -> IndVarSimplify -> InstCombine"
+    } > "$ART/llvm16-backend-provenance.txt"
+    git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp src/Reactor/LLVMReactor.cpp       > "$ART/swiftshader-variant.patch"
+    VARIANT_DESC='AOT Neoverse-N1 retained MR Reactor chain on upstream SwiftShader LLVM16 Android backend (LLVM source fce3e75e01ba)'
+    ;;
   raster-pitch-precompute)
     python3 - <<'PY'
 from pathlib import Path
