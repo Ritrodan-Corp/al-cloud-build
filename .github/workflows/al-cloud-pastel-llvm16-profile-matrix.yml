@@ -1,12 +1,6 @@
 name: AL Cloud Pastel LLVM16 Profile Matrix
 
 on:
-  push:
-    branches:
-      - pastel-llvm16-profile-matrix-20260926
-    paths:
-      - .github/workflows/al-cloud-pastel-llvm16-profile-matrix.yml
-      - experiments/160-swiftshader-perf/build-android-control.sh
   workflow_dispatch:
 
 permissions:
