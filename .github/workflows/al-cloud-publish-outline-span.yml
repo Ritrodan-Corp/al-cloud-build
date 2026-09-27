@@ -1,0 +1,37 @@
+name: Publish outline-span staging artifact
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-hotspot-candidates-20260927
+    paths:
+      - .github/workflows/al-cloud-publish-outline-span.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: github.event.head_commit.message == 'Publish outline-span staging artifact'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact outline-span artifact ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/10942714008/zip" \
+            -o pastel-hotspot-outline-span.zip
+          echo "1226168fff50905b4af5324b9c90a6ec2e85ef19f883b0cdf7f6db38658e3c8c  pastel-hotspot-outline-span.zip" | sha256sum -c -
+
+      - name: Publish temporary staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create alcloud-outline-span-20260927-1 \
+            pastel-hotspot-outline-span.zip \
+            --repo Ritrodan-Corp/al-cloud-build \
+            --title "AL Cloud outline-span staging" \
+            --notes "Exact workflow artifact 10942714008 from run 36351661896."
