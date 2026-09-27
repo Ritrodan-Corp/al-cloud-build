@@ -1,0 +1,59 @@
+name: AL Cloud Pastel LLVM16 Sampler Gather Profile
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-hotspot-candidates-20260927
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-sampler-gather-profile.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather
+      PASTEL_PROFILE_JIT: "1"
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+
+    steps:
+      - name: Checkout sampler-gather profile source
+        uses: actions/checkout@v4
+
+      - name: Validate build script syntax
+        shell: bash
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Build sampler-gather profiling renderer
+        run: GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Record profile provenance
+        if: success()
+        shell: bash
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "experiment=llvm16-retained-no-mr-sampler-gather-semantic-perfjit-profile"
+            echo "pastel_variant=aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather"
+            echo "pipeline_chain=SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine"
+            echo "production_renderer_sha=ab41c6d2da90072a48299a765e06f7f1836ec19a1eacb88cefeee6480fa12a95"
+            echo "production_source_commit=6f9f4a8a965315680d0611774f08206080b516ec"
+            echo "source_branch=pastel-llvm16-hotspot-candidates-20260927"
+            echo "source_commit=${GITHUB_SHA}"
+            echo "profile_builder_commit=3890ff6f8ea8c5f7319f64804b24b870c6514f71"
+            echo "profile=LLVM16 PerfJIT jitdump with semantic single-function routine names"
+          } > "$OUT/llvm16-sampler-gather-profile-provenance.txt"
+
+      - name: Upload sampler-gather profiling artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-prof-sampler-gather-${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
