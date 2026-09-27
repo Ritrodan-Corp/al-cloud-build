@@ -1,0 +1,59 @@
+name: AL Cloud Pastel LLVM16 Retained No MR Profile
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-profile-matrix-20260926
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-retained-no-mr-profile.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: aot-neoverse-n1-llvm16-retained-no-mr
+      PASTEL_PROFILE_JIT: "1"
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+
+    steps:
+      - name: Checkout retained-no-MR profile source
+        uses: actions/checkout@v4
+
+      - name: Validate build script syntax
+        shell: bash
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Build retained-no-MR profiling renderer
+        run: GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Record profile provenance
+        if: success()
+        shell: bash
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "experiment=llvm16-retained-no-mr-semantic-perfjit-profile"
+            echo "pastel_variant=aot-neoverse-n1-llvm16-retained-no-mr"
+            echo "pipeline_chain=SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine"
+            echo "baseline_renderer_sha=1b2aed583c4430630296049d7a14b3eca51d20bfa0a73520ba73cdb98f4160fa"
+            echo "source_branch=pastel-llvm16-profile-matrix-20260926"
+            echo "source_commit=${GITHUB_SHA}"
+            echo "stack_matrix_base=7179651343db929cc534e0cd609526dbead45b61"
+            echo "profile_builder_fix=51066f6e34f4ad1907a90d14f538a3e986dc95d3"
+            echo "profile=LLVM16 PerfJIT jitdump with semantic single-function routine names"
+          } > "$OUT/llvm16-retained-no-mr-profile-provenance.txt"
+
+      - name: Upload retained-no-MR profiling artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-prof-retained-no-mr-${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
