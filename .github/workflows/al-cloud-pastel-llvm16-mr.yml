@@ -1,0 +1,57 @@
+name: AL Cloud Pastel LLVM16 MR Build
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-mr-20260926
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-mr.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout experiment source
+        uses: actions/checkout@v4
+
+      - name: Validate build script syntax
+        shell: bash
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Build LLVM16 retained-MR Pastel
+        env:
+          PASTEL_VARIANT: aot-neoverse-n1-llvm16-mr
+          PASTEL_EXTRA_SWAP_GB: "8"
+          PASTEL_DIAGNOSTICS: "1"
+        run: |
+          GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Record experiment provenance
+        if: success()
+        shell: bash
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "experiment=llvm16-mr-backend"
+            echo "source_branch=pastel-llvm16-mr-20260926"
+            echo "source_commit=${GITHUB_SHA}"
+            echo "android_tag=android-14.0.0_r45"
+            echo "swiftshader_renderer_commit=32ad39a320606948f09692cb91b71e1cd95d0e51"
+            echo "llvm16_swiftshader_source_commit=dda70a3ef9fede53c5716a83cea086da96e20daf"
+            echo "llvm16_upstream_llvm_commit=fce3e75e01ba"
+            echo "retained_chain=SROA -> EarlyCSE-MSSA -> Reassociate -> SLR -> NewGVN -> DSE -> IndVarSimplify -> InstCombine"
+          } > "$OUT/llvm16-experiment-provenance.txt"
+
+      - name: Upload LLVM16 Pastel artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-llvm16-mr-${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
