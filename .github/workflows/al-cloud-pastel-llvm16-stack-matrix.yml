@@ -1,0 +1,79 @@
+name: AL Cloud Pastel LLVM16 Stack Matrix
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-stack-matrix-20260926
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-stack-matrix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: stock
+            label: stock LLVM16
+            variant: aot-neoverse-n1-llvm16-stock
+            chain: SROA -> InstCombine
+          - id: mr-only
+            label: stock LLVM16 plus MR delta
+            variant: aot-neoverse-n1-llvm16-mr-only
+            chain: SROA -> EarlyCSE-MSSA -> SLR -> InstCombine
+          - id: retained-no-mr
+            label: retained pre-MR chain on LLVM16
+            variant: aot-neoverse-n1-llvm16-retained-no-mr
+            chain: SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine
+
+    steps:
+      - name: Checkout experiment source
+        uses: actions/checkout@v4
+
+      - name: Validate build script syntax
+        shell: bash
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Build ${{ matrix.label }}
+        env:
+          PASTEL_VARIANT: ${{ matrix.variant }}
+          PASTEL_EXTRA_SWAP_GB: "8"
+          PASTEL_DIAGNOSTICS: "1"
+        run: |
+          GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Record matrix provenance
+        if: success()
+        shell: bash
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "experiment=llvm16-stack-matrix"
+            echo "matrix_id=${{ matrix.id }}"
+            echo "pastel_variant=${{ matrix.variant }}"
+            echo "pipeline_chain=${{ matrix.chain }}"
+            echo "source_branch=pastel-llvm16-stack-matrix-20260926"
+            echo "source_commit=${GITHUB_SHA}"
+            echo "accepted_llvm16_base=0d018f76456ac6d5fc9dcf402a89f7c70c57ba7b"
+            echo "production_llvm16_mr_sha=e4a181065ef522222a9b37e62fb57b09dfa37a59833fb333b2140e3f21f4df46"
+            echo "android_tag=android-14.0.0_r45"
+            echo "swiftshader_renderer_commit=32ad39a320606948f09692cb91b71e1cd95d0e51"
+            echo "llvm16_swiftshader_source_commit=dda70a3ef9fede53c5716a83cea086da96e20daf"
+            echo "llvm16_upstream_llvm_commit=fce3e75e01ba"
+          } > "$OUT/llvm16-stack-matrix-provenance.txt"
+
+      - name: Upload ${{ matrix.label }} artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-llvm16-stack-${{ matrix.id }}-${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
