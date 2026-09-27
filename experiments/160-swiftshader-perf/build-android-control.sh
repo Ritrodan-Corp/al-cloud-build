@@ -247,7 +247,7 @@ PY
     git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp \
       > "$ART/swiftshader-variant.patch"
     ;;
-  aot-neoverse-n1-llvm16-stock|aot-neoverse-n1-llvm16-mr-only|aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-mr)
+  aot-neoverse-n1-llvm16-stock|aot-neoverse-n1-llvm16-mr-only|aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather|aot-neoverse-n1-llvm16-retained-no-mr-outline-span|aot-neoverse-n1-llvm16-mr)
     LLVM16_SWIFTSHADER_COMMIT='dda70a3ef9fede53c5716a83cea086da96e20daf'
     LLVM16_LLVM_COMMIT='fce3e75e01ba'
     LLVM16_STAGE="${RUNNER_TEMP}/swiftshader-llvm16-source"
@@ -347,6 +347,8 @@ pipelines = {
 \t\tfpm.addPass(llvm::InstCombinePass());
 \t}''',
 }
+pipelines["aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather"] = pipelines["aot-neoverse-n1-llvm16-retained-no-mr"]
+pipelines["aot-neoverse-n1-llvm16-retained-no-mr-outline-span"] = pipelines["aot-neoverse-n1-llvm16-retained-no-mr"]
 assert variant in pipelines, variant
 new_pipeline = pipelines[variant]
 assert text.count(old_pipeline) == 1, "unexpected LLVM >=13 optimization block"
@@ -369,6 +371,97 @@ assert text.count(old_lshr) == 1
 text = text.replace(old_shl, new_shl, 1)
 text = text.replace(old_lshr, new_lshr, 1)
 reactor.write_text(text)
+
+if variant == "aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather":
+    sampler = Path("external/swiftshader/src/Pipeline/SamplerCore.cpp")
+    text = sampler.read_text()
+    old = '''		case VK_FORMAT_R32_SFLOAT:
+		case VK_FORMAT_R32_SINT:
+		case VK_FORMAT_R32_UINT:
+		case VK_FORMAT_D32_SFLOAT:
+			// TODO: Optimal shuffling?
+			c.x.x = *Pointer<Float>(buffer + index[0] * 4);
+			c.x.y = *Pointer<Float>(buffer + index[1] * 4);
+			c.x.z = *Pointer<Float>(buffer + index[2] * 4);
+			c.x.w = *Pointer<Float>(buffer + index[3] * 4);
+			break;'''
+    new = '''		case VK_FORMAT_R32_SFLOAT:
+		case VK_FORMAT_R32_SINT:
+		case VK_FORMAT_R32_UINT:
+		case VK_FORMAT_D32_SFLOAT:
+			{
+				SIMD::Int offsets(0);
+				offsets = Insert(offsets, Int(index[0] * 4), 0);
+				offsets = Insert(offsets, Int(index[1] * 4), 1);
+				offsets = Insert(offsets, Int(index[2] * 4), 2);
+				offsets = Insert(offsets, Int(index[3] * 4), 3);
+				SIMD::Int mask([](int lane) { return lane < 4 ? -1 : 0; });
+				c.x = Extract128(Gather(Pointer<Float>(buffer), offsets, mask, 4), 0);
+			}
+			break;'''
+    assert text.count(old) == 1, "unexpected R32/D32 scalar sampler block"
+    sampler.write_text(text.replace(old, new, 1))
+
+if variant == "aot-neoverse-n1-llvm16-retained-no-mr-outline-span":
+    quad = Path("external/swiftshader/src/Device/QuadRasterizer.cpp")
+    text = quad.read_text()
+    old = '''		Int x0a = Int(*Pointer<Short>(primitive + OFFSET(Primitive, outline->left) + (y + 0) * sizeof(Primitive::Span)));
+		Int x0b = Int(*Pointer<Short>(primitive + OFFSET(Primitive, outline->left) + (y + 1) * sizeof(Primitive::Span)));
+		Int x0 = Min(x0a, x0b);
+
+		for(unsigned int q = 1; q < state.multiSampleCount; q++)
+		{
+			x0a = Int(*Pointer<Short>(primitive + q * sizeof(Primitive) + OFFSET(Primitive, outline->left) + (y + 0) * sizeof(Primitive::Span)));
+			x0b = Int(*Pointer<Short>(primitive + q * sizeof(Primitive) + OFFSET(Primitive, outline->left) + (y + 1) * sizeof(Primitive::Span)));
+			x0 = Min(x0, Min(x0a, x0b));
+		}
+
+		x0 &= 0xFFFFFFFE;
+
+		Int x1a = Int(*Pointer<Short>(primitive + OFFSET(Primitive, outline->right) + (y + 0) * sizeof(Primitive::Span)));
+		Int x1b = Int(*Pointer<Short>(primitive + OFFSET(Primitive, outline->right) + (y + 1) * sizeof(Primitive::Span)));
+		Int x1 = Max(x1a, x1b);
+
+		for(unsigned int q = 1; q < state.multiSampleCount; q++)
+		{
+			x1a = Int(*Pointer<Short>(primitive + q * sizeof(Primitive) + OFFSET(Primitive, outline->right) + (y + 0) * sizeof(Primitive::Span)));
+			x1b = Int(*Pointer<Short>(primitive + q * sizeof(Primitive) + OFFSET(Primitive, outline->right) + (y + 1) * sizeof(Primitive::Span)));
+			x1 = Max(x1, Max(x1a, x1b));
+		}'''
+    new = '''		Short4 outlineSpan[4];
+		outlineSpan[0] = *Pointer<Short4>(primitive + OFFSET(Primitive, outline) + y * sizeof(Primitive::Span));
+
+		Int x0a = Int(Extract(outlineSpan[0], 0));
+		Int x0b = Int(Extract(outlineSpan[0], 2));
+		Int x0 = Min(x0a, x0b);
+		Int x1a = Int(Extract(outlineSpan[0], 1));
+		Int x1b = Int(Extract(outlineSpan[0], 3));
+		Int x1 = Max(x1a, x1b);
+
+		for(unsigned int q = 1; q < state.multiSampleCount; q++)
+		{
+			outlineSpan[q] = *Pointer<Short4>(primitive + q * sizeof(Primitive) + OFFSET(Primitive, outline) + y * sizeof(Primitive::Span));
+			x0a = Int(Extract(outlineSpan[q], 0));
+			x0b = Int(Extract(outlineSpan[q], 2));
+			x0 = Min(x0, Min(x0a, x0b));
+			x1a = Int(Extract(outlineSpan[q], 1));
+			x1b = Int(Extract(outlineSpan[q], 3));
+			x1 = Max(x1, Max(x1a, x1b));
+		}
+
+		x0 &= 0xFFFFFFFE;'''
+    assert text.count(old) == 1, "unexpected outline envelope block"
+    text = text.replace(old, new, 1)
+    old_load = '''			for(unsigned int q = 0; q < state.multiSampleCount; q++)
+			{
+				xLeft[q] = *Pointer<Short4>(primitive + q * sizeof(Primitive) + OFFSET(Primitive, outline) + y * sizeof(Primitive::Span));
+				xRight[q] = xLeft[q];'''
+    new_load = '''			for(unsigned int q = 0; q < state.multiSampleCount; q++)
+			{
+				xLeft[q] = outlineSpan[q];
+				xRight[q] = xLeft[q];'''
+    assert text.count(old_load) == 1, "unexpected later outline reload block"
+    quad.write_text(text.replace(old_load, new_load, 1))
 PY
 
     test "$(grep -c -- '-mcpu=neoverse-n1' external/swiftshader/src/Android.bp)" -eq 2
@@ -393,7 +486,7 @@ PY
         grep -Fq 'fpm.addPass(llvm::StraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
         ! grep -Fq 'fpm.addPass(llvm::NewGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
         ;;
-      aot-neoverse-n1-llvm16-retained-no-mr)
+      aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather|aot-neoverse-n1-llvm16-retained-no-mr-outline-span)
         LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine'
         grep -Fq 'fpm.addPass(llvm::EarlyCSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
         grep -Fq 'fpm.addPass(llvm::ReassociatePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
@@ -418,9 +511,14 @@ PY
       echo "llvm16_upstream_llvm_commit=$LLVM16_LLVM_COMMIT"
       echo "pipeline_chain=$LLVM16_CHAIN"
     } > "$ART/llvm16-backend-provenance.txt"
-    git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp src/Reactor/LLVMReactor.cpp \
+    git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp src/Reactor/LLVMReactor.cpp src/Pipeline/SamplerCore.cpp src/Device/QuadRasterizer.cpp \
       > "$ART/swiftshader-variant.patch"
-    VARIANT_DESC="AOT Neoverse-N1 Reactor on upstream SwiftShader LLVM16 Android backend; pipeline: $LLVM16_CHAIN"
+    case "$PASTEL_VARIANT" in
+      *-sampler-gather) HOTSPOT_DESC='; R32/D32 sampler through Reactor masked Gather' ;;
+      *-outline-span) HOTSPOT_DESC='; QuadRasterizer two-row outline Short4 reuse' ;;
+      *) HOTSPOT_DESC='' ;;
+    esac
+    VARIANT_DESC="AOT Neoverse-N1 Reactor on upstream SwiftShader LLVM16 Android backend; pipeline: $LLVM16_CHAIN$HOTSPOT_DESC"
     ;;
   raster-pitch-precompute)
     python3 - <<'PY'
