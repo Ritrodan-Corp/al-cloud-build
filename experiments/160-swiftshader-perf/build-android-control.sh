@@ -614,6 +614,11 @@ jit.write_text(text.replace(old_names, new_names, 1))
 
 perf = llvm / "llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp"
 text = perf.read_text()
+anchor_def = 'void llvm::JITEventListener::anchor() {}\n'
+assert 'JITEventListener::anchor()' not in text
+using_anchor = 'using namespace llvm::object;\n'
+assert text.count(using_anchor) == 1
+text = text.replace(using_anchor, using_anchor + anchor_def, 1)
 old = '  else if (!sys::path::home_directory(Path))\n    Path = ".";'
 new = '  else\n    Path = "/data/data/com.YoStarEN.AzurLane/files";'
 assert text.count(old) == 1
