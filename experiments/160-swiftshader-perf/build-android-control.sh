@@ -557,7 +557,7 @@ cfg.write_text(text.replace(old, "#define LLVM_USE_PERF 1", 1))
 
 bp = llvm / "Android.bp"
 text = bp.read_text()
-old = '        "llvm/lib/ExecutionEngine/ExecutionEngine.cpp",\n'
+old = '        "llvm/lib/ExecutionEngine/SectionMemoryManager.cpp",\n'
 new = old + '        "llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp",\n        "llvm/lib/Object/SymbolSize.cpp",\n'
 assert text.count(old) == 1
 assert "PerfJITEvents/PerfJITEventListener.cpp" not in text
