@@ -1,0 +1,31 @@
+name: Publish LLVM16 stock staging artifact
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-stack-matrix-20260926
+    paths:
+      - .github/workflows/al-cloud-publish-llvm16-stock.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: github.event.head_commit.message == 'Publish LLVM16 stock staging artifact'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact matrix artifact ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -LfsS             -H "Authorization: Bearer $GH_TOKEN"             -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/10924376159/zip"             -o pastel-llvm16-stack-stock.zip
+          echo "cfd65cf97356c0279dcecac0e56ba55dc7e54613cc47b9c2959f676ef7f00438  pastel-llvm16-stack-stock.zip" | sha256sum -c -
+
+      - name: Publish temporary staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create alcloud-llvm16-stock-20260926-1             pastel-llvm16-stack-stock.zip             --repo Ritrodan-Corp/al-cloud-build             --title "AL Cloud LLVM16 stock staging 2026-09-26"             --notes "Temporary verified staging bridge for runtime sandwich. Source Actions run 36295182099, artifact 10924376159, digest cfd65cf97356c0279dcecac0e56ba55dc7e54613cc47b9c2959f676ef7f00438."
