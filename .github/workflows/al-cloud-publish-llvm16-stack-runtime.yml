@@ -1,0 +1,42 @@
+name: Publish LLVM16 stack runtime artifacts
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-stack-matrix-20260926
+    paths:
+      - .github/workflows/al-cloud-publish-llvm16-stack-runtime.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: github.event.head_commit.message == 'Publish remaining LLVM16 stack runtime artifacts'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact matrix artifact ZIPs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/10924276389/zip" \
+            -o pastel-llvm16-stack-mr-only.zip
+          curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/10924266339/zip" \
+            -o pastel-llvm16-stack-retained-no-mr.zip
+          echo "93e3b39d00eb686875c4211589f549164a316992eda86f9dbf289e4092038f1a  pastel-llvm16-stack-mr-only.zip" | sha256sum -c -
+          echo "d26a3c6f483855d2e7a7ad0eecdd6a0633bf89fcfa96d1a500c71eb2853c8c3d  pastel-llvm16-stack-retained-no-mr.zip" | sha256sum -c -
+
+      - name: Publish temporary staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create alcloud-llvm16-stack-runtime-20260926-1 \
+            pastel-llvm16-stack-mr-only.zip \
+            pastel-llvm16-stack-retained-no-mr.zip \
+            --repo Ritrodan-Corp/al-cloud-build \
+            --title "AL Cloud LLVM16 stack runtime staging 2026-09-26" \
+            --notes "Verified runtime staging for matrix run 36295182099 artifacts 10924276389 and 10924266339."
