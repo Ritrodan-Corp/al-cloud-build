@@ -1,0 +1,55 @@
+name: AL Cloud Pastel LLVM16 MR Semantic Profile Build
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-mr-profile-20260926
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-mr-profile.yml
+      - experiments/160-swiftshader-perf/build-android-control.sh
+
+permissions:
+  contents: read
+
+jobs:
+  build-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PASTEL_VARIANT: aot-neoverse-n1-llvm16-mr
+      PASTEL_PROFILE_JIT: "1"
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+    steps:
+      - name: Checkout profile source
+        uses: actions/checkout@v4
+
+      - name: Validate build script syntax
+        shell: bash
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Build LLVM16 retained-MR Pastel with semantic PerfJIT
+        run: GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+
+      - name: Record profile provenance
+        if: success()
+        shell: bash
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "experiment=llvm16-mr-semantic-perfjit-profile"
+            echo "source_branch=pastel-llvm16-mr-profile-20260926"
+            echo "source_commit=\${GITHUB_SHA}"
+            echo "base_accepted_commit=0d018f76456ac6d5fc9dcf402a89f7c70c57ba7b"
+            echo "accepted_renderer_sha=e4a181065ef522222a9b37e62fb57b09dfa37a59833fb333b2140e3f21f4df46"
+            echo "profile=LLVM16 PerfJIT jitdump with semantic single-function routine names"
+          } > "$OUT/llvm16-profile-provenance.txt"
+
+      - name: Upload LLVM16 profiling artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-llvm16-mr-semantic-perfjit-\${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
