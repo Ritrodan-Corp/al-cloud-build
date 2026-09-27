@@ -640,6 +640,78 @@ PYPROFILE
     third_party/llvm-16.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp \
     > "$ART/swiftshader-profile-jit.patch"
 fi
+if [[ "${PASTEL_PROFILE_IR:-0}" == "1" ]]; then
+  [[ "${PASTEL_PROFILE_JIT:-0}" == "1" ]] || { echo "PASTEL_PROFILE_IR=1 requires PASTEL_PROFILE_JIT=1" >&2; exit 2; }
+  [[ "$PASTEL_VARIANT" == "aot-neoverse-n1-llvm16-retained-no-mr" ]] || { echo "PASTEL_PROFILE_IR=1 only supported for retained-no-MR" >&2; exit 2; }
+  python3 - <<'PYIRPROBE'
+from pathlib import Path
+
+srcbp = Path("external/swiftshader/src/Android.bp")
+text = srcbp.read_text()
+old = '        "-DENABLE_RR_PERF_JIT",\n'
+new = old + '        "-DENABLE_RR_IR_PROBE",\n'
+assert text.count(old) == 1
+assert "ENABLE_RR_IR_PROBE" not in text
+srcbp.write_text(text.replace(old, new, 1))
+
+reactor = Path("external/swiftshader/src/Reactor/LLVMReactor.cpp")
+text = reactor.read_text()
+inc = '#include <fstream>\n'
+assert text.count(inc) == 1
+text = text.replace(inc, '#include <atomic>\n' + inc, 1)
+
+old = '''std::shared_ptr<Routine> Nucleus::acquireRoutine(const char *name)
+{
+\tif(jit->builder->GetInsertBlock()->empty() || !jit->builder->GetInsertBlock()->back().isTerminator())'''
+new = '''std::shared_ptr<Routine> Nucleus::acquireRoutine(const char *name)
+{
+\tstd::string routineName(name);
+#ifdef ENABLE_RR_IR_PROBE
+\tstatic std::atomic<uint64_t> probeKey{ 0 };
+\troutineName += "__ir" + std::to_string(probeKey.fetch_add(1, std::memory_order_relaxed));
+#endif
+
+\tif(jit->builder->GetInsertBlock()->empty() || !jit->builder->GetInsertBlock()->back().isTerminator())'''
+assert text.count(old) == 1
+text = text.replace(old, new, 1)
+
+old = '''\t\tif(false)
+\t\t{
+\t\t\tstd::error_code error;
+\t\t\tllvm::raw_fd_ostream file(std::string(name) + "-llvm-dump-opt.txt", error);
+\t\t\tjit->module->print(file, 0);
+\t\t}
+
+\t\troutine = jit->acquireRoutine(name, &jit->function, 1);'''
+new = '''#ifdef ENABLE_RR_IR_PROBE
+\t\tconst bool dumpIR =
+\t\t    routineName.rfind("sampler__ir", 0) == 0 ||
+\t\t    routineName.rfind("PixelRoutine_000000B4__ir", 0) == 0 ||
+\t\t    routineName.rfind("PixelRoutine_0000001E__ir", 0) == 0 ||
+\t\t    routineName.rfind("PixelRoutine_00000092__ir", 0) == 0;
+\t\tif(dumpIR)
+\t\t{
+\t\t\tstd::error_code error;
+\t\t\tllvm::raw_fd_ostream file(
+\t\t\t    "/data/data/com.YoStarEN.AzurLane/files/rr-ir-" + routineName + "-opt.ll",
+\t\t\t    error);
+\t\t\tif(!error)
+\t\t\t{
+\t\t\t\tjit->module->print(file, 0);
+\t\t\t}
+\t\t}
+#endif
+
+\t\troutine = jit->acquireRoutine(routineName.c_str(), &jit->function, 1);'''
+assert text.count(old) == 1
+reactor.write_text(text.replace(old, new, 1))
+PYIRPROBE
+  grep -Fq 'ENABLE_RR_IR_PROBE' external/swiftshader/src/Android.bp
+  grep -Fq 'routineName += "__ir"' external/swiftshader/src/Reactor/LLVMReactor.cpp
+  grep -Fq 'rr-ir-' external/swiftshader/src/Reactor/LLVMReactor.cpp
+  VARIANT_DESC="${VARIANT_DESC} + profiling-only unique routine tags and optimized LLVM IR dumps"
+  git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMReactor.cpp > "$ART/swiftshader-profile-ir.patch"
+fi
 printf 'pastel_variant=%s\n' "$PASTEL_VARIANT" | tee "$ART/variant.txt"
 
 # Run 11 exposed why packages/modules/common is required in addition to plain
