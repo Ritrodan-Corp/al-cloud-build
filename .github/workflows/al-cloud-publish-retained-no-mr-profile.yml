@@ -1,0 +1,37 @@
+name: Publish retained-no-MR profile staging artifact
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-profile-matrix-20260926
+    paths:
+      - .github/workflows/al-cloud-publish-retained-no-mr-profile.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: github.event.head_commit.message == 'Publish retained-no-MR profile staging artifact'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact profiling artifact ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/10938433492/zip" \
+            -o pastel-prof-retained-no-mr.zip
+          echo "354c27fc1e2c160f80c543c8fb19d7f5f1941adab106277c96e76d6b5acc217b  pastel-prof-retained-no-mr.zip" | sha256sum -c -
+
+      - name: Publish temporary staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create alcloud-retained-no-mr-profile-20260927-1 \
+            pastel-prof-retained-no-mr.zip \
+            --repo Ritrodan-Corp/al-cloud-build \
+            --title "AL Cloud retained-no-MR profiler staging" \
+            --notes "Exact workflow artifact 10938433492 from run 36337061010."
