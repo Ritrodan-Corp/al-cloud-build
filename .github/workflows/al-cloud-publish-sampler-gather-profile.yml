@@ -1,9 +1,9 @@
-name: Publish sampler-gather profile staging artifact
+name: Publish retained-no-MR attribution staging artifact
 
 on:
   push:
     branches:
-      - pastel-llvm16-hotspot-candidates-20260927
+      - pastel-llvm16-sampler-attribution-20260927
     paths:
       - .github/workflows/al-cloud-publish-sampler-gather-profile.yml
 
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   publish:
-    if: github.event.head_commit.message == 'Publish sampler-gather profile staging artifact'
+    if: github.event.head_commit.message == 'Publish retained-no-MR attribution staging artifact'
     runs-on: ubuntu-latest
     steps:
       - name: Download exact profiler artifact ZIP
@@ -22,16 +22,16 @@ jobs:
         run: |
           set -euo pipefail
           curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/10946003940/zip" \
-            -o pastel-prof-sampler-gather.zip
-          echo "f23ebd7643cfd532bb3a92cf24efa552872c343f4abd7fab6c91d7e05b7fb131  pastel-prof-sampler-gather.zip" | sha256sum -c -
+            "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/10949273295/zip" \
+            -o pastel-prof-retained-no-mr-attribution.zip
+          echo "4385ef8441e4cd9b61858f449f9ea9aebb1f55a313ca5c97ccb6b358244bbd04  pastel-prof-retained-no-mr-attribution.zip" | sha256sum -c -
 
       - name: Publish temporary staging release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create alcloud-sampler-gather-profile-20260927-1 \
-            pastel-prof-sampler-gather.zip \
+          gh release create alcloud-retained-no-mr-attribution-20260927-1 \
+            pastel-prof-retained-no-mr-attribution.zip \
             --repo Ritrodan-Corp/al-cloud-build \
-            --title "AL Cloud sampler-gather profile staging" \
-            --notes "Exact Actions artifact 10946003940 from run 36360157779."
+            --title "AL Cloud retained-no-MR attribution staging" \
+            --notes "Exact Actions artifact 10949273295 from run 36369048798."
