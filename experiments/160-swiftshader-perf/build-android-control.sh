@@ -247,7 +247,7 @@ PY
     git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp \
       > "$ART/swiftshader-variant.patch"
     ;;
-  aot-neoverse-n1-llvm16-stock|aot-neoverse-n1-llvm16-mr-only|aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather|aot-neoverse-n1-llvm16-retained-no-mr-outline-span|aot-neoverse-n1-llvm16-mr)
+  aot-neoverse-n1-llvm16-stock|aot-neoverse-n1-llvm16-mr-only|aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather|aot-neoverse-n1-llvm16-retained-no-mr-outline-span|aot-neoverse-n1-llvm16-retained-no-mr-rgba8-pairmul|aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-filter|aot-neoverse-n1-llvm16-retained-no-mr-rgba8-index-reuse|aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-index|aot-neoverse-n1-llvm16-mr)
     LLVM16_SWIFTSHADER_COMMIT='dda70a3ef9fede53c5716a83cea086da96e20daf'
     LLVM16_LLVM_COMMIT='fce3e75e01ba'
     LLVM16_STAGE="${RUNNER_TEMP}/swiftshader-llvm16-source"
@@ -349,6 +349,13 @@ pipelines = {
 }
 pipelines["aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather"] = pipelines["aot-neoverse-n1-llvm16-retained-no-mr"]
 pipelines["aot-neoverse-n1-llvm16-retained-no-mr-outline-span"] = pipelines["aot-neoverse-n1-llvm16-retained-no-mr"]
+for rgba8_variant in (
+    "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-pairmul",
+    "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-filter",
+    "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-index-reuse",
+    "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-index",
+):
+    pipelines[rgba8_variant] = pipelines["aot-neoverse-n1-llvm16-retained-no-mr"]
 assert variant in pipelines, variant
 new_pipeline = pipelines[variant]
 assert text.count(old_pipeline) == 1, "unexpected LLVM >=13 optimization block"
@@ -371,6 +378,186 @@ assert text.count(old_lshr) == 1
 text = text.replace(old_shl, new_shl, 1)
 text = text.replace(old_lshr, new_lshr, 1)
 reactor.write_text(text)
+
+
+def rgba8_exact_condition():
+    return '''state.textureFormat == VK_FORMAT_R8G8B8A8_UNORM &&
+			   state.textureType == VK_IMAGE_VIEW_TYPE_2D &&
+			   function == Implicit &&
+			   state.textureFilter == FILTER_LINEAR &&
+			   state.mipmapFilter == MIPMAP_POINT &&
+			   state.addressingModeU == ADDRESSING_WRAP &&
+			   state.addressingModeV == ADDRESSING_WRAP &&
+			   state.addressingModeW == ADDRESSING_UNUSED &&
+			   !state.compareEnable &&
+			   !state.unnormalizedCoordinates &&
+			   !function.offset &&
+			   !function.sample'''
+
+def apply_rgba8_pairmul(text):
+    start_marker = '\t\t\t// Bilinear interpolation\n'
+    start = text.index(start_marker)
+    end_marker = '\t\t}\n\t\telse  // Gather'
+    end = text.index(end_marker, start)
+    original = text[start + len(start_marker):end]
+    cond = rgba8_exact_condition()
+    special = f'''\t\t\t// ALCLOUD_RGBA8_PAIR_MUL: preserve the existing four-weight arithmetic
+\t\t\t// order while processing R/G and B/A as two UShort8 vectors.
+\t\t\tif({cond})
+\t\t\t{{
+\t\t\t\tUShort8 w00(f1u1v, f1u1v);
+\t\t\t\tUShort8 w10(f0u1v, f0u1v);
+\t\t\t\tUShort8 w01(f1u0v, f1u0v);
+\t\t\t\tUShort8 w11(f0u0v, f0u0v);
+
+\t\t\t\tUShort8 rg00(As<UShort4>(c00.x), As<UShort4>(c00.y));
+\t\t\t\tUShort8 rg10(As<UShort4>(c10.x), As<UShort4>(c10.y));
+\t\t\t\tUShort8 rg01(As<UShort4>(c01.x), As<UShort4>(c01.y));
+\t\t\t\tUShort8 rg11(As<UShort4>(c11.x), As<UShort4>(c11.y));
+\t\t\t\tUShort8 ba00(As<UShort4>(c00.z), As<UShort4>(c00.w));
+\t\t\t\tUShort8 ba10(As<UShort4>(c10.z), As<UShort4>(c10.w));
+\t\t\t\tUShort8 ba01(As<UShort4>(c01.z), As<UShort4>(c01.w));
+\t\t\t\tUShort8 ba11(As<UShort4>(c11.z), As<UShort4>(c11.w));
+
+\t\t\t\tUShort8 rg = (MulHigh(rg00, w00) + MulHigh(rg10, w10)) +
+\t\t\t\t             (MulHigh(rg01, w01) + MulHigh(rg11, w11));
+\t\t\t\tUShort8 ba = (MulHigh(ba00, w00) + MulHigh(ba10, w10)) +
+\t\t\t\t             (MulHigh(ba01, w01) + MulHigh(ba11, w11));
+
+\t\t\t\tInt4 rg32 = As<Int4>(rg);
+\t\t\t\tInt4 ba32 = As<Int4>(ba);
+\t\t\t\tc.x = As<Short4>(Int2(Extract(rg32, 0), Extract(rg32, 1)));
+\t\t\t\tc.y = As<Short4>(Int2(Extract(rg32, 2), Extract(rg32, 3)));
+\t\t\t\tc.z = As<Short4>(Int2(Extract(ba32, 0), Extract(ba32, 1)));
+\t\t\t\tc.w = As<Short4>(Int2(Extract(ba32, 2), Extract(ba32, 3)));
+\t\t\t}}
+\t\t\telse
+\t\t\t{{
+'''
+    replacement = start_marker + special + original + '\t\t\t}\n'
+    return text[:start] + replacement + text[end:]
+
+def apply_rgba8_packed_load(text):
+    start = '''\t\tcase 4:
+\t\t\t{
+\t\t\t\tByte4 c0 = Pointer<Byte4>(buffer)[index[0]];'''
+    replacement = '''\t\tcase 4:
+\t\t\t{
+\t\t\t\tif(state.textureFormat == VK_FORMAT_R8G8B8A8_UNORM)
+\t\t\t\t{
+\t\t\t\t\t// ALCLOUD_RGBA8_PACKED_LOAD: gather four packed texels once and
+\t\t\t\t\t// form high-byte fixed-point R/G/B/A vectors directly.
+\t\t\t\t\tUInt4 packed;
+\t\t\t\t\tpacked = Insert(packed, *Pointer<UInt>(buffer + index[0] * 4), 0);
+\t\t\t\t\tpacked = Insert(packed, *Pointer<UInt>(buffer + index[1] * 4), 1);
+\t\t\t\t\tpacked = Insert(packed, *Pointer<UInt>(buffer + index[2] * 4), 2);
+\t\t\t\t\tpacked = Insert(packed, *Pointer<UInt>(buffer + index[3] * 4), 3);
+\t\t\t\t\tByte16 bytes = As<Byte16>(packed);
+\t\t\t\t\tc.x = As<Short4>(Int2(As<Int4>(Swizzle(bytes, 0x00000000CC884400ull)))) & Short4(0xFF00u);
+\t\t\t\t\tc.y = As<Short4>(Int2(As<Int4>(Swizzle(bytes, 0x00000000DD995511ull)))) & Short4(0xFF00u);
+\t\t\t\t\tc.z = As<Short4>(Int2(As<Int4>(Swizzle(bytes, 0x00000000EEAA6622ull)))) & Short4(0xFF00u);
+\t\t\t\t\tc.w = As<Short4>(Int2(As<Int4>(Swizzle(bytes, 0x00000000FFBB7733ull)))) & Short4(0xFF00u);
+\t\t\t\t}
+\t\t\t\telse
+\t\t\t\t{
+\t\t\t\t\tByte4 c0 = Pointer<Byte4>(buffer)[index[0]];'''
+    assert text.count(start) == 1, "unexpected RGBA8 case-4 load anchor"
+    text = text.replace(start, replacement, 1)
+    tail = '''\t\t\t\tdefault:
+\t\t\t\t\tASSERT(false);
+\t\t\t\t}
+\t\t\t}
+\t\t\tbreak;
+\t\tcase 2:'''
+    tail_replacement = '''\t\t\t\tdefault:
+\t\t\t\t\tASSERT(false);
+\t\t\t\t}
+\t\t\t\t}
+\t\t\t}
+\t\t\tbreak;
+\t\tcase 2:'''
+    assert text.count(tail) == 1, "unexpected RGBA8 case-4 tail"
+    return text.replace(tail, tail_replacement, 1)
+
+def apply_rgba8_index_reuse(text):
+    old = '''\t\tVector4s c00 = sampleTexel(uuuu0, vvvv0, wwww, layerIndex, offset, sample, mipmap, buffer);
+\t\tVector4s c10 = sampleTexel(uuuu1, vvvv0, wwww, layerIndex, offset, sample, mipmap, buffer);
+\t\tVector4s c01 = sampleTexel(uuuu0, vvvv1, wwww, layerIndex, offset, sample, mipmap, buffer);
+\t\tVector4s c11 = sampleTexel(uuuu1, vvvv1, wwww, layerIndex, offset, sample, mipmap, buffer);'''
+    cond = rgba8_exact_condition()
+    new = f'''\t\tVector4s c00;
+\t\tVector4s c10;
+\t\tVector4s c01;
+\t\tVector4s c11;
+\t\tif({cond})
+\t\t{{
+\t\t\t// ALCLOUD_RGBA8_INDEX_REUSE: scale U0/U1 and V0/V1 once, then
+\t\t\t// reuse column and row terms across all four bilinear taps.
+\t\t\tUShort4 width = UShort4(*Pointer<UInt4>(mipmap + OFFSET(Mipmap, width)));
+\t\t\tUShort4 height = UShort4(*Pointer<UInt4>(mipmap + OFFSET(Mipmap, height)));
+\t\t\tShort4 x0 = MulHigh(As<UShort4>(uuuu0), width);
+\t\t\tShort4 x1 = MulHigh(As<UShort4>(uuuu1), width);
+\t\t\tShort4 y0 = MulHigh(As<UShort4>(vvvv0), height);
+\t\t\tShort4 y1 = MulHigh(As<UShort4>(vvvv1), height);
+\t\t\tUInt4 pitch = *Pointer<UInt4>(mipmap + OFFSET(Mipmap, pitchP));
+\t\t\tUInt4 col0 = As<UInt4>(Int4(x0));
+\t\t\tUInt4 col1 = As<UInt4>(Int4(x1));
+\t\t\tUInt4 row0 = As<UInt4>(Int4(y0)) * pitch;
+\t\t\tUInt4 row1 = As<UInt4>(Int4(y1)) * pitch;
+\t\t\tUInt4 i00 = col0 + row0;
+\t\t\tUInt4 i10 = col1 + row0;
+\t\t\tUInt4 i01 = col0 + row1;
+\t\t\tUInt4 i11 = col1 + row1;
+\t\t\tUInt index00[4];
+\t\t\tUInt index10[4];
+\t\t\tUInt index01[4];
+\t\t\tUInt index11[4];
+\t\t\tfor(int lane = 0; lane < 4; lane++)
+\t\t\t{{
+\t\t\t\tindex00[lane] = Extract(i00, lane);
+\t\t\t\tindex10[lane] = Extract(i10, lane);
+\t\t\t\tindex01[lane] = Extract(i01, lane);
+\t\t\t\tindex11[lane] = Extract(i11, lane);
+\t\t\t}}
+\t\t\tc00 = sampleTexel(index00, buffer);
+\t\t\tc10 = sampleTexel(index10, buffer);
+\t\t\tc01 = sampleTexel(index01, buffer);
+\t\t\tc11 = sampleTexel(index11, buffer);
+\t\t}}
+\t\telse
+\t\t{{
+\t\t\tc00 = sampleTexel(uuuu0, vvvv0, wwww, layerIndex, offset, sample, mipmap, buffer);
+\t\t\tc10 = sampleTexel(uuuu1, vvvv0, wwww, layerIndex, offset, sample, mipmap, buffer);
+\t\t\tc01 = sampleTexel(uuuu0, vvvv1, wwww, layerIndex, offset, sample, mipmap, buffer);
+\t\t\tc11 = sampleTexel(uuuu1, vvvv1, wwww, layerIndex, offset, sample, mipmap, buffer);
+\t\t}}'''
+    assert text.count(old) == 1, "unexpected four-tap sample block"
+    return text.replace(old, new, 1)
+
+rgba8_variants = {
+    "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-pairmul",
+    "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-filter",
+    "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-index-reuse",
+    "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-index",
+}
+if variant in rgba8_variants:
+    sampler = Path("external/swiftshader/src/Pipeline/SamplerCore.cpp")
+    text = sampler.read_text()
+    if variant in {
+        "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-filter",
+        "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-index",
+    }:
+        text = apply_rgba8_packed_load(text)
+        text = apply_rgba8_pairmul(text)
+    elif variant == "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-pairmul":
+        text = apply_rgba8_pairmul(text)
+    if variant in {
+        "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-index-reuse",
+        "aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-index",
+    }:
+        text = apply_rgba8_index_reuse(text)
+    sampler.write_text(text)
+
 
 if variant == "aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather":
     sampler = Path("external/swiftshader/src/Pipeline/SamplerCore.cpp")
@@ -486,7 +673,7 @@ PY
         grep -Fq 'fpm.addPass(llvm::StraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
         ! grep -Fq 'fpm.addPass(llvm::NewGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
         ;;
-      aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather|aot-neoverse-n1-llvm16-retained-no-mr-outline-span)
+      aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather|aot-neoverse-n1-llvm16-retained-no-mr-outline-span|aot-neoverse-n1-llvm16-retained-no-mr-rgba8-pairmul|aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-filter|aot-neoverse-n1-llvm16-retained-no-mr-rgba8-index-reuse|aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-index)
         LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine'
         grep -Fq 'fpm.addPass(llvm::EarlyCSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
         grep -Fq 'fpm.addPass(llvm::ReassociatePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
@@ -516,7 +703,33 @@ PY
     case "$PASTEL_VARIANT" in
       *-sampler-gather) HOTSPOT_DESC='; R32/D32 sampler through Reactor masked Gather' ;;
       *-outline-span) HOTSPOT_DESC='; QuadRasterizer two-row outline Short4 reuse' ;;
+      *-rgba8-pairmul) HOTSPOT_DESC='; exact-state RGBA8 paired UShort8 bilinear arithmetic' ;;
+      *-rgba8-packed-filter) HOTSPOT_DESC='; exact-state RGBA8 packed load/unpack plus paired UShort8 bilinear arithmetic' ;;
+      *-rgba8-index-reuse) HOTSPOT_DESC='; exact-state RGBA8 four-tap 2D wrap index reuse' ;;
+      *-rgba8-packed-index) HOTSPOT_DESC='; exact-state RGBA8 packed filter plus four-tap 2D wrap index reuse' ;;
       *) HOTSPOT_DESC='' ;;
+    esac
+    case "$PASTEL_VARIANT" in
+      *-rgba8-pairmul)
+        grep -Fq 'ALCLOUD_RGBA8_PAIR_MUL' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        ! grep -Fq 'ALCLOUD_RGBA8_PACKED_LOAD' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        ! grep -Fq 'ALCLOUD_RGBA8_INDEX_REUSE' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        ;;
+      *-rgba8-packed-filter)
+        grep -Fq 'ALCLOUD_RGBA8_PAIR_MUL' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        grep -Fq 'ALCLOUD_RGBA8_PACKED_LOAD' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        ! grep -Fq 'ALCLOUD_RGBA8_INDEX_REUSE' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        ;;
+      *-rgba8-index-reuse)
+        ! grep -Fq 'ALCLOUD_RGBA8_PAIR_MUL' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        ! grep -Fq 'ALCLOUD_RGBA8_PACKED_LOAD' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        grep -Fq 'ALCLOUD_RGBA8_INDEX_REUSE' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        ;;
+      *-rgba8-packed-index)
+        grep -Fq 'ALCLOUD_RGBA8_PAIR_MUL' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        grep -Fq 'ALCLOUD_RGBA8_PACKED_LOAD' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        grep -Fq 'ALCLOUD_RGBA8_INDEX_REUSE' external/swiftshader/src/Pipeline/SamplerCore.cpp
+        ;;
     esac
     VARIANT_DESC="AOT Neoverse-N1 Reactor on upstream SwiftShader LLVM16 Android backend; pipeline: $LLVM16_CHAIN$HOTSPOT_DESC"
     ;;
