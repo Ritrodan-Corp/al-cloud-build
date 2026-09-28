@@ -1,0 +1,64 @@
+name: AL Cloud Pastel LLVM16 RGBA8 Batch
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-rgba8-batch-20260928
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-rgba8-batch.yml
+      - experiments/160-swiftshader-perf/build-android-control.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - id: rgba8-pairmul
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-rgba8-pairmul
+          - id: rgba8-packed-filter
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-filter
+          - id: rgba8-index-reuse
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-rgba8-index-reuse
+          - id: rgba8-packed-index
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-index
+    env:
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate builder
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Build RGBA8 candidate
+        env:
+          PASTEL_VARIANT: ${{ matrix.variant }}
+        run: GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Record RGBA8 provenance
+        if: success()
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "experiment=llvm16-retained-no-mr-${{ matrix.id }}"
+            echo "variant=${{ matrix.variant }}"
+            echo "baseline_renderer_sha=1b2aed583c4430630296049d7a14b3eca51d20bfa0a73520ba73cdb98f4160fa"
+            echo "baseline_idx4_code_sha=45c4cedece671480f8e18cc60fd3b216b87310d53ba2856cf74c5ccd3f9c4e40"
+            echo "exact_idx4_state=VK_FORMAT_R8G8B8A8_UNORM/2D/Implicit/FILTER_LINEAR/MIPMAP_POINT/WRAP_UV/no_compare"
+            echo "pipeline_chain=SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine"
+            echo "source_branch=pastel-llvm16-rgba8-batch-20260928"
+            echo "source_commit=${GITHUB_SHA}"
+          } > "$OUT/rgba8-provenance.txt"
+      - name: Upload RGBA8 artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-${{ matrix.id }}-${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
