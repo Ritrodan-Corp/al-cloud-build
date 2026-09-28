@@ -640,11 +640,12 @@ PY
 esac
 if [[ "${PASTEL_PROFILE_JIT:-0}" == "1" ]]; then
   case "$PASTEL_VARIANT" in
-    aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather) ;;
+    aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather) ;;
     *) echo "PASTEL_PROFILE_JIT=1 unsupported for $PASTEL_VARIANT" >&2; exit 2 ;;
   esac
   python3 - <<'PYPROFILE'
 from pathlib import Path
+import os
 
 llvm = Path("external/swiftshader/third_party/llvm-16.0")
 cfg = llvm / "configs/android/include/llvm/Config/llvm-config.h"
@@ -710,6 +711,30 @@ new_names = '''\t\t\tif(!func->hasName())
 assert text.count(old_names) == 1
 jit.write_text(text.replace(old_names, new_names, 1))
 
+if os.environ.get("PASTEL_PROFILE_SAMPLER_STATE_NAMES") == "1":
+    sampling = Path("external/swiftshader/src/Pipeline/SpirvShaderSampling.cpp")
+    text = sampling.read_text()
+    if "#include <string>" not in text:
+        namespace_pos = text.find("namespace sw")
+        assert namespace_pos > 0, "SpirvShaderSampling namespace anchor missing"
+        text = text[:namespace_pos] + "#include <string>\n\n" + text[namespace_pos:]
+    marker = 'return function("sampler");'
+    assert text.count(marker) == 2, "unexpected sampler routine-name count"
+    pos = text.rfind(marker)
+    replacement = '''std::string samplerRoutineName =
+	    "sampler_fmt" + std::to_string(static_cast<int>(static_cast<VkFormat>(samplerState.textureFormat))) +
+	    "_filter" + std::to_string(static_cast<unsigned int>(samplerState.textureFilter)) +
+	    "_mip" + std::to_string(static_cast<unsigned int>(samplerState.mipmapFilter)) +
+	    "_u" + std::to_string(static_cast<unsigned int>(samplerState.addressingModeU)) +
+	    "_v" + std::to_string(static_cast<unsigned int>(samplerState.addressingModeV)) +
+	    "_w" + std::to_string(static_cast<unsigned int>(samplerState.addressingModeW)) +
+	    "_type" + std::to_string(static_cast<unsigned int>(samplerState.textureType)) +
+	    "_method" + std::to_string(static_cast<unsigned int>(instruction.samplerMethod)) +
+	    "_cmp" + std::to_string(samplerState.compareEnable ? 1 : 0);
+	return function(samplerRoutineName.c_str());'''
+    text = text[:pos] + replacement + text[pos + len(marker):]
+    sampling.write_text(text)
+
 perf = llvm / "llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp"
 text = perf.read_text()
 anchor_def = 'void llvm::JITEventListener::anchor() {}\n'
@@ -730,9 +755,12 @@ PYPROFILE
   grep -Fq 'createPerfJITEventListener' external/swiftshader/src/Reactor/LLVMJIT.cpp
   grep -Fq 'func->setName(name);' external/swiftshader/src/Reactor/LLVMJIT.cpp
   grep -Fq '/data/data/com.YoStarEN.AzurLane/files' external/swiftshader/third_party/llvm-16.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp
+  if [ "${PASTEL_PROFILE_SAMPLER_STATE_NAMES:-0}" = 1 ]; then
+    grep -Fq 'sampler_fmt' external/swiftshader/src/Pipeline/SpirvShaderSampling.cpp
+  fi
   VARIANT_DESC="${VARIANT_DESC} + profiling-only LLVM16 PerfJIT/jitdump with semantic routine names"
   git -C external/swiftshader diff -- \
-    src/Android.bp src/Reactor/LLVMJIT.cpp \
+    src/Android.bp src/Reactor/LLVMJIT.cpp src/Pipeline/SpirvShaderSampling.cpp \
     third_party/llvm-16.0/Android.bp \
     third_party/llvm-16.0/configs/android/include/llvm/Config/llvm-config.h \
     third_party/llvm-16.0/llvm/lib/ExecutionEngine/PerfJITEvents/PerfJITEventListener.cpp \
