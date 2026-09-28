@@ -1,0 +1,37 @@
+name: Publish sampler-gather profile staging artifact
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-hotspot-candidates-20260927
+    paths:
+      - .github/workflows/al-cloud-publish-sampler-gather-profile.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: github.event.head_commit.message == 'Publish sampler-gather profile staging artifact'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact profiler artifact ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/10946003940/zip" \
+            -o pastel-prof-sampler-gather.zip
+          echo "f23ebd7643cfd532bb3a92cf24efa552872c343f4abd7fab6c91d7e05b7fb131  pastel-prof-sampler-gather.zip" | sha256sum -c -
+
+      - name: Publish temporary staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create alcloud-sampler-gather-profile-20260927-1 \
+            pastel-prof-sampler-gather.zip \
+            --repo Ritrodan-Corp/al-cloud-build \
+            --title "AL Cloud sampler-gather profile staging" \
+            --notes "Exact Actions artifact 10946003940 from run 36360157779."
