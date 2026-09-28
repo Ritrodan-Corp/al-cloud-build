@@ -247,7 +247,7 @@ PY
     git -C external/swiftshader diff -- src/Android.bp src/Reactor/LLVMJIT.cpp \
       > "$ART/swiftshader-variant.patch"
     ;;
-  aot-neoverse-n1-llvm16-stock|aot-neoverse-n1-llvm16-mr-only|aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather|aot-neoverse-n1-llvm16-retained-no-mr-outline-span|aot-neoverse-n1-llvm16-mr)
+  aot-neoverse-n1-llvm16-stock|aot-neoverse-n1-llvm16-mr-only|aot-neoverse-n1-llvm16-retained-no-mr|aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather|aot-neoverse-n1-llvm16-retained-no-mr-outline-span|aot-neoverse-n1-llvm16-mr|aot-neoverse-n1-llvm16-retained-no-mr-mssa|aot-neoverse-n1-llvm16-retained-no-mr-slr|aot-neoverse-n1-llvm16-retained-no-mr-nary|aot-neoverse-n1-llvm16-retained-no-mr-instsimplify|aot-neoverse-n1-llvm16-retained-no-mr-consthoist|aot-neoverse-n1-llvm16-retained-no-mr-licm|aot-neoverse-n1-llvm16-retained-no-mr-looprotate|aot-neoverse-n1-llvm16-retained-no-mr-lsr)
     LLVM16_SWIFTSHADER_COMMIT='dda70a3ef9fede53c5716a83cea086da96e20daf'
     LLVM16_LLVM_COMMIT='fce3e75e01ba'
     LLVM16_STAGE="${RUNNER_TEMP}/swiftshader-llvm16-source"
@@ -304,6 +304,11 @@ extra_includes = (
     '#\tinclude "llvm/Transforms/Scalar/IndVarSimplify.h"\n'
     '#\tinclude "llvm/Transforms/Scalar/NewGVN.h"\n'
     '#\tinclude "llvm/Transforms/Scalar/StraightLineStrengthReduce.h"\n'
+    '#\tinclude "llvm/Transforms/Scalar/ConstantHoisting.h"\n'
+    '#\tinclude "llvm/Transforms/Scalar/InstSimplifyPass.h"\n'
+    '#\tinclude "llvm/Transforms/Scalar/LoopRotation.h"\n'
+    '#\tinclude "llvm/Transforms/Scalar/LoopStrengthReduce.h"\n'
+    '#\tinclude "llvm/Transforms/Scalar/NaryReassociate.h"\n'
 )
 text = text.replace(include_anchor, include_anchor + extra_includes, 1)
 
@@ -347,6 +352,27 @@ pipelines = {
 \t\tfpm.addPass(llvm::InstCombinePass());
 \t}''',
 }
+# First-pass LLVM16 one-factor additions to the retained-no-MR chain.
+base = pipelines["aot-neoverse-n1-llvm16-retained-no-mr"]
+def one_pass(name, old, new):
+    assert base.count(old) == 1, (name, old)
+    pipelines["aot-neoverse-n1-llvm16-retained-no-mr-" + name] = base.replace(old, new, 1)
+
+one_pass("mssa", "llvm::EarlyCSEPass()", "llvm::EarlyCSEPass(true)")
+one_pass("slr", "fpm.addPass(llvm::NewGVNPass());",
+         "fpm.addPass(llvm::StraightLineStrengthReducePass());\n\t\tfpm.addPass(llvm::NewGVNPass());")
+one_pass("nary", "fpm.addPass(llvm::NewGVNPass());",
+         "fpm.addPass(llvm::NaryReassociatePass());\n\t\tfpm.addPass(llvm::NewGVNPass());")
+one_pass("instsimplify", "fpm.addPass(llvm::InstCombinePass());",
+         "fpm.addPass(llvm::InstSimplifyPass());\n\t\tfpm.addPass(llvm::InstCombinePass());")
+one_pass("consthoist", "fpm.addPass(llvm::NewGVNPass());",
+         "fpm.addPass(llvm::ConstantHoistingPass());\n\t\tfpm.addPass(llvm::NewGVNPass());")
+one_pass("licm", "fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));",
+         "fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::LICMPass(llvm::LICMOptions()), true));\n\t\tfpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));")
+one_pass("looprotate", "fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));",
+         "fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::LoopRotatePass()));\n\t\tfpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));")
+one_pass("lsr", "fpm.addPass(llvm::InstCombinePass());",
+         "fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::LoopStrengthReducePass()));\n\t\tfpm.addPass(llvm::InstCombinePass());")
 pipelines["aot-neoverse-n1-llvm16-retained-no-mr-sampler-gather"] = pipelines["aot-neoverse-n1-llvm16-retained-no-mr"]
 pipelines["aot-neoverse-n1-llvm16-retained-no-mr-outline-span"] = pipelines["aot-neoverse-n1-llvm16-retained-no-mr"]
 assert variant in pipelines, variant
@@ -494,6 +520,22 @@ PY
         grep -Fq 'fpm.addPass(llvm::DSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
         grep -Fq 'fpm.addPass(llvm::createFunctionToLoopPassAdaptor(llvm::IndVarSimplifyPass()));' external/swiftshader/src/Reactor/LLVMJIT.cpp
         ! grep -Fq 'fpm.addPass(llvm::StraightLineStrengthReducePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        ;;
+      aot-neoverse-n1-llvm16-retained-no-mr-mssa|aot-neoverse-n1-llvm16-retained-no-mr-slr|aot-neoverse-n1-llvm16-retained-no-mr-nary|aot-neoverse-n1-llvm16-retained-no-mr-instsimplify|aot-neoverse-n1-llvm16-retained-no-mr-consthoist|aot-neoverse-n1-llvm16-retained-no-mr-licm|aot-neoverse-n1-llvm16-retained-no-mr-looprotate|aot-neoverse-n1-llvm16-retained-no-mr-lsr)
+        LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine'
+        case "$PASTEL_VARIANT" in
+          *-mssa) LLVM16_CHAIN='SROA -> EarlyCSE-MSSA -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine' ;;
+          *-slr) LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> SLR -> NewGVN -> DSE -> IndVarSimplify -> InstCombine' ;;
+          *-nary) LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> NaryReassociate -> NewGVN -> DSE -> IndVarSimplify -> InstCombine' ;;
+          *-instsimplify) LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> InstSimplify -> InstCombine' ;;
+          *-consthoist) LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> ConstantHoisting -> NewGVN -> DSE -> IndVarSimplify -> InstCombine' ;;
+          *-licm) LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> LICM -> IndVarSimplify -> InstCombine' ;;
+          *-looprotate) LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> LoopRotate -> IndVarSimplify -> InstCombine' ;;
+          *-lsr) LLVM16_CHAIN='SROA -> EarlyCSE -> Reassociate -> NewGVN -> DSE -> IndVarSimplify -> LSR -> InstCombine' ;;
+        esac
+        grep -Fq 'fpm.addPass(llvm::NewGVNPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::DSEPass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
+        grep -Fq 'fpm.addPass(llvm::InstCombinePass());' external/swiftshader/src/Reactor/LLVMJIT.cpp
         ;;
       aot-neoverse-n1-llvm16-mr)
         LLVM16_CHAIN='SROA -> EarlyCSE-MSSA -> Reassociate -> SLR -> NewGVN -> DSE -> IndVarSimplify -> InstCombine'
