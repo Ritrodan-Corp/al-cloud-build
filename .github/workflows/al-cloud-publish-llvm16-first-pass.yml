@@ -1,0 +1,49 @@
+name: Publish LLVM16 first-pass staging artifacts
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-first-pass-20260928
+    paths:
+      - .github/workflows/al-cloud-publish-llvm16-first-pass.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: github.event.head_commit.message == 'Publish LLVM16 first-pass staging artifacts'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact first-pass artifact ZIPs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="Ritrodan-Corp/al-cloud-build"
+          fetch() {
+            id="$1"; out="$2"; sha="$3"
+            curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$repo/actions/artifacts/$id/zip" -o "$out"
+            echo "$sha  $out" | sha256sum -c -
+          }
+          fetch 10961381475 mssa.zip e3e4fa0bf7e8fa1036b01d5f2853a4615b5a55daa7c368d1da6f4452b71946d6
+          fetch 10960568195 slr.zip 5d9adb2ddac2a9a31cb7c27f129873b99a1b312116fd3f093416de7eb71965cf
+          fetch 10960608474 nary.zip 92e912d25c2242329d5a479d103c4037d1c543433e71b3da2ab2ecfe9dc8821c
+          fetch 10960308861 instsimplify.zip b6fedec5ace7c5cba16a528972d0a840d735f227d0483d30495cda6899b5c36e
+          fetch 10963330804 consthoist.zip 38c56739aa334088396632f29d7af38cdaea247b6965f98252a075cd9e5bb645
+          fetch 10962828067 licm.zip 035ac6324b23d8afbf8f6d5c9b827fe4459d426f492de708ae3fe126c50e832a
+          fetch 10962684227 looprotate.zip 85319bc3900325f031020c98842e906245746acb789b509bc3919ed4ba9f27bb
+          fetch 10962754667 lsr.zip eb68b654b1f2e2bd547d14fff4653b21521f9643be6f5109ec6903dab70455c4
+
+      - name: Publish temporary staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create alcloud-llvm16-first-pass-20260928-1 \
+            mssa.zip slr.zip nary.zip instsimplify.zip consthoist.zip licm.zip looprotate.zip lsr.zip \
+            --repo Ritrodan-Corp/al-cloud-build \
+            --title "AL Cloud LLVM16 first-pass staging" \
+            --notes "Exact artifacts from Actions run 36398259665, source 2fc619d84eed00b310159777b63be46d2d3184ec. Temporary runtime staging surface."
