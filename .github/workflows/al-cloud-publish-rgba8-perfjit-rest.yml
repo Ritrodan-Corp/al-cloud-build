@@ -1,0 +1,44 @@
+name: Publish remaining RGBA8 PerfJIT staging artifacts
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-rgba8-batch-20260928
+    paths:
+      - .github/workflows/al-cloud-publish-rgba8-perfjit-rest.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download and verify exact profiler artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          fetch() {
+            id="$1"; name="$2"; sha="$3"
+            curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/$id/zip" \
+              -o "$name"
+            echo "$sha  $name" | sha256sum -c -
+          }
+          fetch 11007987554 pastel-rgba8-pairmul-perfjit.zip 38d0202ea0227d286664d7ea4a60bbed938802623d266f58c586bd096530d3fd
+          fetch 11008185767 pastel-rgba8-packed-filter-perfjit.zip baed7f820958aa9777187737d5bd76f99a36996fec544342768ab1b1ed362f1f
+          fetch 11008515015 pastel-rgba8-index-reuse-perfjit.zip d86c1f6534dd01f4171c1d80e1ed0fa67ef29e783a1c000c22ba6caa726fac07
+
+      - name: Publish temporary staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create alcloud-rgba8-perfjit-rest-20260928-1 \
+            pastel-rgba8-pairmul-perfjit.zip \
+            pastel-rgba8-packed-filter-perfjit.zip \
+            pastel-rgba8-index-reuse-perfjit.zip \
+            --repo Ritrodan-Corp/al-cloud-build \
+            --title "AL Cloud remaining RGBA8 PerfJIT staging" \
+            --notes "Exact profiler artifacts from run 36504581342; generated-code gate only."
