@@ -1,0 +1,69 @@
+name: AL Cloud Pastel LLVM16 RGBA8 PerfJIT Gate
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-rgba8-batch-20260928
+    paths:
+      - .github/workflows/al-cloud-pastel-llvm16-rgba8-perfjit.yml
+      - experiments/160-swiftshader-perf/build-android-control.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - id: rgba8-pairmul
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-rgba8-pairmul
+          - id: rgba8-packed-filter
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-filter
+          - id: rgba8-index-reuse
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-rgba8-index-reuse
+          - id: rgba8-packed-index
+            variant: aot-neoverse-n1-llvm16-retained-no-mr-rgba8-packed-index
+    env:
+      PASTEL_EXTRA_SWAP_GB: "8"
+      PASTEL_DIAGNOSTICS: "1"
+      PASTEL_PROFILE_JIT: "1"
+      PASTEL_PROFILE_SAMPLER_STATE_NAMES: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate builder
+        run: bash -n experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Build semantic PerfJIT renderer
+        env:
+          PASTEL_VARIANT: ${{ matrix.variant }}
+        run: GITHUB_WORKSPACE="$PWD" bash experiments/160-swiftshader-perf/build-android-control.sh
+      - name: Record gate provenance
+        if: success()
+        run: |
+          OUT=experiments/160-swiftshader-perf/out-control
+          {
+            echo "purpose=generated-code-gate-only"
+            echo "candidate=${{ matrix.id }}"
+            echo "variant=${{ matrix.variant }}"
+            echo "normal_batch_source_commit=eee2489a41b5fbcc9d454edd6a3cf014ece170d4"
+            echo "baseline_renderer_sha=1b2aed583c4430630296049d7a14b3eca51d20bfa0a73520ba73cdb98f4160fa"
+            echo "baseline_idx4_code_sha=45c4cedece671480f8e18cc60fd3b216b87310d53ba2856cf74c5ccd3f9c4e40"
+            echo "idx4_symbol=sampler_fmt37_filter4_mip1_u1_v1_w0_type1_method0_cmp0"
+            echo "profile_jit=1"
+            echo "sampler_state_names=1"
+            echo "source_branch=pastel-llvm16-rgba8-batch-20260928"
+            echo "source_commit=${GITHUB_SHA}"
+          } > "$OUT/idx4-gate-provenance.txt"
+      - name: Upload PerfJIT artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastel-${{ matrix.id }}-perfjit-${{ github.sha }}
+          path: experiments/160-swiftshader-perf/out-control/
+          if-no-files-found: error
+          retention-days: 7
