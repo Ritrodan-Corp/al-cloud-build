@@ -1,0 +1,36 @@
+name: Publish RGBA8 packed-index PerfJIT staging artifact
+
+on:
+  push:
+    branches:
+      - pastel-llvm16-rgba8-batch-20260928
+    paths:
+      - .github/workflows/al-cloud-publish-rgba8-packed-index-perfjit.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact profiler artifact ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -LfsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Ritrodan-Corp/al-cloud-build/actions/artifacts/11007941914/zip" \
+            -o pastel-rgba8-packed-index-perfjit.zip
+          echo "f09aaeac5471f03690a94f1f8e9d4f183183c0c6291d5e25d69e4c15e0cd389c  pastel-rgba8-packed-index-perfjit.zip" | sha256sum -c -
+
+      - name: Publish temporary staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create alcloud-rgba8-packed-index-perfjit-20260928-1 \
+            pastel-rgba8-packed-index-perfjit.zip \
+            --repo Ritrodan-Corp/al-cloud-build \
+            --title "AL Cloud RGBA8 packed-index PerfJIT staging" \
+            --notes "Exact Actions artifact 11007941914 from PerfJIT run 36504581342; generated-code gate only."
